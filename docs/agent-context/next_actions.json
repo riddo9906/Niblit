@@ -1,0 +1,35 @@
+{
+  "version": "1.8",
+  "updated_at": "2026-11-02T16:36:16.136772+00:00",
+  "root": "C:\\Users\\Operator\\Documents\\GitHub\\Niblit",
+  "task": "Profile and batch the existing dedicated embedding path to increase canonical projection throughput while preserving model revision, chunk identities, permission checks and verified readback.",
+  "preconditions": [
+    "Reinspect actual roots, HEADs, status and diffs; preserve all v1.4-v1.7 changes. No new workspace.",
+    "Read this context map, runtime-integration-v1.7.md, manifest and evidence. The patch is already integrated.",
+    "Read current engine state and reconcile the three pre-existing dry-run positions before considering any lifecycle action. Do not reset or automatically close them.",
+    "No live trading, fabricated confirmations, automatic retries, model-granted permission or autonomous human-ticket approval.",
+    "Do not force-stop an active inference producer without recovering admission using scripts/runtime-task-status.py and its guarded producer-stop/model-idle procedure."
+  ],
+  "verification_command": "C:\\Users\\Operator\\Documents\\GitHub\\Niblit\\niblit-env\\Scripts\\python.exe scripts/check-market-pipeline.py --native",
+  "remaining": [
+    "Authentic bid/ask -> existing recorded-thesis assess_exit -> advisory only",
+    "Fresh real research tool loop when authority idle; preserve busy/quarantine",
+    "Legacy remote Qdrant/search quota remain external gaps",
+    "Actual current-human-authorized order lifecycle still unverified"
+  ],
+  "orders_sent": 0,
+  "native_strategy_checkpoint": "native-strategy-checkpoint.json",
+  "dashboard_checkpoint": "dashboard-services-checkpoint.json",
+  "execution_blockers": [
+    "Freqtrade stopped",
+    "3/3 existing positions",
+    "current human-reviewed ticket required"
+  ],
+  "shared_cloud_checkpoint": "cloud-delegation-checkpoint.json",
+  "completed_cloud_path": "Actual Core JSON and streaming -> Cloud -> existing8766 verified; ownership and busy/forged rejection recorded.",
+  "research_recovery_checkpoint": "research-recovery-checkpoint.json",
+  "verified_research": "Actual Core model/tool/model with one parent; real client disconnect retained current child, prevented further inference and released after drain.",
+  "position_intelligence_checkpoint": "position-intelligence-checkpoint.json",
+  "exit_thesis_checkpoint": "exit-thesis-checkpoint.json",
+  "memory_recovery_checkpoint": "memory-recovery-checkpoint.json"
+}

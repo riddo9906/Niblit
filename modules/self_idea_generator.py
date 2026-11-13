@@ -6,17 +6,22 @@ from datetime import datetime, timezone
 log = logging.getLogger("SelfIdeaGenerator")
 
 class SelfIdeaGenerator:
-    def __init__(self, db=None, collector=None):
+    def __init__(self, db=None, collector=None, autostart=False):
         self.db = db
         self.collector = collector
-        self.running = True
-        # Start the autonomous loop in a daemon thread so it runs in the
-        # background without blocking the main application startup.
-        self._thread = threading.Thread(
-            target=self.autonomous_loop, daemon=True, name="SelfIdeaGenerator"
-        )
-        self._thread.start()
-        log.info("[SelfIdeaGenerator] Background idea-generation thread started")
+        self.running = False
+        self._thread = None
+        self._start_lock = threading.Lock()
+        if autostart:self.start()
+
+    def start(self):
+        """Explicit legacy start; construction never schedules learning."""
+        with self._start_lock:
+            if self._thread and self._thread.is_alive():return False
+            self.running=True
+            self._thread=threading.Thread(target=self.autonomous_loop,daemon=True,name='SelfIdeaGenerator')
+            self._thread.start()
+        return True
 
     def generate_plan(self, idea_text):
         # Skip ideas that are just "No data found" placeholders.

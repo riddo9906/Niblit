@@ -1,0 +1,392 @@
+{
+  "release": "C:\\Users\\Operator\\Documents\\GitHub\\Niblit\\dist\\releases\\v202-20261104-r4-verified\\niblit",
+  "real_broker_orders": 0,
+  "real_money_submission_enabled": false,
+  "source_tests": {
+    "name": "pytest",
+    "errors": "0",
+    "failures": "0",
+    "skipped": "0",
+    "tests": "144",
+    "time": "157.928",
+    "timestamp": "2026-11-04T19:36:31.920434+02:00",
+    "hostname": "Niblit"
+  },
+  "binaries": {
+    "niblit.exe": {
+      "bytes": 99646282,
+      "sha256": "06652db89ddf80aef1a6ead4a2e1a47819091023b948a739761e8156afbf3f35"
+    },
+    "niblit-ui.exe": {
+      "bytes": 10926080,
+      "sha256": "21e252fc48a64b381eebe2ae06825b7d6050cd63bdafe096ee7cb62d8cadf629",
+      "matches_r3": true
+    },
+    "cloud/niblit-cloud.exe": {
+      "bytes": 11780496,
+      "sha256": "f8bec7272b1e1ed64e9a83441cdb35d2a3406c0fc5214ba8cdf4f8dfcc861763",
+      "matches_r3": true
+    },
+    "lean-algos/niblit-lean-algos.exe": {
+      "bytes": 21509617,
+      "sha256": "010bc25b2395dd53787dc1754938715184559970824b1fb751e912fcebecb727",
+      "matches_r3": true
+    },
+    "freqtrade/niblit-freqtrade-worker.exe": {
+      "bytes": 41571376,
+      "sha256": "fab8e4b5cfcf006defc92fac327b7de2ddf84118879ac61e5504f3a294f131bf",
+      "matches_r3": true
+    }
+  },
+  "source_sha256": {
+    "assets/trading-desk/chart.js": "0fae0c1ea371b4494202947c8e7470fc333f6c477e7e00bd4be1143fcfce6075",
+    "assets/trading-desk/desk.js": "74b614f9019041304d6164126279e6d639843628ecdeb9867357b8b46a941d8d",
+    "assets/trading-desk/index.html": "b2e64965bdaa8a203de9a2069d4ead2a576f7fa293c89a780e81ba4860fc6577",
+    "assets/trading-desk/sessions.js": "c0d76efd820a39f94b7e76bdd4ab1a6c155e819bacbc81a1dc2e57d4032f21d5",
+    "deploy/freqtrade-lab/NiblitCoreManaged.py": "40694f5eb3a744953a2cb5f485b26504542ab20bee45c15fe7801ab9ed0d0cc5",
+    "main.py": "1edef9648287500d65b97da4b29f9b9749070d990d0d0c0e21965fcbffa5e5bb",
+    "modules/core_trading_sessions.py": "1b9dfec405c42d1acc72b2edd2c9452ca3955721e6cc8f329b5cd05687a610b5",
+    "modules/demo_autotrader.py": "d15c00ec9e31096b1bcbc727d767bb3a98ee2153982b1a946ebdc0968734cf2a",
+    "modules/freqtrade_core_claim.py": "4e9607d16e86d38d5401c815948296ef29bc048da58959d7351a7d81147a797c",
+    "modules/mt5_orders.py": "fd9839dc01a2db327ef53f826722e000ac461a5c4080272fa671931410d1ea48",
+    "modules/permission_manager.py": "0ca6d70832f7d370d9310aef853e78d9929323e35dea998fafb692b78bb9a5a9",
+    "modules/release_preflight.py": "a0462926d4a72b918c5790bb01566a882e8864b54f8aadf15b662db460f99f82",
+    "modules/task_admission.py": "731da35cee0cda4c949c21c554048e6c2564df02ede5f008b463d5f1702fc2f0",
+    "modules/trading_desk.py": "1e17f79f07cec2fc331e99865a7e61ee635b8c54cbfb172027c54bcdcd685bfc",
+    "modules/trading_session_adapters.py": "7473ef1a3ed68617d0c72751651119daca368a018b0c000e4954deb09faa8538",
+    "modules/trading_session_api.py": "37449c960e0037d6fc5bed9367a24fae044d7b65b0fc537135140a3f1c53a36f",
+    "modules/trading_session_probe.py": "a3a2e01ec2acb92c3d5ad07fbe8940059a2acb4fbb45ebd8f50de754f878fe68",
+    "modules/trading_session_selftest.py": "d3f0abe147ab53b4e6a775b10e2ecdbab885393efa090b55d63825edc38f3a21",
+    "niblit.spec": "084834f2435ff912f05b27359c8a57744be45034265a5948e6d74faae60f664e",
+    "niblit_core.py": "9da50006f4e618b31aa25b7b6ea2c79c8a0f2351086206039960faa5aa321746",
+    "scripts/Open-Niblit-Trading.cmd": "08ed0c616e9d5ffcc8902cb1e97f78a0e602796f2cfcd246abfe5620e6d916cf",
+    "scripts/Start-Niblit-Autotrading.cmd": "91872ead7c7356af723c8954d55d7566259ff418fde8b8e765b88e15b8177514",
+    "scripts/Start-Niblit-Autotrading.ps1": "aa847c0e5ea6d40f22c8b8c2a4cdd54ac80abf5e9107d46d31019d443ac0c9ca",
+    "scripts/Start-Niblit-Testing.ps1": "5ec9e5a80bd188be5df9e2275459fa746ba3dc797de7a92222eb7b99ef9f4785",
+    "scripts/install-freqtrade-lab.py": "51971fcb87a48b7b42066f106772760a832494a6fd61b57f47206e6a54146c22",
+    "scripts/niblit-build.js": "e0c8b4f0601ba8750d499c7d3fefb01ea5205e11c2cf4d92b2d6aaa4d48a3907",
+    "server.py": "2e2351d88483d835fceac41c8a26e90b4f803f85a7c187ed49f82b3f26b65e79",
+    "tests/test_core_trading_sessions.py": "eb92c708b940c77871dd357989e9ecf678dec81619ecbd10ad3e1b210b948656"
+  },
+  "verification": {
+    "offline_preflight": {
+      "bundle_files_ready": true,
+      "checks": [
+        {
+          "file": "niblit.exe",
+          "ok": true
+        },
+        {
+          "file": "niblit-ui.exe",
+          "ok": true
+        },
+        {
+          "file": "cloud/niblit-cloud.exe",
+          "ok": true
+        },
+        {
+          "file": "lean-algos/niblit-lean-algos.exe",
+          "ok": true
+        },
+        {
+          "file": "freqtrade/niblit-freqtrade-worker.exe",
+          "ok": true
+        },
+        {
+          "file": "niblit_core.py",
+          "ok": true
+        },
+        {
+          "file": "main.py",
+          "ok": true
+        },
+        {
+          "file": "assets/trading-desk/index.html",
+          "ok": true
+        },
+        {
+          "file": "assets/trading-desk/chart.js",
+          "ok": true
+        },
+        {
+          "file": "assets/trading-desk/sessions.js",
+          "ok": true
+        },
+        {
+          "file": "assets/memory-desk/index.html",
+          "ok": true
+        },
+        {
+          "file": "assets/client-portal/index.html",
+          "ok": true
+        },
+        {
+          "file": "freqtrade/data/BTC_USDT_USDT-1h-futures.feather",
+          "ok": true
+        },
+        {
+          "file": "freqtrade/data/ETH_USDT_USDT-1h-futures.feather",
+          "ok": true
+        }
+      ],
+      "services_started": false,
+      "orders_submitted": false,
+      "scope": "Offline file presence only. Service health, lifecycle, inference, memory and trading acceptance remain unverified.",
+      "module_checks": [
+        {
+          "module": "modules.chart_annotations",
+          "ok": true
+        },
+        {
+          "module": "modules.chart_views",
+          "ok": true
+        },
+        {
+          "module": "modules.native_evidence_learning",
+          "ok": true
+        },
+        {
+          "module": "modules.permission_manager",
+          "ok": true
+        },
+        {
+          "module": "modules.hybrid_qdrant_manager",
+          "ok": true
+        },
+        {
+          "module": "modules.strategy_manager",
+          "ok": true
+        },
+        {
+          "module": "MetaTrader5",
+          "ok": true
+        },
+        {
+          "module": "modules.core_trading_sessions",
+          "ok": true
+        },
+        {
+          "module": "modules.trading_session_adapters",
+          "ok": true
+        },
+        {
+          "module": "modules.trading_session_api",
+          "ok": true
+        },
+        {
+          "module": "modules.freqtrade_core_claim",
+          "ok": true
+        },
+        {
+          "module": "modules.trading_session_probe",
+          "ok": true
+        },
+        {
+          "module": "modules.trading_session_selftest",
+          "ok": true
+        },
+        {
+          "module": "modules.position_intelligence",
+          "ok": true
+        },
+        {
+          "module": "modules.command_registry",
+          "ok": true
+        },
+        {
+          "module": "modules.demo_autotrader",
+          "ok": true
+        },
+        {
+          "module": "modules.mt5_orders",
+          "ok": true
+        },
+        {
+          "module": "modules.trading_runtime_client",
+          "ok": true
+        }
+      ]
+    },
+    "frozen_pipeline": {
+      "mt5": {
+        "scope": "offline broker double; actual Core/PermissionManager/TaskAuthority/six-strategy/MT5-ticket/memory-outbox path",
+        "passed": true,
+        "fixture_submissions": 2,
+        "real_broker_orders": 0,
+        "durable_events": 14,
+        "session_state": "stopped",
+        "emergency_stopped": true
+      },
+      "freqtrade": {
+        "passed": true,
+        "scope": "actual Core/consensus/risk/Freqtrade-ticket/RPC-double/reconciliation/canonical-outbox",
+        "fixture_submissions": 2,
+        "real_broker_orders": 0
+      },
+      "real_broker_orders": 0,
+      "passed": true
+    },
+    "read_only_brokers": {
+      "checked_at": 1793815739.8965793,
+      "broker_orders": 0,
+      "sessions_activated": 0,
+      "scope": "Read-only provider observations and MT5 order_check only; no preview/confirm/order_send",
+      "mt5": {
+        "observations_valid": true,
+        "account": "b95a8bc3fd731d67",
+        "environment": "demo",
+        "symbol": "EURUSD",
+        "candles": 200,
+        "positions": 0,
+        "fresh": true,
+        "execution_blockers": [
+          "Explicit bounded activation required"
+        ],
+        "non_delivering_preflight": {
+          "accepted": true,
+          "volume": 0.01,
+          "estimated_stop_risk": 2.0,
+          "stop_loss": 1.12173,
+          "take_profit": 1.12773,
+          "margin_after": 11.24,
+          "mode": "demo"
+        }
+      },
+      "freqtrade": {
+        "observations_valid": true,
+        "account": "0856b930615652f39f0a1e71",
+        "environment": "dry-run",
+        "symbol": "BTC/USDT:USDT",
+        "candles": 200,
+        "positions": 3,
+        "engine_state": "stopped",
+        "fresh": true,
+        "native_protections": {
+          "stoploss": -0.01,
+          "minimal_roi": {
+            "0": 0.02
+          },
+          "fee": null,
+          "trading_mode": "futures",
+          "position_adjustment_enable": false
+        },
+        "execution_blockers": [
+          "Explicit bounded activation required",
+          "Core-managed native strategy must be selected before a session",
+          "Native engine is stopped",
+          "All configured position slots occupied",
+          "Native fee is unreported; explicit verified fee required"
+        ]
+      }
+    },
+    "lifecycle": {
+      "scope": "Isolated no-generation/no-order CLI startup; background loops and self-modification disabled only in test environment. Existing Cloud attached; production processes unchanged.",
+      "runs": [
+        {
+          "exit_code": 0,
+          "leaked_owned_children": [],
+          "seconds": 151.5,
+          "bootstrap_complete": true,
+          "unavailable_components": [
+            "[2026-11-04 20:10:26] Unavailable components: local_brain_model (degraded), module_loader (background)"
+          ],
+          "initialization_complete": true,
+          "traceback": false,
+          "degraded": false,
+          "autonomous_stopped": true
+        },
+        {
+          "exit_code": 0,
+          "leaked_owned_children": [],
+          "seconds": 144.8,
+          "bootstrap_complete": true,
+          "unavailable_components": [
+            "[2026-11-04 20:12:56] Unavailable components: local_brain_model (degraded), module_loader (background)"
+          ],
+          "initialization_complete": true,
+          "traceback": false,
+          "degraded": false,
+          "autonomous_stopped": true
+        }
+      ]
+    },
+    "native_installed_contract": {
+      "official_freqtrade_import": true,
+      "native_entry_signals_suppressed": true,
+      "six_rule_analysis_inherited": true,
+      "core_callback_contract": true,
+      "funded_rejected": true,
+      "callback_error_returns_false": true,
+      "stake_never_increased": true,
+      "unscoped_adjustments_rejected": true,
+      "broker_orders": 0,
+      "bot_initialized": false
+    },
+    "native_packaged_contract": {
+      "official_freqtrade_import": true,
+      "native_entry_signals_suppressed": true,
+      "six_rule_analysis_inherited": true,
+      "core_callback_contract": true,
+      "funded_rejected": true,
+      "callback_error_returns_false": true,
+      "stake_never_increased": true,
+      "unscoped_adjustments_rejected": true,
+      "broker_orders": 0,
+      "bot_initialized": false
+    },
+    "native_core_http_callback": {
+      "native_callback_through_actual_asgi_route": true,
+      "one_time_core_claim_consumed": true,
+      "fixture_entries": 1,
+      "real_broker_orders": 0
+    },
+    "desktop_controls": {
+      "scope": "Actual sessions.js in isolated DOM/Notification doubles; no browser, OS popup or broker request",
+      "normal": {
+        "review_activation_emergency": "passed",
+        "notification_show_receipt": "passed",
+        "notification_click_no_order": "passed",
+        "duplicate_suppression": "passed"
+      },
+      "quiet": {
+        "quiet_hours": "passed"
+      }
+    },
+    "existing_service_health": {
+      "method": "GET health only; no control or broker orders",
+      "checked_at": 1793816081.8586588,
+      "core": {
+        "http": 200,
+        "status": "ok",
+        "mode": null,
+        "service": "niblit"
+      },
+      "cloud": {
+        "http": 200,
+        "status": "ready",
+        "mode": null,
+        "service": null
+      },
+      "lean": {
+        "http": 200,
+        "status": null,
+        "mode": "observe",
+        "service": null
+      },
+      "memory": {
+        "http": 200,
+        "status": null,
+        "mode": null,
+        "service": "niblit-memory-desk"
+      }
+    }
+  },
+  "limitations": [
+    "No actual demo entry, exit, modification or fill exercised",
+    "No funded submission enabled or exercised",
+    "No OS notification popup demonstrated",
+    "No sustained live-market session or memory projection latency benchmark",
+    "Existing manual/pre-session positions are never adopted",
+    "Existing unrelated Core model/background degradation remains reported"
+  ]
+}

@@ -49,7 +49,21 @@ if (Test-Path -LiteralPath $memoryProfile) {
         if ($LASTEXITCODE -ne 0) { throw 'Memory permission setup failed.' }
     }
 }
-$sourceCandidate = Split-Path -Parent (Split-Path -Parent (Split-Path -Parent $bundleRoot))
+# Releases can be nested under dist/releases/<build-id>/niblit. Resolve the
+# explicit launcher configuration source by markers, not a fixed parent count.
+# Frozen Python import discovery remains confined to the bundle itself.
+$sourceCandidate = $bundleRoot
+$sourceProbe = Split-Path -Parent $bundleRoot
+while ($sourceProbe) {
+    if ((Test-Path -LiteralPath (Join-Path $sourceProbe 'niblit_core.py')) -and
+        (Test-Path -LiteralPath (Join-Path $sourceProbe 'niblit_io.py'))) {
+        $sourceCandidate = $sourceProbe
+        break
+    }
+    $nextProbe = Split-Path -Parent $sourceProbe
+    if ($nextProbe -eq $sourceProbe) { break }
+    $sourceProbe = $nextProbe
+}
 if (-not $env:NIBLIT_ENV_FILE -and (Test-Path -LiteralPath (Join-Path $sourceCandidate 'niblit_core.py')) -and
     (Test-Path -LiteralPath (Join-Path $sourceCandidate '.env'))) {
     $env:NIBLIT_ENV_FILE = Join-Path $sourceCandidate '.env'

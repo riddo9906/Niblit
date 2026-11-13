@@ -88,8 +88,8 @@ _GGUF_CHAT_TEMPLATE: str = getenv_str("NIBLIT_GGUF_CHAT_TEMPLATE", "qwen").lower
 _GGUF_STOP_TOKENS_STR: str = os.environ.get("NIBLIT_GGUF_STOP_TOKENS", "").strip()
 
 # Model paths (legacy — now managed by CloudRuntime)
-_WINDOWS_MODEL_ROOT = r"C:\Users\Riyaad\llama_migration\models"
-_WINDOWS_LLAMA_CPP_ROOT = r"C:\Users\Riyaad\llama_migration\llama.cpp"
+_WINDOWS_MODEL_ROOT = r"C:\Users\Operator\llama_migration\models"
+_WINDOWS_LLAMA_CPP_ROOT = r"C:\Users\Operator\llama_migration\llama.cpp"
 _QWEN_MODEL_FILENAME = "qwen2.5-coder-3b-instruct-q4_k_m.gguf"
 _LLAMA_MODEL_FILENAME = "Llama-3.2-1B-Instruct-Q4_K_M.gguf"
 _DEFAULT_LOCAL_PRESET = "llama3"
@@ -508,8 +508,9 @@ class LocalBrainGateway:
         if context:messages.append({'role':'user','content':str(context)[:1500]})
         messages.append({'role':'user','content':prompt[:3000]})
         limit=max(1,min(int(max_new_tokens or 256),512))
-        with httpx.Client(trust_env=False,timeout=90) as client:
-            response=client.post(base+'/v1/chat/completions',json={'model':model,'messages':messages,'max_tokens':limit,'stream':False})
+        with httpx.Client(trust_env=False,timeout=httpx.Timeout(270,connect=3)) as client:
+            from modules.task_admission import delegation_headers
+            response=client.post(base+'/v1/chat/completions',headers=delegation_headers(),json={'model':model,'messages':messages,'max_tokens':limit,'stream':False})
             response.raise_for_status();text=response.json()['choices'][0]['message']['content']
         return {'backend':'http','text':text,'model':model,'context_policy':policy,'error':None}
 

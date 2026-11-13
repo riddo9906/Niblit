@@ -1,0 +1,2144 @@
+{
+  "timestamp": "2026-11-01T18:55:01.777980+00:00",
+  "roots": {
+    "Core": "C:\\Users\\Operator\\Documents\\GitHub\\Niblit",
+    "Cloud": "C:\\Users\\Operator\\Documents\\GitHub\\Niblit-cloud-server"
+  },
+  "source_sha256": {
+    "Niblit/modules/task_admission.py": "30a00ce3a38eec6bc3fba685b2718fccd58a115f90d17a4d2cd9aa6f558c85ec",
+    "Niblit/modules/local_brain.py": "90b3aeeafc05d2404bca0ffe53ba3c29da762421aa4f8c76ae0a0793e32b9c08",
+    "Niblit/modules/memory_laboratory/web.py": "888cec127603e83408595a673aa93a08b89f0da22fa93d8737a2d7e9dec4930f",
+    "Niblit/niblit_brain.py": "f2c05d799e0768baf4cd473b75ca5097dc468f5c50ebfe118aaef51491111b39",
+    "Niblit/tests/test_task_delegation.py": "f381e18dae3142256035463d7e6019abf447e2756692fa22bb9925ee7a1defba",
+    "Niblit/deploy/runtime/native-cloud.env.example": "835922da6d928ca119088a31eeb6b4230cb8a61c175e6a16f88fc4c7bb0fc961",
+    "Niblit-cloud-server/app/main.py": "38d3ca1d4a60223a26322ca00e1ef52ed7475e7d0bb2ee55c51ab44860a5ee12",
+    "Niblit-cloud-server/app/shared_gguf.py": "50673ebdf57d05be83300828bb9672801afbc9398b899d187a262bc9763f36da",
+    "Niblit-cloud-server/tests/test_shared_gguf.py": "537f476ec692bdfae1200343076919bd89883bc6fd17f5fee106387c085e3f7a",
+    "Niblit-cloud-server/.env.shared-gguf.example": "1a6e97914e3ab1e5129305b94c0445f0bd7e0d100e1a244c16aec7f1e2c5719a"
+  },
+  "tests": {
+    "core-final": {
+      "tests": "21",
+      "failures": "0",
+      "errors": "0",
+      "skipped": "0",
+      "time": "18.959"
+    },
+    "cloud-final": {
+      "tests": "244",
+      "failures": "0",
+      "errors": "0",
+      "skipped": "0",
+      "time": "14.887"
+    }
+  },
+  "actual_core_cloud_model": {
+    "path": "Actual Core5000 /v1/inference/chat -> Cloud8000 -> existing authenticated llama.cpp8766; memory8772 owns reservation",
+    "http": 200,
+    "result": {
+      "id": "chatcmpl-aedb44646e2a44b88acda587b7d79dc1",
+      "object": "chat.completion",
+      "created": 1793558928,
+      "model": "qwen2.5-coder-3b",
+      "choices": [
+        {
+          "index": 0,
+          "message": {
+            "role": "assistant",
+            "content": "4"
+          },
+          "finish_reason": "stop"
+        }
+      ],
+      "usage": {
+        "completion_tokens": 2,
+        "prompt_tokens": 42,
+        "total_tokens": 44,
+        "prompt_tokens_details": {
+          "cached_tokens": 5
+        }
+      },
+      "niblit_model": {
+        "request_id": "4c5b8048b0f044afa96f2dafe78efa92",
+        "requested_model": "qwen2.5-coder-3b",
+        "resolved_model": "qwen2.5-coder-3b",
+        "executed_model": "qwen2.5-coder-3b",
+        "fallback": false
+      }
+    },
+    "elapsed_seconds": 1.5917372703552246,
+    "delegations_before": {},
+    "delegations_after": {
+      "complete": 1
+    },
+    "authority_after": {
+      "state": "idle",
+      "queued": false
+    },
+    "forged_parent_http": 503,
+    "no_paid_calls": true,
+    "orders_sent": 0
+  },
+  "runtime_contracts": {
+    "busy_http": 409,
+    "busy_preserved_owner": true,
+    "core_stream_http": 200,
+    "stream_has_answer": true,
+    "stream_completed": true,
+    "authority_after": {
+      "state": "idle",
+      "queued": false
+    },
+    "orders_sent": 0
+  },
+  "final_state": {
+    "sqlite_integrity": "ok",
+    "dry_run": true,
+    "engine_state": "stopped",
+    "positions": 3,
+    "orders_sent": 0,
+    "services": {
+      "Core": {
+        "http": 200
+      },
+      "Cloud": {
+        "http": 200
+      },
+      "Memory": {
+        "http": 200
+      },
+      "Desk": {
+        "http": 200
+      },
+      "Lean": {
+        "http": 200,
+        "mode": "observe",
+        "execution_enabled": false
+      }
+    }
+  },
+  "model_process": {
+    "Id": 11532,
+    "Name": "llama-server",
+    "WorkingSet64": 3895226368
+  },
+  "market_analysis": {
+    "http_status": 200,
+    "elapsed": 4.491617441177368,
+    "observation": {
+      "symbol": "BTC/USDT:USDT",
+      "venue": "binance",
+      "timeframe": "5m",
+      "mode": "dry-run",
+      "account_scope": "freqtrade-profile-146522df31fce9a6ca59c9d2756cca19b6690fd6030bac1962edd930a149a7ef",
+      "source": "ccxt_public_exchange_ohlcv",
+      "received_at": 1793559171.8013208,
+      "fresh": true,
+      "candles": [
+        {
+          "timestamp": 1793499000.0,
+          "open": 77703.9,
+          "high": 77714.9,
+          "low": 77655.0,
+          "close": 77711.0,
+          "volume": 213.434
+        },
+        {
+          "timestamp": 1793499300.0,
+          "open": 77710.9,
+          "high": 77742.0,
+          "low": 77690.1,
+          "close": 77741.9,
+          "volume": 162.615
+        },
+        {
+          "timestamp": 1793499600.0,
+          "open": 77742.0,
+          "high": 77742.0,
+          "low": 77670.0,
+          "close": 77695.0,
+          "volume": 100.822
+        },
+        {
+          "timestamp": 1793499900.0,
+          "open": 77695.1,
+          "high": 77695.1,
+          "low": 77674.6,
+          "close": 77674.7,
+          "volume": 47.536
+        },
+        {
+          "timestamp": 1793500200.0,
+          "open": 77674.6,
+          "high": 77693.9,
+          "low": 77664.7,
+          "close": 77669.9,
+          "volume": 123.429
+        },
+        {
+          "timestamp": 1793500500.0,
+          "open": 77669.9,
+          "high": 77670.0,
+          "low": 77609.7,
+          "close": 77666.9,
+          "volume": 187.116
+        },
+        {
+          "timestamp": 1793500800.0,
+          "open": 77667.0,
+          "high": 77687.1,
+          "low": 77639.9,
+          "close": 77684.9,
+          "volume": 78.468
+        },
+        {
+          "timestamp": 1793501100.0,
+          "open": 77685.0,
+          "high": 77749.0,
+          "low": 77680.4,
+          "close": 77748.9,
+          "volume": 162.371
+        },
+        {
+          "timestamp": 1793501400.0,
+          "open": 77749.0,
+          "high": 77749.0,
+          "low": 77667.4,
+          "close": 77694.2,
+          "volume": 183.417
+        },
+        {
+          "timestamp": 1793501700.0,
+          "open": 77694.3,
+          "high": 77717.8,
+          "low": 77690.0,
+          "close": 77690.1,
+          "volume": 53.584
+        },
+        {
+          "timestamp": 1793502000.0,
+          "open": 77690.1,
+          "high": 77703.8,
+          "low": 77684.5,
+          "close": 77699.9,
+          "volume": 67.886
+        },
+        {
+          "timestamp": 1793502300.0,
+          "open": 77699.9,
+          "high": 77754.4,
+          "low": 77699.9,
+          "close": 77754.4,
+          "volume": 73.167
+        },
+        {
+          "timestamp": 1793502600.0,
+          "open": 77754.3,
+          "high": 77774.9,
+          "low": 77750.0,
+          "close": 77756.8,
+          "volume": 238.169
+        },
+        {
+          "timestamp": 1793502900.0,
+          "open": 77756.7,
+          "high": 77756.8,
+          "low": 77715.1,
+          "close": 77746.8,
+          "volume": 152.162
+        },
+        {
+          "timestamp": 1793503200.0,
+          "open": 77746.8,
+          "high": 77750.0,
+          "low": 77727.6,
+          "close": 77727.7,
+          "volume": 77.665
+        },
+        {
+          "timestamp": 1793503500.0,
+          "open": 77727.7,
+          "high": 77734.8,
+          "low": 77727.7,
+          "close": 77734.7,
+          "volume": 48.745
+        },
+        {
+          "timestamp": 1793503800.0,
+          "open": 77734.7,
+          "high": 77762.4,
+          "low": 77734.7,
+          "close": 77751.9,
+          "volume": 59.428
+        },
+        {
+          "timestamp": 1793504100.0,
+          "open": 77751.9,
+          "high": 77790.5,
+          "low": 77751.9,
+          "close": 77790.5,
+          "volume": 55.527
+        },
+        {
+          "timestamp": 1793504400.0,
+          "open": 77790.5,
+          "high": 77820.7,
+          "low": 77790.4,
+          "close": 77793.5,
+          "volume": 207.494
+        },
+        {
+          "timestamp": 1793504700.0,
+          "open": 77793.5,
+          "high": 77793.6,
+          "low": 77736.8,
+          "close": 77761.5,
+          "volume": 182.896
+        },
+        {
+          "timestamp": 1793505000.0,
+          "open": 77761.5,
+          "high": 77786.8,
+          "low": 77757.5,
+          "close": 77786.7,
+          "volume": 58.337
+        },
+        {
+          "timestamp": 1793505300.0,
+          "open": 77786.7,
+          "high": 77786.8,
+          "low": 77753.0,
+          "close": 77753.1,
+          "volume": 92.953
+        },
+        {
+          "timestamp": 1793505600.0,
+          "open": 77753.0,
+          "high": 77753.1,
+          "low": 77705.5,
+          "close": 77715.0,
+          "volume": 105.442
+        },
+        {
+          "timestamp": 1793505900.0,
+          "open": 77714.9,
+          "high": 77715.0,
+          "low": 77671.5,
+          "close": 77694.7,
+          "volume": 116.047
+        },
+        {
+          "timestamp": 1793506200.0,
+          "open": 77694.6,
+          "high": 77720.9,
+          "low": 77694.6,
+          "close": 77720.8,
+          "volume": 75.905
+        },
+        {
+          "timestamp": 1793506500.0,
+          "open": 77720.9,
+          "high": 77753.1,
+          "low": 77720.9,
+          "close": 77753.1,
+          "volume": 57.173
+        },
+        {
+          "timestamp": 1793506800.0,
+          "open": 77753.0,
+          "high": 77771.0,
+          "low": 77740.1,
+          "close": 77762.0,
+          "volume": 93.628
+        },
+        {
+          "timestamp": 1793507100.0,
+          "open": 77762.1,
+          "high": 77798.4,
+          "low": 77759.9,
+          "close": 77790.2,
+          "volume": 95.719
+        },
+        {
+          "timestamp": 1793507400.0,
+          "open": 77790.2,
+          "high": 77794.0,
+          "low": 77755.9,
+          "close": 77780.1,
+          "volume": 138.685
+        },
+        {
+          "timestamp": 1793507700.0,
+          "open": 77780.1,
+          "high": 77786.9,
+          "low": 77772.3,
+          "close": 77779.7,
+          "volume": 73.203
+        },
+        {
+          "timestamp": 1793508000.0,
+          "open": 77779.6,
+          "high": 77807.4,
+          "low": 77779.6,
+          "close": 77807.3,
+          "volume": 95.821
+        },
+        {
+          "timestamp": 1793508300.0,
+          "open": 77807.4,
+          "high": 77807.4,
+          "low": 77780.7,
+          "close": 77791.1,
+          "volume": 73.282
+        },
+        {
+          "timestamp": 1793508600.0,
+          "open": 77791.1,
+          "high": 77813.0,
+          "low": 77791.0,
+          "close": 77810.1,
+          "volume": 79.261
+        },
+        {
+          "timestamp": 1793508900.0,
+          "open": 77810.1,
+          "high": 77810.1,
+          "low": 77770.2,
+          "close": 77770.2,
+          "volume": 58.715
+        },
+        {
+          "timestamp": 1793509200.0,
+          "open": 77770.2,
+          "high": 77820.0,
+          "low": 77770.2,
+          "close": 77819.9,
+          "volume": 101.459
+        },
+        {
+          "timestamp": 1793509500.0,
+          "open": 77819.9,
+          "high": 77819.9,
+          "low": 77792.5,
+          "close": 77808.5,
+          "volume": 69.937
+        },
+        {
+          "timestamp": 1793509800.0,
+          "open": 77808.5,
+          "high": 77808.5,
+          "low": 77790.2,
+          "close": 77798.9,
+          "volume": 80.212
+        },
+        {
+          "timestamp": 1793510100.0,
+          "open": 77799.0,
+          "high": 77803.6,
+          "low": 77786.8,
+          "close": 77786.9,
+          "volume": 42.513
+        },
+        {
+          "timestamp": 1793510400.0,
+          "open": 77786.9,
+          "high": 77791.0,
+          "low": 77786.9,
+          "close": 77790.9,
+          "volume": 31.65
+        },
+        {
+          "timestamp": 1793510700.0,
+          "open": 77790.9,
+          "high": 77799.0,
+          "low": 77790.9,
+          "close": 77798.9,
+          "volume": 24.542
+        },
+        {
+          "timestamp": 1793511000.0,
+          "open": 77799.0,
+          "high": 77863.0,
+          "low": 77799.0,
+          "close": 77829.2,
+          "volume": 319.895
+        },
+        {
+          "timestamp": 1793511300.0,
+          "open": 77829.3,
+          "high": 77829.3,
+          "low": 77783.2,
+          "close": 77783.2,
+          "volume": 71.29
+        },
+        {
+          "timestamp": 1793511600.0,
+          "open": 77783.2,
+          "high": 77783.4,
+          "low": 77736.8,
+          "close": 77773.9,
+          "volume": 160.842
+        },
+        {
+          "timestamp": 1793511900.0,
+          "open": 77773.9,
+          "high": 77835.0,
+          "low": 77767.8,
+          "close": 77835.0,
+          "volume": 103.114
+        },
+        {
+          "timestamp": 1793512200.0,
+          "open": 77834.9,
+          "high": 77851.9,
+          "low": 77834.9,
+          "close": 77851.9,
+          "volume": 117.793
+        },
+        {
+          "timestamp": 1793512500.0,
+          "open": 77851.8,
+          "high": 77881.7,
+          "low": 77851.8,
+          "close": 77875.6,
+          "volume": 114.528
+        },
+        {
+          "timestamp": 1793512800.0,
+          "open": 77875.5,
+          "high": 77883.3,
+          "low": 77845.4,
+          "close": 77863.6,
+          "volume": 181.133
+        },
+        {
+          "timestamp": 1793513100.0,
+          "open": 77863.6,
+          "high": 77965.2,
+          "low": 77863.6,
+          "close": 77957.7,
+          "volume": 497.556
+        },
+        {
+          "timestamp": 1793513400.0,
+          "open": 77957.7,
+          "high": 77992.3,
+          "low": 77925.1,
+          "close": 77988.0,
+          "volume": 453.852
+        },
+        {
+          "timestamp": 1793513700.0,
+          "open": 77988.0,
+          "high": 78023.0,
+          "low": 77900.8,
+          "close": 77911.2,
+          "volume": 553.532
+        },
+        {
+          "timestamp": 1793514000.0,
+          "open": 77911.1,
+          "high": 77960.2,
+          "low": 77911.1,
+          "close": 77960.1,
+          "volume": 205.344
+        },
+        {
+          "timestamp": 1793514300.0,
+          "open": 77960.2,
+          "high": 77983.2,
+          "low": 77922.1,
+          "close": 77922.1,
+          "volume": 223.717
+        },
+        {
+          "timestamp": 1793514600.0,
+          "open": 77922.2,
+          "high": 77927.9,
+          "low": 77912.3,
+          "close": 77927.9,
+          "volume": 130.58
+        },
+        {
+          "timestamp": 1793514900.0,
+          "open": 77927.9,
+          "high": 77927.9,
+          "low": 77863.2,
+          "close": 77883.0,
+          "volume": 275.465
+        },
+        {
+          "timestamp": 1793515200.0,
+          "open": 77882.9,
+          "high": 77883.0,
+          "low": 77868.0,
+          "close": 77876.1,
+          "volume": 96.019
+        },
+        {
+          "timestamp": 1793515500.0,
+          "open": 77876.2,
+          "high": 77927.8,
+          "low": 77876.1,
+          "close": 77927.8,
+          "volume": 82.056
+        },
+        {
+          "timestamp": 1793515800.0,
+          "open": 77927.8,
+          "high": 77989.0,
+          "low": 77927.7,
+          "close": 77972.1,
+          "volume": 152.312
+        },
+        {
+          "timestamp": 1793516100.0,
+          "open": 77972.0,
+          "high": 78008.5,
+          "low": 77970.9,
+          "close": 77972.6,
+          "volume": 363.488
+        },
+        {
+          "timestamp": 1793516400.0,
+          "open": 77972.5,
+          "high": 77972.6,
+          "low": 77938.7,
+          "close": 77938.7,
+          "volume": 142.011
+        },
+        {
+          "timestamp": 1793516700.0,
+          "open": 77938.8,
+          "high": 77963.6,
+          "low": 77922.2,
+          "close": 77922.3,
+          "volume": 147.346
+        },
+        {
+          "timestamp": 1793517000.0,
+          "open": 77922.3,
+          "high": 77922.3,
+          "low": 77872.2,
+          "close": 77872.2,
+          "volume": 119.103
+        },
+        {
+          "timestamp": 1793517300.0,
+          "open": 77872.2,
+          "high": 77872.3,
+          "low": 77782.3,
+          "close": 77823.9,
+          "volume": 420.425
+        },
+        {
+          "timestamp": 1793517600.0,
+          "open": 77823.9,
+          "high": 77834.9,
+          "low": 77796.7,
+          "close": 77828.9,
+          "volume": 211.587
+        },
+        {
+          "timestamp": 1793517900.0,
+          "open": 77828.8,
+          "high": 77857.1,
+          "low": 77822.6,
+          "close": 77857.0,
+          "volume": 76.277
+        },
+        {
+          "timestamp": 1793518200.0,
+          "open": 77857.1,
+          "high": 77859.0,
+          "low": 77841.3,
+          "close": 77858.1,
+          "volume": 99.944
+        },
+        {
+          "timestamp": 1793518500.0,
+          "open": 77858.0,
+          "high": 77867.0,
+          "low": 77846.6,
+          "close": 77846.6,
+          "volume": 114.292
+        },
+        {
+          "timestamp": 1793518800.0,
+          "open": 77846.6,
+          "high": 77846.7,
+          "low": 77844.2,
+          "close": 77844.3,
+          "volume": 63.918
+        },
+        {
+          "timestamp": 1793519100.0,
+          "open": 77844.2,
+          "high": 77862.6,
+          "low": 77830.5,
+          "close": 77862.6,
+          "volume": 234.657
+        },
+        {
+          "timestamp": 1793519400.0,
+          "open": 77862.5,
+          "high": 77933.9,
+          "low": 77862.5,
+          "close": 77909.3,
+          "volume": 222.687
+        },
+        {
+          "timestamp": 1793519700.0,
+          "open": 77909.3,
+          "high": 77930.1,
+          "low": 77909.2,
+          "close": 77930.1,
+          "volume": 96.632
+        },
+        {
+          "timestamp": 1793520000.0,
+          "open": 77930.0,
+          "high": 77968.6,
+          "low": 77928.5,
+          "close": 77928.6,
+          "volume": 162.529
+        },
+        {
+          "timestamp": 1793520300.0,
+          "open": 77928.6,
+          "high": 77955.3,
+          "low": 77909.7,
+          "close": 77909.7,
+          "volume": 174.502
+        },
+        {
+          "timestamp": 1793520600.0,
+          "open": 77909.8,
+          "high": 77909.8,
+          "low": 77868.0,
+          "close": 77868.0,
+          "volume": 139.104
+        },
+        {
+          "timestamp": 1793520900.0,
+          "open": 77868.0,
+          "high": 77886.1,
+          "low": 77861.7,
+          "close": 77886.1,
+          "volume": 132.324
+        },
+        {
+          "timestamp": 1793521200.0,
+          "open": 77886.0,
+          "high": 77957.1,
+          "low": 77886.0,
+          "close": 77957.1,
+          "volume": 109.806
+        },
+        {
+          "timestamp": 1793521500.0,
+          "open": 77957.0,
+          "high": 77963.1,
+          "low": 77949.3,
+          "close": 77957.2,
+          "volume": 64.856
+        },
+        {
+          "timestamp": 1793521800.0,
+          "open": 77957.2,
+          "high": 78078.0,
+          "low": 77957.2,
+          "close": 78058.4,
+          "volume": 703.283
+        },
+        {
+          "timestamp": 1793522100.0,
+          "open": 78058.3,
+          "high": 78168.4,
+          "low": 78057.9,
+          "close": 78085.4,
+          "volume": 1091.755
+        },
+        {
+          "timestamp": 1793522400.0,
+          "open": 78085.5,
+          "high": 78148.5,
+          "low": 78074.9,
+          "close": 78131.2,
+          "volume": 294.842
+        },
+        {
+          "timestamp": 1793522700.0,
+          "open": 78131.2,
+          "high": 78216.2,
+          "low": 78131.2,
+          "close": 78195.2,
+          "volume": 567.084
+        },
+        {
+          "timestamp": 1793523000.0,
+          "open": 78195.1,
+          "high": 78195.2,
+          "low": 78150.0,
+          "close": 78150.0,
+          "volume": 296.512
+        },
+        {
+          "timestamp": 1793523300.0,
+          "open": 78150.0,
+          "high": 78223.5,
+          "low": 78128.1,
+          "close": 78216.0,
+          "volume": 383.85
+        },
+        {
+          "timestamp": 1793523600.0,
+          "open": 78216.1,
+          "high": 78231.3,
+          "low": 78154.8,
+          "close": 78182.1,
+          "volume": 404.498
+        },
+        {
+          "timestamp": 1793523900.0,
+          "open": 78182.1,
+          "high": 78185.2,
+          "low": 78123.5,
+          "close": 78141.1,
+          "volume": 180.649
+        },
+        {
+          "timestamp": 1793524200.0,
+          "open": 78141.2,
+          "high": 78207.6,
+          "low": 78141.1,
+          "close": 78153.4,
+          "volume": 527.405
+        },
+        {
+          "timestamp": 1793524500.0,
+          "open": 78153.4,
+          "high": 78177.7,
+          "low": 78148.5,
+          "close": 78150.0,
+          "volume": 183.22
+        },
+        {
+          "timestamp": 1793524800.0,
+          "open": 78150.0,
+          "high": 78173.2,
+          "low": 78067.9,
+          "close": 78068.0,
+          "volume": 345.663
+        },
+        {
+          "timestamp": 1793525100.0,
+          "open": 78067.9,
+          "high": 78075.1,
+          "low": 77933.1,
+          "close": 77980.6,
+          "volume": 769.711
+        },
+        {
+          "timestamp": 1793525400.0,
+          "open": 77980.6,
+          "high": 77993.5,
+          "low": 77917.0,
+          "close": 77929.9,
+          "volume": 311.015
+        },
+        {
+          "timestamp": 1793525700.0,
+          "open": 77929.9,
+          "high": 78049.1,
+          "low": 77928.9,
+          "close": 78024.4,
+          "volume": 232.406
+        },
+        {
+          "timestamp": 1793526000.0,
+          "open": 78024.3,
+          "high": 78045.5,
+          "low": 77982.8,
+          "close": 78024.6,
+          "volume": 245.193
+        },
+        {
+          "timestamp": 1793526300.0,
+          "open": 78024.7,
+          "high": 78084.5,
+          "low": 78024.6,
+          "close": 78064.9,
+          "volume": 187.675
+        },
+        {
+          "timestamp": 1793526600.0,
+          "open": 78064.9,
+          "high": 78084.9,
+          "low": 78059.0,
+          "close": 78062.2,
+          "volume": 152.431
+        },
+        {
+          "timestamp": 1793526900.0,
+          "open": 78062.2,
+          "high": 78084.9,
+          "low": 78062.2,
+          "close": 78082.8,
+          "volume": 73.209
+        },
+        {
+          "timestamp": 1793527200.0,
+          "open": 78082.8,
+          "high": 78082.8,
+          "low": 78037.2,
+          "close": 78064.1,
+          "volume": 137.425
+        },
+        {
+          "timestamp": 1793527500.0,
+          "open": 78064.2,
+          "high": 78124.4,
+          "low": 78041.9,
+          "close": 78120.5,
+          "volume": 232.572
+        },
+        {
+          "timestamp": 1793527800.0,
+          "open": 78120.6,
+          "high": 78120.6,
+          "low": 78106.3,
+          "close": 78114.4,
+          "volume": 95.778
+        },
+        {
+          "timestamp": 1793528100.0,
+          "open": 78114.3,
+          "high": 78115.3,
+          "low": 78090.0,
+          "close": 78115.2,
+          "volume": 99.784
+        },
+        {
+          "timestamp": 1793528400.0,
+          "open": 78115.2,
+          "high": 78115.3,
+          "low": 78086.9,
+          "close": 78086.9,
+          "volume": 94.371
+        },
+        {
+          "timestamp": 1793528700.0,
+          "open": 78086.9,
+          "high": 78087.0,
+          "low": 78086.9,
+          "close": 78086.9,
+          "volume": 40.15
+        },
+        {
+          "timestamp": 1793529000.0,
+          "open": 78086.9,
+          "high": 78087.0,
+          "low": 78007.8,
+          "close": 78034.6,
+          "volume": 122.137
+        },
+        {
+          "timestamp": 1793529300.0,
+          "open": 78034.7,
+          "high": 78034.7,
+          "low": 78033.5,
+          "close": 78033.5,
+          "volume": 44.882
+        },
+        {
+          "timestamp": 1793529600.0,
+          "open": 78033.5,
+          "high": 78033.6,
+          "low": 78000.0,
+          "close": 78000.0,
+          "volume": 127.365
+        },
+        {
+          "timestamp": 1793529900.0,
+          "open": 78000.0,
+          "high": 78018.5,
+          "low": 77984.5,
+          "close": 78000.7,
+          "volume": 122.244
+        },
+        {
+          "timestamp": 1793530200.0,
+          "open": 78000.7,
+          "high": 78000.8,
+          "low": 77964.3,
+          "close": 77970.6,
+          "volume": 119.801
+        },
+        {
+          "timestamp": 1793530500.0,
+          "open": 77970.7,
+          "high": 78003.2,
+          "low": 77963.6,
+          "close": 77999.8,
+          "volume": 130.172
+        },
+        {
+          "timestamp": 1793530800.0,
+          "open": 77999.8,
+          "high": 78000.0,
+          "low": 77989.2,
+          "close": 77989.3,
+          "volume": 59.786
+        },
+        {
+          "timestamp": 1793531100.0,
+          "open": 77989.3,
+          "high": 77989.3,
+          "low": 77936.6,
+          "close": 77947.4,
+          "volume": 170.254
+        },
+        {
+          "timestamp": 1793531400.0,
+          "open": 77947.4,
+          "high": 77965.0,
+          "low": 77947.2,
+          "close": 77961.0,
+          "volume": 81.64
+        },
+        {
+          "timestamp": 1793531700.0,
+          "open": 77961.0,
+          "high": 77976.0,
+          "low": 77950.2,
+          "close": 77969.6,
+          "volume": 110.61
+        },
+        {
+          "timestamp": 1793532000.0,
+          "open": 77969.5,
+          "high": 77970.2,
+          "low": 77961.9,
+          "close": 77970.2,
+          "volume": 47.771
+        },
+        {
+          "timestamp": 1793532300.0,
+          "open": 77970.2,
+          "high": 77970.3,
+          "low": 77970.1,
+          "close": 77970.3,
+          "volume": 40.606
+        },
+        {
+          "timestamp": 1793532600.0,
+          "open": 77970.2,
+          "high": 77970.3,
+          "low": 77902.1,
+          "close": 77902.1,
+          "volume": 154.757
+        },
+        {
+          "timestamp": 1793532900.0,
+          "open": 77902.1,
+          "high": 77915.3,
+          "low": 77873.2,
+          "close": 77913.7,
+          "volume": 289.736
+        },
+        {
+          "timestamp": 1793533200.0,
+          "open": 77913.7,
+          "high": 77938.0,
+          "low": 77903.7,
+          "close": 77926.8,
+          "volume": 121.989
+        },
+        {
+          "timestamp": 1793533500.0,
+          "open": 77926.8,
+          "high": 77930.9,
+          "low": 77900.0,
+          "close": 77900.1,
+          "volume": 93.092
+        },
+        {
+          "timestamp": 1793533800.0,
+          "open": 77900.0,
+          "high": 77920.0,
+          "low": 77900.0,
+          "close": 77920.0,
+          "volume": 67.309
+        },
+        {
+          "timestamp": 1793534100.0,
+          "open": 77919.9,
+          "high": 77930.0,
+          "low": 77919.9,
+          "close": 77930.0,
+          "volume": 52.258
+        },
+        {
+          "timestamp": 1793534400.0,
+          "open": 77929.9,
+          "high": 77987.1,
+          "low": 77929.9,
+          "close": 77948.4,
+          "volume": 180.318
+        },
+        {
+          "timestamp": 1793534700.0,
+          "open": 77948.4,
+          "high": 77986.0,
+          "low": 77941.4,
+          "close": 77941.5,
+          "volume": 92.103
+        },
+        {
+          "timestamp": 1793535000.0,
+          "open": 77941.4,
+          "high": 77955.0,
+          "low": 77920.1,
+          "close": 77920.1,
+          "volume": 104.638
+        },
+        {
+          "timestamp": 1793535300.0,
+          "open": 77920.1,
+          "high": 77920.2,
+          "low": 77715.1,
+          "close": 77757.0,
+          "volume": 1745.031
+        },
+        {
+          "timestamp": 1793535600.0,
+          "open": 77757.0,
+          "high": 77808.9,
+          "low": 77751.2,
+          "close": 77808.8,
+          "volume": 401.056
+        },
+        {
+          "timestamp": 1793535900.0,
+          "open": 77808.9,
+          "high": 77836.8,
+          "low": 77775.6,
+          "close": 77819.9,
+          "volume": 238.511
+        },
+        {
+          "timestamp": 1793536200.0,
+          "open": 77820.0,
+          "high": 77824.0,
+          "low": 77770.0,
+          "close": 77801.9,
+          "volume": 193.259
+        },
+        {
+          "timestamp": 1793536500.0,
+          "open": 77801.9,
+          "high": 77850.0,
+          "low": 77801.9,
+          "close": 77850.0,
+          "volume": 152.805
+        },
+        {
+          "timestamp": 1793536800.0,
+          "open": 77849.9,
+          "high": 77883.0,
+          "low": 77836.9,
+          "close": 77878.6,
+          "volume": 175.692
+        },
+        {
+          "timestamp": 1793537100.0,
+          "open": 77878.5,
+          "high": 77878.6,
+          "low": 77844.0,
+          "close": 77855.8,
+          "volume": 124.944
+        },
+        {
+          "timestamp": 1793537400.0,
+          "open": 77855.7,
+          "high": 77889.2,
+          "low": 77852.4,
+          "close": 77855.3,
+          "volume": 102.406
+        },
+        {
+          "timestamp": 1793537700.0,
+          "open": 77855.3,
+          "high": 77877.8,
+          "low": 77854.9,
+          "close": 77856.3,
+          "volume": 98.981
+        },
+        {
+          "timestamp": 1793538000.0,
+          "open": 77856.3,
+          "high": 77980.9,
+          "low": 77856.3,
+          "close": 77955.8,
+          "volume": 363.533
+        },
+        {
+          "timestamp": 1793538300.0,
+          "open": 77955.8,
+          "high": 77988.5,
+          "low": 77928.0,
+          "close": 77969.8,
+          "volume": 135.744
+        },
+        {
+          "timestamp": 1793538600.0,
+          "open": 77969.7,
+          "high": 77974.5,
+          "low": 77962.3,
+          "close": 77962.4,
+          "volume": 66.358
+        },
+        {
+          "timestamp": 1793538900.0,
+          "open": 77962.3,
+          "high": 77980.0,
+          "low": 77958.0,
+          "close": 77970.1,
+          "volume": 109.837
+        },
+        {
+          "timestamp": 1793539200.0,
+          "open": 77970.0,
+          "high": 77974.7,
+          "low": 77932.0,
+          "close": 77932.0,
+          "volume": 73.885
+        },
+        {
+          "timestamp": 1793539500.0,
+          "open": 77932.0,
+          "high": 77960.0,
+          "low": 77908.0,
+          "close": 77945.4,
+          "volume": 126.609
+        },
+        {
+          "timestamp": 1793539800.0,
+          "open": 77945.5,
+          "high": 78012.2,
+          "low": 77926.0,
+          "close": 77987.4,
+          "volume": 210.637
+        },
+        {
+          "timestamp": 1793540100.0,
+          "open": 77987.5,
+          "high": 77987.5,
+          "low": 77906.1,
+          "close": 77906.2,
+          "volume": 156.435
+        },
+        {
+          "timestamp": 1793540400.0,
+          "open": 77906.1,
+          "high": 77938.0,
+          "low": 77906.1,
+          "close": 77926.4,
+          "volume": 87.038
+        },
+        {
+          "timestamp": 1793540700.0,
+          "open": 77926.4,
+          "high": 77933.9,
+          "low": 77903.1,
+          "close": 77928.1,
+          "volume": 118.93
+        },
+        {
+          "timestamp": 1793541000.0,
+          "open": 77928.1,
+          "high": 77928.2,
+          "low": 77882.0,
+          "close": 77896.0,
+          "volume": 102.834
+        },
+        {
+          "timestamp": 1793541300.0,
+          "open": 77896.1,
+          "high": 78000.0,
+          "low": 77880.0,
+          "close": 78000.0,
+          "volume": 338.266
+        },
+        {
+          "timestamp": 1793541600.0,
+          "open": 77999.9,
+          "high": 78000.0,
+          "low": 77881.1,
+          "close": 77926.0,
+          "volume": 447.565
+        },
+        {
+          "timestamp": 1793541900.0,
+          "open": 77925.9,
+          "high": 78019.5,
+          "low": 77925.9,
+          "close": 77934.3,
+          "volume": 139.472
+        },
+        {
+          "timestamp": 1793542200.0,
+          "open": 77934.4,
+          "high": 78045.0,
+          "low": 77934.3,
+          "close": 78045.0,
+          "volume": 312.47
+        },
+        {
+          "timestamp": 1793542500.0,
+          "open": 78045.0,
+          "high": 78144.4,
+          "low": 77958.4,
+          "close": 78050.3,
+          "volume": 1416.865
+        },
+        {
+          "timestamp": 1793542800.0,
+          "open": 78050.3,
+          "high": 78072.0,
+          "low": 78021.5,
+          "close": 78024.1,
+          "volume": 137.182
+        },
+        {
+          "timestamp": 1793543100.0,
+          "open": 78024.1,
+          "high": 78025.1,
+          "low": 77990.0,
+          "close": 77990.1,
+          "volume": 89.898
+        },
+        {
+          "timestamp": 1793543400.0,
+          "open": 77990.0,
+          "high": 78006.0,
+          "low": 77989.8,
+          "close": 77989.8,
+          "volume": 94.606
+        },
+        {
+          "timestamp": 1793543700.0,
+          "open": 77989.9,
+          "high": 78000.0,
+          "low": 77988.0,
+          "close": 78000.0,
+          "volume": 66.174
+        },
+        {
+          "timestamp": 1793544000.0,
+          "open": 78000.0,
+          "high": 78032.0,
+          "low": 77999.9,
+          "close": 78025.4,
+          "volume": 69.771
+        },
+        {
+          "timestamp": 1793544300.0,
+          "open": 78025.4,
+          "high": 78040.7,
+          "low": 77992.0,
+          "close": 78020.2,
+          "volume": 302.398
+        },
+        {
+          "timestamp": 1793544600.0,
+          "open": 78020.2,
+          "high": 78064.0,
+          "low": 77996.0,
+          "close": 77998.7,
+          "volume": 319.517
+        },
+        {
+          "timestamp": 1793544900.0,
+          "open": 77998.8,
+          "high": 78020.2,
+          "low": 77994.8,
+          "close": 78015.3,
+          "volume": 60.269
+        },
+        {
+          "timestamp": 1793545200.0,
+          "open": 78015.2,
+          "high": 78019.2,
+          "low": 77982.3,
+          "close": 78000.0,
+          "volume": 151.998
+        },
+        {
+          "timestamp": 1793545500.0,
+          "open": 78000.1,
+          "high": 78042.0,
+          "low": 77994.2,
+          "close": 78042.0,
+          "volume": 111.781
+        },
+        {
+          "timestamp": 1793545800.0,
+          "open": 78041.9,
+          "high": 78044.0,
+          "low": 78034.0,
+          "close": 78043.5,
+          "volume": 90.379
+        },
+        {
+          "timestamp": 1793546100.0,
+          "open": 78043.5,
+          "high": 78048.0,
+          "low": 78020.0,
+          "close": 78027.9,
+          "volume": 49.812
+        },
+        {
+          "timestamp": 1793546400.0,
+          "open": 78028.0,
+          "high": 78036.4,
+          "low": 78014.0,
+          "close": 78014.0,
+          "volume": 62.561
+        },
+        {
+          "timestamp": 1793546700.0,
+          "open": 78014.0,
+          "high": 78069.1,
+          "low": 77960.1,
+          "close": 78032.6,
+          "volume": 522.925
+        },
+        {
+          "timestamp": 1793547000.0,
+          "open": 78032.5,
+          "high": 78032.6,
+          "low": 77993.0,
+          "close": 78032.0,
+          "volume": 239.685
+        },
+        {
+          "timestamp": 1793547300.0,
+          "open": 78032.0,
+          "high": 78098.2,
+          "low": 78028.1,
+          "close": 78028.1,
+          "volume": 290.609
+        },
+        {
+          "timestamp": 1793547600.0,
+          "open": 78028.2,
+          "high": 78051.5,
+          "low": 78009.9,
+          "close": 78016.5,
+          "volume": 271.312
+        },
+        {
+          "timestamp": 1793547900.0,
+          "open": 78016.5,
+          "high": 78038.0,
+          "low": 78003.3,
+          "close": 78003.3,
+          "volume": 248.904
+        },
+        {
+          "timestamp": 1793548200.0,
+          "open": 78003.4,
+          "high": 78003.4,
+          "low": 77960.5,
+          "close": 77960.5,
+          "volume": 97.086
+        },
+        {
+          "timestamp": 1793548500.0,
+          "open": 77960.5,
+          "high": 77960.6,
+          "low": 77946.2,
+          "close": 77949.0,
+          "volume": 104.694
+        },
+        {
+          "timestamp": 1793548800.0,
+          "open": 77949.0,
+          "high": 77984.0,
+          "low": 77949.0,
+          "close": 77984.0,
+          "volume": 98.464
+        },
+        {
+          "timestamp": 1793549100.0,
+          "open": 77984.0,
+          "high": 77992.4,
+          "low": 77969.4,
+          "close": 77969.4,
+          "volume": 71.836
+        },
+        {
+          "timestamp": 1793549400.0,
+          "open": 77969.4,
+          "high": 77984.0,
+          "low": 77929.3,
+          "close": 77971.9,
+          "volume": 544.974
+        },
+        {
+          "timestamp": 1793549700.0,
+          "open": 77971.9,
+          "high": 78040.0,
+          "low": 77971.9,
+          "close": 77992.0,
+          "volume": 284.221
+        },
+        {
+          "timestamp": 1793550000.0,
+          "open": 77992.1,
+          "high": 78080.1,
+          "low": 77982.8,
+          "close": 78067.0,
+          "volume": 216.613
+        },
+        {
+          "timestamp": 1793550300.0,
+          "open": 78067.0,
+          "high": 78098.0,
+          "low": 78044.0,
+          "close": 78068.7,
+          "volume": 350.41
+        },
+        {
+          "timestamp": 1793550600.0,
+          "open": 78068.8,
+          "high": 78068.8,
+          "low": 78046.6,
+          "close": 78049.1,
+          "volume": 59.886
+        },
+        {
+          "timestamp": 1793550900.0,
+          "open": 78049.1,
+          "high": 78055.8,
+          "low": 78016.0,
+          "close": 78051.9,
+          "volume": 105.945
+        },
+        {
+          "timestamp": 1793551200.0,
+          "open": 78052.0,
+          "high": 78058.5,
+          "low": 78051.9,
+          "close": 78051.9,
+          "volume": 51.406
+        },
+        {
+          "timestamp": 1793551500.0,
+          "open": 78051.9,
+          "high": 78082.6,
+          "low": 78044.4,
+          "close": 78082.6,
+          "volume": 49.352
+        },
+        {
+          "timestamp": 1793551800.0,
+          "open": 78082.6,
+          "high": 78115.5,
+          "low": 78082.6,
+          "close": 78096.6,
+          "volume": 110.587
+        },
+        {
+          "timestamp": 1793552100.0,
+          "open": 78096.6,
+          "high": 78111.2,
+          "low": 78096.6,
+          "close": 78111.2,
+          "volume": 70.866
+        },
+        {
+          "timestamp": 1793552400.0,
+          "open": 78111.2,
+          "high": 78111.2,
+          "low": 78104.2,
+          "close": 78104.4,
+          "volume": 59.288
+        },
+        {
+          "timestamp": 1793552700.0,
+          "open": 78104.3,
+          "high": 78111.9,
+          "low": 78069.5,
+          "close": 78098.2,
+          "volume": 163.007
+        },
+        {
+          "timestamp": 1793553000.0,
+          "open": 78098.2,
+          "high": 78126.0,
+          "low": 78098.1,
+          "close": 78126.0,
+          "volume": 86.208
+        },
+        {
+          "timestamp": 1793553300.0,
+          "open": 78126.0,
+          "high": 78134.0,
+          "low": 78054.0,
+          "close": 78076.4,
+          "volume": 163.109
+        },
+        {
+          "timestamp": 1793553600.0,
+          "open": 78076.4,
+          "high": 78078.0,
+          "low": 78064.0,
+          "close": 78077.9,
+          "volume": 51.354
+        },
+        {
+          "timestamp": 1793553900.0,
+          "open": 78078.0,
+          "high": 78104.0,
+          "low": 78077.9,
+          "close": 78104.0,
+          "volume": 37.432
+        },
+        {
+          "timestamp": 1793554200.0,
+          "open": 78104.0,
+          "high": 78110.0,
+          "low": 78100.0,
+          "close": 78109.9,
+          "volume": 40.694
+        },
+        {
+          "timestamp": 1793554500.0,
+          "open": 78109.9,
+          "high": 78110.0,
+          "low": 78096.6,
+          "close": 78096.6,
+          "volume": 40.389
+        },
+        {
+          "timestamp": 1793554800.0,
+          "open": 78096.6,
+          "high": 78096.7,
+          "low": 78038.9,
+          "close": 78038.9,
+          "volume": 72.271
+        },
+        {
+          "timestamp": 1793555100.0,
+          "open": 78039.0,
+          "high": 78048.9,
+          "low": 77991.2,
+          "close": 78009.3,
+          "volume": 130.666
+        },
+        {
+          "timestamp": 1793555400.0,
+          "open": 78009.4,
+          "high": 78016.0,
+          "low": 78009.3,
+          "close": 78012.0,
+          "volume": 28.108
+        },
+        {
+          "timestamp": 1793555700.0,
+          "open": 78012.0,
+          "high": 78012.1,
+          "low": 77928.0,
+          "close": 77948.8,
+          "volume": 176.33
+        },
+        {
+          "timestamp": 1793556000.0,
+          "open": 77948.8,
+          "high": 77959.5,
+          "low": 77906.0,
+          "close": 77930.0,
+          "volume": 168.91
+        },
+        {
+          "timestamp": 1793556300.0,
+          "open": 77930.0,
+          "high": 77960.8,
+          "low": 77929.1,
+          "close": 77937.4,
+          "volume": 105.477
+        },
+        {
+          "timestamp": 1793556600.0,
+          "open": 77937.4,
+          "high": 77949.7,
+          "low": 77928.0,
+          "close": 77928.0,
+          "volume": 131.852
+        },
+        {
+          "timestamp": 1793556900.0,
+          "open": 77928.0,
+          "high": 77946.0,
+          "low": 77904.5,
+          "close": 77904.5,
+          "volume": 106.084
+        },
+        {
+          "timestamp": 1793557200.0,
+          "open": 77904.5,
+          "high": 77911.7,
+          "low": 77902.0,
+          "close": 77902.0,
+          "volume": 65.322
+        },
+        {
+          "timestamp": 1793557500.0,
+          "open": 77902.0,
+          "high": 77911.4,
+          "low": 77902.0,
+          "close": 77911.3,
+          "volume": 57.612
+        },
+        {
+          "timestamp": 1793557800.0,
+          "open": 77911.4,
+          "high": 77930.0,
+          "low": 77911.3,
+          "close": 77930.0,
+          "volume": 64.109
+        },
+        {
+          "timestamp": 1793558100.0,
+          "open": 77929.9,
+          "high": 77940.0,
+          "low": 77925.6,
+          "close": 77925.7,
+          "volume": 55.253
+        },
+        {
+          "timestamp": 1793558400.0,
+          "open": 77925.6,
+          "high": 77925.7,
+          "low": 77908.0,
+          "close": 77925.7,
+          "volume": 66.503
+        },
+        {
+          "timestamp": 1793558700.0,
+          "open": 77925.6,
+          "high": 77939.9,
+          "low": 77890.0,
+          "close": 77890.0,
+          "volume": 115.082
+        }
+      ]
+    },
+    "result": {
+      "request_id": "req-c7fc4f554e5e",
+      "trace_id": "req-c7fc4f554e5e",
+      "cognition_id": "cog-1e6eaf38bc2e",
+      "mode_name": "analytical",
+      "intent": "analytical",
+      "response": "Market analysis: SELL. A completed range breakout is the more specific agreeing setup. Analysis only; execution is not authorized.",
+      "steps_run": [
+        "run_forecast",
+        "validate_risk",
+        "generate_response",
+        "reflect"
+      ],
+      "tools_called": [],
+      "forecast_signal": "SELL",
+      "reflection_notes": "mode=analytical tools=[] forecast=SELL",
+      "elapsed_ms": 8.516999998391839,
+      "quality_score": 0.9,
+      "errors": [],
+      "selected_module": "modules.execution_graph",
+      "selected_function": "ExecutionGraph.run",
+      "metadata": {
+        "authorization": {
+          "allowed": true,
+          "reason": "allowed",
+          "mode": "analytical"
+        },
+        "semantic_profile": {
+          "intent": "analytical",
+          "urgency": 0.3,
+          "requires_tools": false,
+          "requires_forecast": false,
+          "requires_memory": true,
+          "safety_level": "low",
+          "confidence": 0.7059,
+          "raw_scores": {
+            "trading": 0.0,
+            "forecasting": 0.0,
+            "operational": 0.0,
+            "governance": 0.0,
+            "analytical": 0.7059,
+            "reflective": 0.0,
+            "simulation": 0.0,
+            "conversational": 0.2941
+          }
+        },
+        "recalled_knowledge": [],
+        "market_analysis": {
+          "signal": "SELL",
+          "side": "sell",
+          "execution_authorized": false,
+          "analysis_only": true,
+          "candidates": [
+            {
+              "strategy": "trend_v1",
+              "origin": "Human-authored Niblit baseline v1",
+              "rule": "20/50 mean trend with a five-bar momentum confirmation",
+              "side": "sell",
+              "evidence": {
+                "close": 77890.0,
+                "mean20": 77989.22,
+                "mean50": 78013.84599999999,
+                "prior20_high": 78134.0,
+                "prior20_low": 77902.0,
+                "rsi14": 13.472418670435943,
+                "previous_rsi14": 14.631336405527748,
+                "ema20": 77965.04576941638,
+                "ema50": 77997.21345148553,
+                "flat_regime": true,
+                "volatility_compressed": false,
+                "band_deviation": 80.8342724344068
+              },
+              "profitability": "Unproven; reward/risk is not a probability or a profit forecast.",
+              "invalidation": "Stop loss, opposing signal, or changed market regime; gaps can exceed stops.",
+              "references": {
+                "strategy_families": "https://www.quantconnect.com/docs/v2/writing-algorithms/strategy-library",
+                "predictive_validation": "https://www.freqtrade.io/en/stable/freqai/",
+                "lookahead": "https://www.freqtrade.io/en/stable/lookahead-analysis/"
+              },
+              "validation": "Experimental demo rule. Documentation describes the family, not profitability of these exact parameters.",
+              "hypothesis": "Trend persistence after price and momentum agree.",
+              "risk_reward": "Broker ticket targets twice its stop distance before costs. Break-even needs more than one-third wins at exact 2:1 fills; costs and gaps increase the requirement.",
+              "bar": 1793558700.0,
+              "conditions": {
+                "long": [
+                  false,
+                  false,
+                  false
+                ],
+                "short": [
+                  true,
+                  true,
+                  true
+                ]
+              },
+              "reason": "SELL: 20/50 mean trend with a five-bar momentum confirmation. See measured values; WAIT means no qualifying setup.",
+              "invoked": true,
+              "status": "succeeded",
+              "eligible": true
+            },
+            {
+              "strategy": "breakout_v1",
+              "origin": "Human-authored Niblit baseline v1",
+              "rule": "Close beyond the previous 20-bar high or low",
+              "side": "sell",
+              "evidence": {
+                "close": 77890.0,
+                "mean20": 77989.22,
+                "mean50": 78013.84599999999,
+                "prior20_high": 78134.0,
+                "prior20_low": 77902.0,
+                "rsi14": 13.472418670435943,
+                "previous_rsi14": 14.631336405527748,
+                "ema20": 77965.04576941638,
+                "ema50": 77997.21345148553,
+                "flat_regime": true,
+                "volatility_compressed": false,
+                "band_deviation": 80.8342724344068
+              },
+              "profitability": "Unproven; reward/risk is not a probability or a profit forecast.",
+              "invalidation": "Stop loss, opposing signal, or changed market regime; gaps can exceed stops.",
+              "references": {
+                "strategy_families": "https://www.quantconnect.com/docs/v2/writing-algorithms/strategy-library",
+                "predictive_validation": "https://www.freqtrade.io/en/stable/freqai/",
+                "lookahead": "https://www.freqtrade.io/en/stable/lookahead-analysis/"
+              },
+              "validation": "Experimental demo rule. Documentation describes the family, not profitability of these exact parameters.",
+              "hypothesis": "A close outside the prior range may precede continuation.",
+              "risk_reward": "Broker ticket targets twice its stop distance before costs. Break-even needs more than one-third wins at exact 2:1 fills; costs and gaps increase the requirement.",
+              "bar": 1793558700.0,
+              "conditions": {
+                "long": [
+                  false
+                ],
+                "short": [
+                  true
+                ]
+              },
+              "reason": "SELL: Close beyond the previous 20-bar high or low. See measured values; WAIT means no qualifying setup.",
+              "invoked": true,
+              "status": "succeeded",
+              "eligible": true
+            },
+            {
+              "strategy": "rsi_reversion_v1",
+              "origin": "Human-authored Niblit baseline v1",
+              "rule": "Cutler RSI(14) recovery through 30/70 in a flat 20/50 mean regime",
+              "side": "wait",
+              "evidence": {
+                "close": 77890.0,
+                "mean20": 77989.22,
+                "mean50": 78013.84599999999,
+                "prior20_high": 78134.0,
+                "prior20_low": 77902.0,
+                "rsi14": 13.472418670435943,
+                "previous_rsi14": 14.631336405527748,
+                "ema20": 77965.04576941638,
+                "ema50": 77997.21345148553,
+                "flat_regime": true,
+                "volatility_compressed": false,
+                "band_deviation": 80.8342724344068
+              },
+              "profitability": "Unproven; reward/risk is not a probability or a profit forecast.",
+              "invalidation": "Stop loss, opposing signal, or changed market regime; gaps can exceed stops.",
+              "references": {
+                "strategy_families": "https://www.quantconnect.com/docs/v2/writing-algorithms/strategy-library",
+                "predictive_validation": "https://www.freqtrade.io/en/stable/freqai/",
+                "lookahead": "https://www.freqtrade.io/en/stable/lookahead-analysis/"
+              },
+              "validation": "Experimental demo rule. Documentation describes the family, not profitability of these exact parameters.",
+              "hypothesis": "An extreme deviation recovering in a flat regime may revert toward its mean; a new trend can invalidate this.",
+              "risk_reward": "Broker ticket targets twice its stop distance before costs. Break-even needs more than one-third wins at exact 2:1 fills; costs and gaps increase the requirement.",
+              "bar": 1793558700.0,
+              "conditions": {
+                "long": [
+                  true,
+                  false
+                ],
+                "short": [
+                  true,
+                  false
+                ]
+              },
+              "reason": "WAIT: Cutler RSI(14) recovery through 30/70 in a flat 20/50 mean regime. See measured values; WAIT means no qualifying setup.",
+              "invoked": true,
+              "status": "succeeded",
+              "eligible": false
+            },
+            {
+              "strategy": "bollinger_reversion_v1",
+              "origin": "Human-authored Niblit baseline v1",
+              "rule": "Return inside a two-deviation 20-bar band in a flat regime",
+              "side": "wait",
+              "evidence": {
+                "close": 77890.0,
+                "mean20": 77989.22,
+                "mean50": 78013.84599999999,
+                "prior20_high": 78134.0,
+                "prior20_low": 77902.0,
+                "rsi14": 13.472418670435943,
+                "previous_rsi14": 14.631336405527748,
+                "ema20": 77965.04576941638,
+                "ema50": 77997.21345148553,
+                "flat_regime": true,
+                "volatility_compressed": false,
+                "band_deviation": 80.8342724344068
+              },
+              "profitability": "Unproven; reward/risk is not a probability or a profit forecast.",
+              "invalidation": "Stop loss, opposing signal, or changed market regime; gaps can exceed stops.",
+              "references": {
+                "strategy_families": "https://www.quantconnect.com/docs/v2/writing-algorithms/strategy-library",
+                "predictive_validation": "https://www.freqtrade.io/en/stable/freqai/",
+                "lookahead": "https://www.freqtrade.io/en/stable/lookahead-analysis/"
+              },
+              "validation": "Experimental demo rule. Documentation describes the family, not profitability of these exact parameters.",
+              "hypothesis": "An extreme deviation recovering in a flat regime may revert toward its mean; a new trend can invalidate this.",
+              "risk_reward": "Broker ticket targets twice its stop distance before costs. Break-even needs more than one-third wins at exact 2:1 fills; costs and gaps increase the requirement.",
+              "bar": 1793558700.0,
+              "conditions": {
+                "long": [
+                  true,
+                  false,
+                  true
+                ],
+                "short": [
+                  true,
+                  false,
+                  true
+                ]
+              },
+              "reason": "WAIT: Return inside a two-deviation 20-bar band in a flat regime. See measured values; WAIT means no qualifying setup.",
+              "invoked": true,
+              "status": "succeeded",
+              "eligible": false
+            },
+            {
+              "strategy": "ema_pullback_v1",
+              "origin": "Human-authored Niblit baseline v1",
+              "rule": "Price recrosses EMA(20) in the direction of EMA(50)",
+              "side": "wait",
+              "evidence": {
+                "close": 77890.0,
+                "mean20": 77989.22,
+                "mean50": 78013.84599999999,
+                "prior20_high": 78134.0,
+                "prior20_low": 77902.0,
+                "rsi14": 13.472418670435943,
+                "previous_rsi14": 14.631336405527748,
+                "ema20": 77965.04576941638,
+                "ema50": 77997.21345148553,
+                "flat_regime": true,
+                "volatility_compressed": false,
+                "band_deviation": 80.8342724344068
+              },
+              "profitability": "Unproven; reward/risk is not a probability or a profit forecast.",
+              "invalidation": "Stop loss, opposing signal, or changed market regime; gaps can exceed stops.",
+              "references": {
+                "strategy_families": "https://www.quantconnect.com/docs/v2/writing-algorithms/strategy-library",
+                "predictive_validation": "https://www.freqtrade.io/en/stable/freqai/",
+                "lookahead": "https://www.freqtrade.io/en/stable/lookahead-analysis/"
+              },
+              "validation": "Experimental demo rule. Documentation describes the family, not profitability of these exact parameters.",
+              "hypothesis": "A pullback recross in an established mean trend may resume that trend; whipsaws invalidate this.",
+              "risk_reward": "Broker ticket targets twice its stop distance before costs. Break-even needs more than one-third wins at exact 2:1 fills; costs and gaps increase the requirement.",
+              "bar": 1793558700.0,
+              "conditions": {
+                "long": [
+                  false,
+                  true,
+                  false
+                ],
+                "short": [
+                  true,
+                  false,
+                  true
+                ]
+              },
+              "reason": "WAIT: Price recrosses EMA(20) in the direction of EMA(50). See measured values; WAIT means no qualifying setup.",
+              "invoked": true,
+              "status": "succeeded",
+              "eligible": false
+            },
+            {
+              "strategy": "squeeze_breakout_v1",
+              "origin": "Human-authored Niblit baseline v1",
+              "rule": "20-bar range breakout after contracting return volatility",
+              "side": "wait",
+              "evidence": {
+                "close": 77890.0,
+                "mean20": 77989.22,
+                "mean50": 78013.84599999999,
+                "prior20_high": 78134.0,
+                "prior20_low": 77902.0,
+                "rsi14": 13.472418670435943,
+                "previous_rsi14": 14.631336405527748,
+                "ema20": 77965.04576941638,
+                "ema50": 77997.21345148553,
+                "flat_regime": true,
+                "volatility_compressed": false,
+                "band_deviation": 80.8342724344068
+              },
+              "profitability": "Unproven; reward/risk is not a probability or a profit forecast.",
+              "invalidation": "Stop loss, opposing signal, or changed market regime; gaps can exceed stops.",
+              "references": {
+                "strategy_families": "https://www.quantconnect.com/docs/v2/writing-algorithms/strategy-library",
+                "predictive_validation": "https://www.freqtrade.io/en/stable/freqai/",
+                "lookahead": "https://www.freqtrade.io/en/stable/lookahead-analysis/"
+              },
+              "validation": "Experimental demo rule. Documentation describes the family, not profitability of these exact parameters.",
+              "hypothesis": "Contracting volatility followed by a range break may precede expansion; false breakouts invalidate this.",
+              "risk_reward": "Broker ticket targets twice its stop distance before costs. Break-even needs more than one-third wins at exact 2:1 fills; costs and gaps increase the requirement.",
+              "bar": 1793558700.0,
+              "conditions": {
+                "long": [
+                  false,
+                  false
+                ],
+                "short": [
+                  false,
+                  true
+                ]
+              },
+              "reason": "WAIT: 20-bar range breakout after contracting return volatility. See measured values; WAIT means no qualifying setup.",
+              "invoked": true,
+              "status": "succeeded",
+              "eligible": false
+            }
+          ],
+          "assessment_complete": true,
+          "regime": "range",
+          "policy_version": "conditions-v2",
+          "observation": {
+            "symbol": "BTC/USDT:USDT",
+            "venue": "binance",
+            "timeframe": "5m",
+            "mode": "dry-run",
+            "account_scope": "freqtrade-profile-146522df31fce9a6ca59c9d2756cca19b6690fd6030bac1962edd930a149a7ef",
+            "source": "ccxt_public_exchange_ohlcv",
+            "bar": 1793558700.0,
+            "completed_at": 1793559000.0,
+            "received_at": 1793559171.8013208,
+            "as_of": 1793559171.9685814,
+            "age_seconds": 171.96858143806458
+          },
+          "strategy": "breakout_v1",
+          "origin": "Human-authored Niblit baseline v1",
+          "rule": "Close beyond the previous 20-bar high or low",
+          "evidence": {
+            "close": 77890.0,
+            "mean20": 77989.22,
+            "mean50": 78013.84599999999,
+            "prior20_high": 78134.0,
+            "prior20_low": 77902.0,
+            "rsi14": 13.472418670435943,
+            "previous_rsi14": 14.631336405527748,
+            "ema20": 77965.04576941638,
+            "ema50": 77997.21345148553,
+            "flat_regime": true,
+            "volatility_compressed": false,
+            "band_deviation": 80.8342724344068
+          },
+          "profitability": "Unproven; reward/risk is not a probability or a profit forecast.",
+          "invalidation": "Stop loss, opposing signal, or changed market regime; gaps can exceed stops.",
+          "references": {
+            "strategy_families": "https://www.quantconnect.com/docs/v2/writing-algorithms/strategy-library",
+            "predictive_validation": "https://www.freqtrade.io/en/stable/freqai/",
+            "lookahead": "https://www.freqtrade.io/en/stable/lookahead-analysis/"
+          },
+          "validation": "Experimental demo rule. Documentation describes the family, not profitability of these exact parameters.",
+          "hypothesis": "A close outside the prior range may precede continuation.",
+          "risk_reward": "Broker ticket targets twice its stop distance before costs. Break-even needs more than one-third wins at exact 2:1 fills; costs and gaps increase the requirement.",
+          "bar": 1793558700.0,
+          "conditions": {
+            "long": [
+              false
+            ],
+            "short": [
+              true
+            ]
+          },
+          "reason": "SELL: Close beyond the previous 20-bar high or low. See measured values; WAIT means no qualifying setup.",
+          "selection_reason": "A completed range breakout is the more specific agreeing setup.",
+          "selection_mode": "auto",
+          "strategy_failures": [],
+          "selection_limit": "Rule eligibility is not proof that a strategy will be profitable.",
+          "regime_basis": "Existing rule mean/flat-regime measurements; not a calibrated forecast.",
+          "observation_id": "2562a8195d931623e4acd963393147c6b808cd92f9d68e18c94468d160bd35bb",
+          "execution_gate": "analysis_only_existing_order_approval_still_required"
+        },
+        "market_memory": {
+          "state": "queued_to_core",
+          "queued": true,
+          "id": "c7d8a4cbb6a23fdf12fb8313e9307a91ba70f33dfcbce41a69ec8452cf9bc511",
+          "namespace": "market.957f4c9a73a73f68a2c80b3956a61eecde0fd2e2",
+          "source": "market-analysis://fce36c612fe31fc324680fd769e6522b7026d99b3b40b261827355942d076b1a",
+          "projection": "pending_not_verified"
+        }
+      },
+      "runtime_mode": "api"
+    }
+  },
+  "orders_sent": 0,
+  "baseline_preimages": "C:\\Users\\Operator\\Documents\\Codex\\2026-11-01\\referenced-chatgpt-conversation-this-is-an\\work\\cloud-delegation",
+  "patches_already_integrated": true
+}

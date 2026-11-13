@@ -1,0 +1,47 @@
+{
+  "captured_at": "2026-11-01T16:04:37.602285+00:00",
+  "root": "C:\\Users\\Operator\\Documents\\GitHub\\Niblit",
+  "head": "1b40c4113b0df61ecb561b73b8f7a38ed4280832",
+  "source_sha256": {
+    "modules/freqtrade_research.py": "9977ded51fcc54205f9e587ca7c4d3e55612cc264252ce9f05d25a0af0ec8e67",
+    "modules/strategy_manager.py": "55973003dfb2daafce53f5e5ffe9555084828d3d8fbc44f68a43cae4bb7c4a2a",
+    "tests/test_freqtrade_analysis_integration.py": "922ec86d1174cf5c3dea9f8af45db87f555e0f00b979e3032f8856dc79ab1b40",
+    "tests/test_strategy_failure_consensus.py": "ca59dc3aabcb6d6a1ba6b2cbbe4ab4e80622787dfa44d380fcbb9890ceb5f3e7"
+  },
+  "working_directory": "C:\\Users\\Operator\\Documents\\GitHub\\Niblit",
+  "source_files": [
+    "modules/freqtrade_research.py",
+    "modules/strategy_manager.py",
+    "tests/test_freqtrade_analysis_integration.py",
+    "tests/test_strategy_failure_consensus.py"
+  ],
+  "gates": {
+    "G0": "PARTIAL: source roots/HEAD/status/diffs and import route proven; running launcher/package not proven",
+    "G1": "PARTIAL: fixtures prove stale rejection; real feed ConnectError",
+    "G2": "PARTIAL: six existing shared rules tested; all Lean/MT5/Freqtrade strategy implementations not audited",
+    "G3": "PARTIAL: conflict/failure/malformed/stale abstention tests pass; full Core governance route not proven",
+    "G4": "PARTIAL: immutable local research journal dedup/restart and namespace isolation pass; Core export/recall not implemented for these analysis episodes",
+    "G5": "PARTIAL: existing demo/dry-run guard regression passes with fake brokers",
+    "G6": "PARTIAL: existing fake execution lifecycle/reconciliation tests pass; actual monitoring/fills not verified",
+    "G7": "BLOCKED: Freqtrade unreachable; no MT5 demo lifecycle test",
+    "G8": "PARTIAL: readiness/memory ownership regressions pass; full cognition boot not run",
+    "G9": "PASS for bounded source packets: source hashes, preimages, tests, diff and next action saved"
+  },
+  "next_action": {
+    "updated_at": "2026-11-01T16:04:37.602285+00:00",
+    "current": "Two bounded source packets implemented, not full plan completion",
+    "root": "C:\\Users\\Operator\\Documents\\GitHub\\Niblit",
+    "preconditions": [
+      "Reinspect Git status/diffs and preserve existing untracked diagnostic artifacts",
+      "Restore Docker connectivity through the existing user session and inspect effective Freqtrade mode before starting any engine; restarting Docker can auto-resume restart-enabled trading containers",
+      "Keep entries disabled during feed acceptance; do not switch native strategies or start a demo session implicitly"
+    ],
+    "next_command": "C:\\Users\\Operator\\Documents\\GitHub\\Niblit\\niblit-env\\Scripts\\python.exe C:\\Users\\Operator\\Documents\\Codex\\2026-11-01\\referenced-chatgpt-conversation-this-is-an\\work\\real_feed_acceptance.py",
+    "expected": "HTTP200 from current source with real whitelisted exchange candles, six strategy candidates and temporary-journal restart recall",
+    "if_blocked": "Record exact feed/service error, preserve source packets, work on permission-gated Core episode-export characterization using existing MemoryRuntime outbox",
+    "subsequent": "Connect research analysis episodes to existing governed episodic outbox with provenance/idempotency; test crash/replay and Core recall. Local journal receipt is not that integration.",
+    "started_processes": [],
+    "orders_sent": 0,
+    "services_restarted": []
+  }
+}

@@ -223,6 +223,61 @@ class HybridQdrantManager:
 
     # ── Internal helpers ──────────────────────────────────────────────────────
 
+
+    def _remote_legacy_allowed(self, payload):
+        # Newly configured cloud credentials are not consent to export history.
+        # Existing local legacy operations retain their original behavior.
+        from urllib.parse import urlsplit
+        return urlsplit(self._url).hostname in {'localhost','127.0.0.1','::1'}
+
+    def canonical_request(self, method, collection, *, body=None, suffix=''):
+        """Existing remote manager transport; no embedding or ID remapping.
+
+        Called only by canonical gateway projection/readback after authorization.
+        Named-vector legacy collections are never reused for pinned s6 vectors.
+        """
+        import re,httpx
+        from modules.memory_laboratory.setup import Config
+        Config(url=self._url,api_key=self._api_key) # HTTPS/secret-bearing URL check
+        if not re.fullmatch(r'[A-Za-z][A-Za-z0-9_]{0,159}',collection):raise ValueError('Invalid collection')
+        if method not in {'GET','PUT','POST'} or suffix not in {'','/points','/points?wait=true'}:raise ValueError('Invalid canonical operation')
+        with httpx.Client(trust_env=False,timeout=5) as client:
+            response=client.request(method,self._url.rstrip('/')+'/collections/'+collection+suffix,
+                headers={'api-key':self._api_key},json=body)
+            if response.status_code==404:return None
+            # Never expose request headers, URL or server error bodies.
+            if response.status_code>=400:raise RuntimeError('RemoteQdrantHTTP'+str(response.status_code))
+            return response.json()['result']
+
+    def canonical_project(self, collection, points, *, dimension, distance, prefix="niblit_lab"):
+        from modules.memory_laboratory.contracts import MemoryRecord
+        from modules.memory_laboratory.setup import Config,validate_vector
+        if not 1<=len(points)<=8:raise ValueError('Bounded canonical batch required')
+        for point in points:
+            p=MemoryRecord.model_validate(point['payload'])
+            if p.source_type!='synthetic_acceptance' or p.sensitivity!='public' or p.provenance.get('remote_sync')!='synthetic_approved':raise PermissionError('Remote scope not approved')
+            if str(p.memory_id)!=str(point['id']) or len(validate_vector(point['vector']))!=dimension:raise ValueError('Canonical identity/vector mismatch')
+            cfg=Config(url=self._url,api_key=self._api_key,model=p.embedding_model,revision=p.embedding_version,distance=distance,prefix=prefix)
+            if cfg.collection(p.category,dimension)!=collection:raise ValueError('Versioned canonical collection mismatch')
+        current=self.canonical_request('GET',collection)
+        if current is None:
+            self.canonical_request('PUT',collection,body={'vectors':{'size':dimension,'distance':distance}})
+            current=self.canonical_request('GET',collection)
+        vectors=current['config']['params']['vectors']
+        if vectors.get('size')!=dimension or vectors.get('distance')!=distance:raise ValueError('Existing remote schema incompatible; not replaced')
+        self.canonical_request('PUT',collection,suffix='/points?wait=true',body={'points':points})
+        actual=self.canonical_request('POST',collection,suffix='/points',body={'ids':[x['id'] for x in points],'with_payload':True,'with_vector':True})
+        expected={str(x['id']):x['payload'] for x in points}
+        found={str(x['id']):x['payload'] for x in actual}
+        if expected!=found:raise ValueError('Remote canonical payload readback mismatch')
+        import math
+        originals={str(x['id']):x['vector'] for x in points}
+        for point in actual:
+            vector=point.get('vector');original=originals[str(point['id'])]
+            if not isinstance(vector,list) or len(vector)!=dimension or any(not math.isfinite(v) or abs(v-w)>1e-6 for v,w in zip(vector,original)):
+                raise ValueError('Remote vector readback mismatch')
+        return actual
+
     def _get_client(self) -> Optional[Any]:
         """Return (or lazily create) QdrantClient."""
         if not _QDRANT_AVAILABLE:
@@ -426,6 +481,7 @@ class HybridQdrantManager:
         """
         Single controlled write path into Qdrant.
         """
+        if not self._remote_legacy_allowed(meta.get('payload',{})):return False
         if "vector" not in meta:
             log.warning("[HybridQdrantManager] insert called without vector payload")
             return False
@@ -493,6 +549,7 @@ class HybridQdrantManager:
         bool
             True if at least one model upserted successfully.
         """
+        if not self._remote_legacy_allowed(payload):return False
         if models is None:
             models = self.select_models(text)
 
@@ -612,6 +669,7 @@ class HybridQdrantManager:
             return []
 
         full_name = self._prefixed(collection)
+        if not self._remote_legacy_allowed({}):return []
         client = self._get_client()
         if client is None:
             return []

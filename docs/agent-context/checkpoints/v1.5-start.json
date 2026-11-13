@@ -1,0 +1,78 @@
+{
+  "timestamp": "2026-11-01T16:30:11.382724+00:00",
+  "root": "C:\\Users\\Operator\\Documents\\GitHub\\Niblit",
+  "files": {
+    "modules/strategy_manager.py": {
+      "preimage": "C:\\Users\\Operator\\Documents\\Codex\\2026-11-01\\referenced-chatgpt-conversation-this-is-an\\work\\v15\\modules__strategy_manager.py.before",
+      "sha256": "55973003dfb2daafce53f5e5ffe9555084828d3d8fbc44f68a43cae4bb7c4a2a"
+    },
+    "modules/execution_graph.py": {
+      "preimage": "C:\\Users\\Operator\\Documents\\Codex\\2026-11-01\\referenced-chatgpt-conversation-this-is-an\\work\\v15\\modules__execution_graph.py.before",
+      "sha256": "f21d2801b63b48de0799a5587c7e385bfce088f3616f20c17069c73e8418c4fb"
+    },
+    "modules/cognitive_ingress.py": {
+      "preimage": "C:\\Users\\Operator\\Documents\\Codex\\2026-11-01\\referenced-chatgpt-conversation-this-is-an\\work\\v15\\modules__cognitive_ingress.py.before",
+      "sha256": "2641fadfe55d67016fbb9d297650ca1e3a57dfe4d91c6d5a51b9690efbead774"
+    },
+    "server.py": {
+      "preimage": "C:\\Users\\Operator\\Documents\\Codex\\2026-11-01\\referenced-chatgpt-conversation-this-is-an\\work\\v15\\server.py.before",
+      "sha256": "d27096b9f4877d87c4c797a5e9a785fac72f87229ed568e4f2a472cf6a1e5d7b"
+    },
+    "modules/memory_laboratory/runtime.py": {
+      "preimage": "C:\\Users\\Operator\\Documents\\Codex\\2026-11-01\\referenced-chatgpt-conversation-this-is-an\\work\\v15\\modules__memory_laboratory__runtime.py.before",
+      "sha256": "2707e57113f0aabd4f8bdaaea134e9a8f5ed52337e7ae4564f56790b67303e75"
+    },
+    "modules/freqtrade_research.py": {
+      "preimage": "C:\\Users\\Operator\\Documents\\Codex\\2026-11-01\\referenced-chatgpt-conversation-this-is-an\\work\\v15\\modules__freqtrade_research.py.before",
+      "sha256": "9977ded51fcc54205f9e587ca7c4d3e55612cc264252ce9f05d25a0af0ec8e67"
+    },
+    "modules/trading_desk.py": {
+      "preimage": "C:\\Users\\Operator\\Documents\\Codex\\2026-11-01\\referenced-chatgpt-conversation-this-is-an\\work\\v15\\modules__trading_desk.py.before",
+      "sha256": "5064ebbfefbf113b09ec311fa617fac50a6bdb6ba50715b7dc8603058581774d"
+    }
+  },
+  "head": {
+    "exit_code": 0,
+    "path": "C:\\Users\\Operator\\Documents\\Codex\\2026-11-01\\referenced-chatgpt-conversation-this-is-an\\work\\v15\\head.txt",
+    "warnings": ""
+  },
+  "status": {
+    "exit_code": 0,
+    "path": "C:\\Users\\Operator\\Documents\\Codex\\2026-11-01\\referenced-chatgpt-conversation-this-is-an\\work\\v15\\status.txt",
+    "warnings": "warning: could not open directory 'diagnostics/pytest-admin-335aa83a171743c1906b7e7d8e928726/': Permission denied\nwarning: could not open directory 'diagnostics/pytest-local-model-7dde06f39e0e4f87a8510dfe12f5531b/': Permission denied\nwarning: could not open directory 'diagnostics/pytest-memory-acceptance-final/': Permission denied\nwarning: could not open directory 'diagnostics/pytest-memory-desk/': Permission denied\nwarning: could not open directory 'diagnostics/pytest-memory-desk-final/': Permission denied\nwarning: could not open directory 'diagnostics/pytest-memory-desk-guard-final/': Permission denied\nwarning: could not open directory 'diagnostics/pytest-memory-desk-release/': Permission denied\nwarning: could not open directory 'diagnostics/pytest-memory-facade-final/': Permission denied\nwarning: could not open directory 'diagnostics/pytest-memory-final-20261028/': Permission denied\nwarning: could not open directory 'diagnostics/pytest-portal-model-afa98e0a048d40d4a57723fcbe1cb76d/': Permission denied\n"
+  },
+  "diff": {
+    "exit_code": 0,
+    "path": "C:\\Users\\Operator\\Documents\\Codex\\2026-11-01\\referenced-chatgpt-conversation-this-is-an\\work\\v15\\diff.txt",
+    "warnings": ""
+  },
+  "staged": {
+    "exit_code": 0,
+    "path": "C:\\Users\\Operator\\Documents\\Codex\\2026-11-01\\referenced-chatgpt-conversation-this-is-an\\work\\v15\\staged.txt",
+    "warnings": ""
+  },
+  "v14_source_reconciliation": {
+    "modules/freqtrade_research.py": {
+      "matches": true,
+      "sha256": "9977ded51fcc54205f9e587ca7c4d3e55612cc264252ce9f05d25a0af0ec8e67"
+    },
+    "modules/strategy_manager.py": {
+      "matches": true,
+      "sha256": "55973003dfb2daafce53f5e5ffe9555084828d3d8fbc44f68a43cae4bb7c4a2a"
+    },
+    "tests/test_freqtrade_analysis_integration.py": {
+      "matches": true,
+      "sha256": "922ec86d1174cf5c3dea9f8af45db87f555e0f00b979e3032f8856dc79ab1b40"
+    },
+    "tests/test_strategy_failure_consensus.py": {
+      "matches": true,
+      "sha256": "ca59dc3aabcb6d6a1ba6b2cbbe4ab4e80622787dfa44d380fcbb9890ceb5f3e7"
+    }
+  },
+  "v14_tests": {
+    "result": "PASS",
+    "tests": 83,
+    "junit": "C:\\Users\\Operator\\Documents\\Codex\\2026-11-01\\referenced-chatgpt-conversation-this-is-an\\work\\v15-baseline.xml",
+    "log": "C:\\Users\\Operator\\Documents\\Codex\\2026-11-01\\referenced-chatgpt-conversation-this-is-an\\work\\v15-baseline.log"
+  }
+}

@@ -1,0 +1,150 @@
+{
+  "timestamp": "2026-11-01T19:49:34.476202+00:00",
+  "source_sha256": {
+    "Niblit/modules/task_admission.py": "515292ba77986d1d95067e33b73e1f47bfa7aaeeeb19c19b36282be1221754b3",
+    "Niblit/modules/llm_tool_loop.py": "66a014033c2934a37bdbd9fe674c5464037fc632b2682f3171ca218633e9da5e",
+    "Niblit/server.py": "97a3d59f3649cbcfe571328f5b9f2d6fa678964cc53a67ef3f271e88a2cc5d24",
+    "Niblit/modules/local_brain.py": "f504c392cf86f2099c8d5a5320881f97f3cadd65b33f90b2eaad19102a39061d",
+    "Niblit/niblit_brain.py": "1d3975108b2295a14803088129e93b10c1463d5a55f8403a8dae6681ecbb32ae",
+    "Niblit/deploy/runtime/native-cloud.env.example": "e5ddc10a4a2f553f379979e6155121586f3b292cc564fdbe7dfea2162f0c97c3",
+    "Niblit/scripts/start-portal-local-model.ps1": "179e71a8e13439f0f946c82ab093085d8e60221652170452f50ddb773359a87b",
+    "Niblit/tests/test_research_recovery.py": "3b54517ca536d5f90f327e3481ced0ad887a807c308ce68942bfd2dd7c2885a2",
+    "Niblit-cloud-server/app/shared_gguf.py": "1bd95b8463b0d12156ca4f5ce2c2d013dc86e21fd56cf58f2ef03c66750559a2",
+    "Niblit-cloud-server/app/main.py": "3392d2acc07dc75e1d5ec95403acd2ea56d0f869a917d84f1aa958d45cbc15fa",
+    "Niblit-cloud-server/.env.shared-gguf.example": "aa8def6a2784d305836d56bc27e44c3b92f988681f789bf6edff53d154b63c44",
+    "Niblit-cloud-server/tests/test_shared_gguf.py": "fa9479733b67c8ff0769e3f8bef521ae823e74e44c23347aa92dee7de7679f6b"
+  },
+  "roots": {
+    "Core": "C:\\Users\\Operator\\Documents\\GitHub\\Niblit",
+    "Cloud": "C:\\Users\\Operator\\Documents\\GitHub\\Niblit-cloud-server"
+  },
+  "tests": {
+    "core-final": {
+      "tests": "70",
+      "errors": "0",
+      "failures": "0",
+      "skipped": "0",
+      "time": "35.623"
+    },
+    "cloud-final": {
+      "tests": "247",
+      "errors": "0",
+      "failures": "0",
+      "skipped": "0",
+      "time": "33.748"
+    }
+  },
+  "actual_multi_step": {
+    "http": 200,
+    "elapsed_seconds": 63.16205906867981,
+    "response": {
+      "request_id": "46c4037e67ea4fc99fb30a5ba4be79d4",
+      "text": "The current Niblit runtime status is operational, with no memory entries, autonomous mode stopped, and LLM enabled.\n\nRetrieved sources:\n- trading-outcome://b1b13cbcba58858b87a25b0c42cbc66bc99e605e04658cfc014dd39f1d976eaf#offset=0\n- unified://2954804ec5463a60#offset=0\n- knowledge://core/9846a8d804ed4fae9f0e317b174d57ad653725a5ecff9f6cd139b9f1d087ba21#offset=0\n- trading-outcome://8b1b2ab0a5f7e3ec04d36de30bf646177d7e86464a930e603ffdb02479dc738e#offset=0",
+      "tool_trace": [
+        {
+          "tool_call_id": "call_67faaf9c",
+          "tool": "runtime_status",
+          "arguments": {},
+          "status": "success",
+          "duration_ms": 0.4
+        }
+      ],
+      "niblit_model": {
+        "request_id": "129654ede8144c30b2ccee2675a1a27b",
+        "requested_model": "qwen2.5-coder-3b",
+        "resolved_model": "qwen2.5-coder-3b",
+        "executed_model": "qwen2.5-coder-3b",
+        "fallback": false
+      },
+      "tools_enabled": true
+    },
+    "delegations_before": [
+      {
+        "state": "complete",
+        "count": 9
+      },
+      {
+        "state": "uncertain",
+        "count": 3
+      }
+    ],
+    "delegations_after": [
+      {
+        "state": "complete",
+        "count": 11
+      },
+      {
+        "state": "uncertain",
+        "count": 3
+      }
+    ],
+    "authority_after": {
+      "state": "idle",
+      "queued": false
+    },
+    "orders_sent": 0,
+    "controlled_model": false
+  },
+  "single_parent_observation": {
+    "observed": true,
+    "observed_owner": "core_tool_loop",
+    "single_parent_child_states": {
+      "complete": 2
+    },
+    "parent_after": "released",
+    "multiple_child_inferences": true
+  },
+  "actual_client_disconnect": {
+    "orders_sent": 0,
+    "real_client_disconnect": true,
+    "reserved_after_disconnect": true,
+    "children_at_disconnect": {
+      "active": 1
+    },
+    "children_after": {
+      "complete": 1
+    },
+    "parent_after": "released",
+    "no_additional_inference": true
+  },
+  "final_state": {
+    "dry_run": true,
+    "engine_state": "stopped",
+    "positions": 3,
+    "orders_sent": 0,
+    "services": {
+      "Core": {
+        "http": 200
+      },
+      "Cloud": {
+        "http": 200
+      },
+      "Memory": {
+        "http": 200
+      },
+      "Desk": {
+        "http": 200
+      },
+      "Lean": {
+        "http": 200,
+        "mode": "observe",
+        "execution_enabled": false
+      },
+      "Portal": {
+        "http": 200
+      }
+    },
+    "sqlite_integrity": "ok",
+    "task_authority": {
+      "state": "idle"
+    }
+  },
+  "model_process": {
+    "Id": 21096,
+    "Name": "llama-server",
+    "WorkingSet64": 2976317440
+  },
+  "orders_sent": 0,
+  "source_preimages": "C:\\Users\\Operator\\Documents\\Codex\\2026-11-01\\referenced-chatgpt-conversation-this-is-an\\work\\research-recovery",
+  "already_integrated": true
+}

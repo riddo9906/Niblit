@@ -1,0 +1,280 @@
+{
+  "bundle": "C:\\Users\\Operator\\Documents\\GitHub\\Niblit\\dist\\releases\\v202-20261105-r5\\niblit",
+  "core_sha256": "3d3cddec332a6beedfa3fd8a7c730678a8b4380d1f05d815a7c5f3b5c233c722",
+  "sidecars": {
+    "niblit-ui.exe": {
+      "sha256": "21e252fc48a64b381eebe2ae06825b7d6050cd63bdafe096ee7cb62d8cadf629",
+      "unchanged": true
+    },
+    "cloud/niblit-cloud.exe": {
+      "sha256": "f8bec7272b1e1ed64e9a83441cdb35d2a3406c0fc5214ba8cdf4f8dfcc861763",
+      "unchanged": true
+    },
+    "lean-algos/niblit-lean-algos.exe": {
+      "sha256": "010bc25b2395dd53787dc1754938715184559970824b1fb751e912fcebecb727",
+      "unchanged": true
+    },
+    "freqtrade/niblit-freqtrade-worker.exe": {
+      "sha256": "fab8e4b5cfcf006defc92fac327b7de2ddf84118879ac61e5504f3a294f131bf",
+      "unchanged": true
+    }
+  },
+  "preflight": {
+    "bundle_files_ready": true,
+    "checks": [
+      {
+        "file": "niblit.exe",
+        "ok": true
+      },
+      {
+        "file": "niblit-ui.exe",
+        "ok": true
+      },
+      {
+        "file": "cloud/niblit-cloud.exe",
+        "ok": true
+      },
+      {
+        "file": "lean-algos/niblit-lean-algos.exe",
+        "ok": true
+      },
+      {
+        "file": "freqtrade/niblit-freqtrade-worker.exe",
+        "ok": true
+      },
+      {
+        "file": "niblit_core.py",
+        "ok": true
+      },
+      {
+        "file": "main.py",
+        "ok": true
+      },
+      {
+        "file": "assets/trading-desk/index.html",
+        "ok": true
+      },
+      {
+        "file": "assets/trading-desk/chart.js",
+        "ok": true
+      },
+      {
+        "file": "assets/trading-desk/sessions.js",
+        "ok": true
+      },
+      {
+        "file": "assets/memory-desk/index.html",
+        "ok": true
+      },
+      {
+        "file": "assets/client-portal/index.html",
+        "ok": true
+      },
+      {
+        "file": "freqtrade/data/BTC_USDT_USDT-1h-futures.feather",
+        "ok": true
+      },
+      {
+        "file": "freqtrade/data/ETH_USDT_USDT-1h-futures.feather",
+        "ok": true
+      }
+    ],
+    "services_started": false,
+    "orders_submitted": false,
+    "scope": "Offline file presence only. Service health, lifecycle, inference, memory and trading acceptance remain unverified.",
+    "module_checks": [
+      {
+        "module": "modules.chart_annotations",
+        "ok": true
+      },
+      {
+        "module": "modules.chart_views",
+        "ok": true
+      },
+      {
+        "module": "modules.native_evidence_learning",
+        "ok": true
+      },
+      {
+        "module": "modules.permission_manager",
+        "ok": true
+      },
+      {
+        "module": "modules.hybrid_qdrant_manager",
+        "ok": true
+      },
+      {
+        "module": "modules.strategy_manager",
+        "ok": true
+      },
+      {
+        "module": "MetaTrader5",
+        "ok": true
+      },
+      {
+        "module": "modules.core_trading_sessions",
+        "ok": true
+      },
+      {
+        "module": "modules.trading_session_adapters",
+        "ok": true
+      },
+      {
+        "module": "modules.trading_session_api",
+        "ok": true
+      },
+      {
+        "module": "modules.freqtrade_core_claim",
+        "ok": true
+      },
+      {
+        "module": "modules.trading_session_probe",
+        "ok": true
+      },
+      {
+        "module": "modules.trading_session_selftest",
+        "ok": true
+      },
+      {
+        "module": "modules.position_intelligence",
+        "ok": true
+      },
+      {
+        "module": "modules.command_registry",
+        "ok": true
+      },
+      {
+        "module": "modules.demo_autotrader",
+        "ok": true
+      },
+      {
+        "module": "modules.mt5_orders",
+        "ok": true
+      },
+      {
+        "module": "modules.trading_runtime_client",
+        "ok": true
+      }
+    ]
+  },
+  "selftest": {
+    "mt5": {
+      "scope": "offline broker double; actual Core/PermissionManager/TaskAuthority/six-strategy/MT5-ticket/memory-outbox path",
+      "passed": true,
+      "fixture_submissions": 2,
+      "real_broker_orders": 0,
+      "durable_events": 15,
+      "session_state": "stopped",
+      "emergency_stopped": true
+    },
+    "freqtrade": {
+      "passed": true,
+      "scope": "actual Core/consensus/risk/Freqtrade-ticket/RPC-double/reconciliation/canonical-outbox",
+      "fixture_submissions": 2,
+      "real_broker_orders": 0
+    },
+    "real_broker_orders": 0,
+    "passed": true
+  },
+  "readonly": {
+    "checked_at": 1793900124.0545862,
+    "broker_orders": 0,
+    "sessions_activated": 0,
+    "scope": "Read-only provider observations and MT5 order_check only; no preview/confirm/order_send",
+    "mt5": {
+      "observations_valid": true,
+      "account": "b95a8bc3fd731d67",
+      "environment": "demo",
+      "symbol": "EURUSD",
+      "candles": 200,
+      "positions": 0,
+      "fresh": true,
+      "execution_blockers": [
+        "Explicit bounded activation required"
+      ],
+      "non_delivering_preflight": {
+        "accepted": true,
+        "volume": 0.01,
+        "estimated_stop_risk": 2.0,
+        "stop_loss": 1.12154,
+        "take_profit": 1.12754,
+        "margin_after": 11.24,
+        "mode": "demo"
+      }
+    },
+    "freqtrade": {
+      "observations_valid": true,
+      "account": "0856b930615652f39f0a1e71",
+      "environment": "dry-run",
+      "symbol": "BTC/USDT:USDT",
+      "candles": 200,
+      "positions": 3,
+      "engine_state": "stopped",
+      "fresh": true,
+      "native_protections": {
+        "stoploss": -0.01,
+        "minimal_roi": {
+          "0": 0.02
+        },
+        "fee": null,
+        "trading_mode": "futures",
+        "position_adjustment_enable": false
+      },
+      "execution_blockers": [
+        "Explicit bounded activation required",
+        "Core-managed native strategy must be selected before a session",
+        "Native engine is stopped",
+        "All configured position slots occupied",
+        "Native fee is unreported; explicit verified fee required"
+      ]
+    }
+  },
+  "alert_doubles": {
+    "scope": "Actual sessions.js in isolated DOM/Notification doubles; no browser, OS popup or broker request",
+    "normal": {
+      "signal_entry_exit_error_expiry": "passed",
+      "review_activation_emergency": "passed",
+      "notification_show_receipt": "passed",
+      "notification_click_no_order": "passed",
+      "duplicate_suppression": "passed"
+    },
+    "quiet": {
+      "quiet_hours": "passed"
+    }
+  },
+  "source_tests": {
+    "trading": 59,
+    "learning_approval": 24
+  },
+  "lifecycle": {
+    "scope": "Isolated no-generation/no-order CLI startup; background loops and self-modification disabled only in test environment. Existing Cloud attached; production processes unchanged.",
+    "runs": [
+      {
+        "exit_code": 0,
+        "leaked_owned_children": [],
+        "seconds": 115.1,
+        "bootstrap_complete": true,
+        "unavailable_components": [
+          "[2026-11-05 19:36:30] Unavailable components: local_brain_model (degraded), module_loader (background)"
+        ],
+        "initialization_complete": true,
+        "traceback": false,
+        "degraded": false,
+        "autonomous_stopped": true
+      },
+      {
+        "exit_code": 0,
+        "leaked_owned_children": [],
+        "seconds": 166.8,
+        "bootstrap_complete": true,
+        "unavailable_components": [
+          "[2026-11-05 19:38:33] Unavailable components: local_brain_model (degraded), module_loader (background)"
+        ],
+        "initialization_complete": true,
+        "traceback": false,
+        "degraded": false,
+        "autonomous_stopped": true
+      }
+    ]
+  }
+}

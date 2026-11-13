@@ -1,0 +1,119 @@
+{
+  "version": "1.6",
+  "captured_at": "2026-11-01T16:51:07.455935+00:00",
+  "repos": {
+    "Niblit": {
+      "root": "C:\\Users\\Operator\\Documents\\GitHub\\Niblit",
+      "head": {
+        "exit_code": 0,
+        "path": "C:\\Users\\Operator\\Documents\\Codex\\2026-11-01\\referenced-chatgpt-conversation-this-is-an\\work\\v16\\Niblit-head.txt",
+        "warnings": ""
+      },
+      "status": {
+        "exit_code": 0,
+        "path": "C:\\Users\\Operator\\Documents\\Codex\\2026-11-01\\referenced-chatgpt-conversation-this-is-an\\work\\v16\\Niblit-status.txt",
+        "warnings": "warning: could not open directory 'diagnostics/pytest-admin-335aa83a171743c1906b7e7d8e928726/': Permission denied\nwarning: could not open directory 'diagnostics/pytest-local-model-7dde06f39e0e4f87a8510dfe12f5531b/': Permission denied\nwarning: could not open directory 'diagnostics/pytest-memory-acceptance-final/': Permission denied\nwarning: could not open directory 'diagnostics/pytest-memory-desk/': Permission denied\nwarning: could not open directory 'diagnostics/pytest-memory-desk-final/': Permission denied\nwarning: could not open directory 'diagnostics/pytest-memory-desk-guard-final/': Permission denied\nwarning: could not open directory 'diagnostics/pytest-memory-desk-release/': Permission denied\nwarning: could not open directory 'diagnostics/pytest-memory-facade-final/': Permission denied\nwarning: could not open directory 'diagnostics/pytest-memory-final-20261028/': Permission denied\nwarning: could not open directory 'diagnostics/pytest-portal-model-afa98e0a048d40d4a57723fcbe1cb76d/': Permission denied\n"
+      },
+      "diff": {
+        "exit_code": 0,
+        "path": "C:\\Users\\Operator\\Documents\\Codex\\2026-11-01\\referenced-chatgpt-conversation-this-is-an\\work\\v16\\Niblit-diff.txt",
+        "warnings": ""
+      },
+      "staged": {
+        "exit_code": 0,
+        "path": "C:\\Users\\Operator\\Documents\\Codex\\2026-11-01\\referenced-chatgpt-conversation-this-is-an\\work\\v16\\Niblit-staged.txt",
+        "warnings": ""
+      }
+    },
+    "Niblit-cloud-server": {
+      "root": "C:\\Users\\Operator\\Documents\\GitHub\\Niblit-cloud-server",
+      "head": {
+        "exit_code": 0,
+        "path": "C:\\Users\\Operator\\Documents\\Codex\\2026-11-01\\referenced-chatgpt-conversation-this-is-an\\work\\v16\\Niblit-cloud-server-head.txt",
+        "warnings": ""
+      },
+      "status": {
+        "exit_code": 0,
+        "path": "C:\\Users\\Operator\\Documents\\Codex\\2026-11-01\\referenced-chatgpt-conversation-this-is-an\\work\\v16\\Niblit-cloud-server-status.txt",
+        "warnings": ""
+      },
+      "diff": {
+        "exit_code": 0,
+        "path": "C:\\Users\\Operator\\Documents\\Codex\\2026-11-01\\referenced-chatgpt-conversation-this-is-an\\work\\v16\\Niblit-cloud-server-diff.txt",
+        "warnings": ""
+      },
+      "staged": {
+        "exit_code": 0,
+        "path": "C:\\Users\\Operator\\Documents\\Codex\\2026-11-01\\referenced-chatgpt-conversation-this-is-an\\work\\v16\\Niblit-cloud-server-staged.txt",
+        "warnings": ""
+      }
+    }
+  },
+  "files": {
+    "Niblit/modules/trading_desk.py": {
+      "preimage": "C:\\Users\\Operator\\Documents\\Codex\\2026-11-01\\referenced-chatgpt-conversation-this-is-an\\work\\v16\\Niblit__modules__trading_desk.py.before",
+      "sha256": "005395511d198f17527250bdb19f40dce4e2415ca2b98ca6ba73ad12cfe4540c"
+    },
+    "Niblit-cloud-server/app/trading/freqtrade_adapter.py": {
+      "preimage": "C:\\Users\\Operator\\Documents\\Codex\\2026-11-01\\referenced-chatgpt-conversation-this-is-an\\work\\v16\\Niblit-cloud-server__app__trading__freqtrade_adapter.py.before",
+      "sha256": "0d1167e0e9fb0c372a6b770842dab5b6dde42282ab548eac8d5a3e3b7e6ee62a"
+    },
+    "Niblit-cloud-server/app/trading/router.py": {
+      "preimage": "C:\\Users\\Operator\\Documents\\Codex\\2026-11-01\\referenced-chatgpt-conversation-this-is-an\\work\\v16\\Niblit-cloud-server__app__trading__router.py.before",
+      "sha256": "3a54bfad1b48ced30286c134c9a0b43be0d3e62d96d9fa2980db5378c06ba6e1"
+    },
+    "Niblit-cloud-server/app/trading/freqtrade_supervisor.py": {
+      "preimage": "C:\\Users\\Operator\\Documents\\Codex\\2026-11-01\\referenced-chatgpt-conversation-this-is-an\\work\\v16\\Niblit-cloud-server__app__trading__freqtrade_supervisor.py.before",
+      "sha256": "d80ec1814fdf1f23230a3df3a7c67b97e7c715919a7de7c72257bb1d3f076dc8"
+    },
+    "Niblit-cloud-server/app/execution/freqtrade_adapters.py": {
+      "preimage": "C:\\Users\\Operator\\Documents\\Codex\\2026-11-01\\referenced-chatgpt-conversation-this-is-an\\work\\v16\\Niblit-cloud-server__app__execution__freqtrade_adapters.py.before",
+      "sha256": "ff0accb297f7d8c4dc07c1fc5db1ab918765ffe8bcafcb949c27fc2d70482f3b"
+    },
+    "Niblit-cloud-server/tests/test_trading_pipeline.py": {
+      "preimage": "C:\\Users\\Operator\\Documents\\Codex\\2026-11-01\\referenced-chatgpt-conversation-this-is-an\\work\\v16\\Niblit-cloud-server__tests__test_trading_pipeline.py.before",
+      "sha256": "f21e30d82f4e412a66e7f705b9f9d55219fe68be97575486e615d4fc4f436ea9"
+    },
+    "Niblit/server.py": {
+      "preimage": "C:\\Users\\Operator\\Documents\\Codex\\2026-11-01\\referenced-chatgpt-conversation-this-is-an\\work\\v16\\Niblit__server.py.before",
+      "sha256": "b0a44f1ffb2cf3212288e9e71525d255426e33dce04740c7d75cf6602cb72dc7"
+    }
+  },
+  "v15_hash_reconciliation": {
+    "modules/strategy_manager.py": true,
+    "modules/execution_graph.py": true,
+    "modules/cognitive_ingress.py": true,
+    "server.py": true,
+    "modules/memory_laboratory/runtime.py": true,
+    "modules/freqtrade_research.py": true,
+    "modules/trading_desk.py": true,
+    "tests/test_core_market_pipeline.py": true
+  },
+  "v15_test_evidence": {
+    "evidence_id": "v15-core-market-integration",
+    "captured_at": "2026-11-01T16:44:24.089435+00:00",
+    "root": "C:\\Users\\Operator\\Documents\\GitHub\\Niblit",
+    "head": "1b40c4113b0df61ecb561b73b8f7a38ed4280832",
+    "source_sha256": {
+      "modules/strategy_manager.py": "00f749aa99591ebcd1ea1dca179e8396e9fdcce408e626e0bc3c2435f67c8ab6",
+      "modules/execution_graph.py": "f50429b7e84766600b8d8141ae4172b5cfbfe3285cdc3f6601eb25faae86f8a8",
+      "modules/cognitive_ingress.py": "ea32db50a78a868c6ab16264ac5bd9530014c964c8a58e37e5df614c0d37d02a",
+      "server.py": "b0a44f1ffb2cf3212288e9e71525d255426e33dce04740c7d75cf6602cb72dc7",
+      "modules/memory_laboratory/runtime.py": "c5a1384f430391fbb0b3a5da2b2ff02d0ac1d0a15719f10fb5b07809070da42a",
+      "modules/freqtrade_research.py": "24279319203727f178b3c37071096c7d3c845d488ce698d865b03cee6f7232cd",
+      "modules/trading_desk.py": "005395511d198f17527250bdb19f40dce4e2415ca2b98ca6ba73ad12cfe4540c",
+      "tests/test_core_market_pipeline.py": "33809e690efbf0fee852fb1e1ea9690a3aae47e2dcab10ea16e5b93b14b57575"
+    },
+    "command": "C:\\Users\\Operator\\Documents\\GitHub\\Niblit\\niblit-env\\Scripts\\python.exe -m pytest tests/test_core_market_pipeline.py tests/test_strategy_failure_consensus.py tests/test_freqtrade_analysis_integration.py tests/test_freqtrade_research.py tests/test_strategy_manager.py tests/test_demo_autotrader.py tests/test_trading_desk.py tests/test_strategy_research.py tests/test_online_market_study.py tests/test_native_runtime_readiness.py tests/test_memory_persistence_ownership.py tests/test_memory_framework_runtime.py tests/test_memory_laboratory_gateway.py tests/test_phase5r_governance_hardening.py tests/test_paper_gateway.py test_cognitive_contract_rollout.py test_phase21_cognitive_layer.py -q -p no:cacheprovider --basetemp=C:\\Users\\Operator\\Documents\\Codex\\2026-11-01\\referenced-chatgpt-conversation-this-is-an\\work\\v15-integration --junitxml=C:\\Users\\Operator\\Documents\\Codex\\2026-11-01\\referenced-chatgpt-conversation-this-is-an\\work\\v15\\integration.xml",
+    "working_directory": "C:\\Users\\Operator\\Documents\\GitHub\\Niblit",
+    "exit_code": 0,
+    "result": "PASS",
+    "tests": 252,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0,
+    "log": "C:\\Users\\Operator\\Documents\\Codex\\2026-11-01\\referenced-chatgpt-conversation-this-is-an\\work\\v15\\integration.log",
+    "junit": "C:\\Users\\Operator\\Documents\\Codex\\2026-11-01\\referenced-chatgpt-conversation-this-is-an\\work\\v15\\integration.xml",
+    "limitations": "Fixture market/provider and Qdrant backend, real Core ingress/graph/strategies/SQLite and HTTP handlers. No real broker, feed, deployed Core process or live Qdrant acceptance."
+  }
+}

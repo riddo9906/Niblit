@@ -36,6 +36,11 @@ from modules.niblit_ui_launcher import (
 # Helpers
 # ─────────────────────────────────────────────────────────────────────────────
 
+@pytest.fixture(autouse=True)
+def owned_api_for_mocked_http_tests(monkeypatch):
+    # These legacy tests stub HTTP readiness; ownership has dedicated tests.
+    monkeypatch.setattr('modules.niblit_ui_launcher._api_owned_by_current_process',lambda url:True)
+
 @pytest.mark.parametrize("present", [True, False])
 def test_frozen_cloud_autostart_uses_service_executable(tmp_path, present, monkeypatch):
     import sys

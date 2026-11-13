@@ -1,4 +1,4 @@
-param([string]$ListenAddress = '127.0.0.1')
+param([string]$ListenAddress = '127.0.0.1', [ValidateRange(4096,16384)][int]$ContextSize = 8192)
 $ErrorActionPreference = 'Stop'
 $portalRoot = Split-Path -Parent $PSScriptRoot
 $serverExe = Join-Path $env:USERPROFILE 'llama_migration\llama.cpp\build\bin\Release\llama-server.exe'
@@ -21,7 +21,7 @@ if (!(Test-Path -LiteralPath $keyPath)) {
 }
 # The key is read from an ignored private file, never command arguments or logs.
 $serverArgs = @('-m', $modelPath, '--alias', 'qwen2.5-coder-3b', '--host', $ListenAddress,
-    '--port', '8766', '--ctx-size', '4096', '--threads', '2', '--parallel', '1',
+    '--port', '8766', '--ctx-size', $ContextSize.ToString(), '--threads', '2', '--parallel', '1',
     '--gpu-layers', '0', '--api-key-file', $keyPath)
 $modelProcess = Start-Process -FilePath $serverExe -ArgumentList $serverArgs -WindowStyle Hidden -PassThru `
     -RedirectStandardOutput (Join-Path $dataPath 'gguf.stdout.log') `

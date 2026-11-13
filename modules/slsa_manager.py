@@ -98,7 +98,9 @@ class SLSAManager:
 
                 # Wait for thread
                 if self.thread and self.thread.is_alive():
-                    self.thread.join(timeout=5)
+                    self.thread.join(timeout=15)
+                    if self.thread.is_alive():
+                        return "SLSA cancellation requested; worker still pending."
 
                 self.engine = None
                 self.thread = None

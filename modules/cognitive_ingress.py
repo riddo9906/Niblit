@@ -57,7 +57,7 @@ class CognitiveIngress:
 
         intent_profile = intent_engine.classify(request.normalized_text)
         mode = router.route(intent_profile)
-        recalled = self._recall(request)
+        recalled = [] if "market_observation" in request.metadata else self._recall(request)
         authorization = self._authorize(request=request, mode=mode)
         plan = CognitivePlanRecord(
             request_id=request.request_id,
@@ -90,6 +90,8 @@ class CognitiveIngress:
             "selected_module": plan.selected_module,
             "selected_function": plan.selected_function,
         }
+        if "market_observation" in request.metadata:
+            exec_context["market_observation"] = request.metadata["market_observation"]
         exec_result = graph.run(request.normalized_text, context=exec_context, mode=mode)
         quality_score = float(getattr(exec_result, "quality_score", 0.5) or 0.5)
         execution = CognitiveExecutionRecord(
@@ -112,6 +114,8 @@ class CognitiveIngress:
                 "authorization": authorization,
                 "semantic_profile": intent_profile.to_dict(),
                 "recalled_knowledge": recalled,
+                **({"market_analysis": getattr(exec_result, "market_analysis", {})}
+                   if "market_observation" in request.metadata else {}),
             },
         )
         provenance = build_provenance_record(
@@ -123,7 +127,10 @@ class CognitiveIngress:
             downstream_consumers=["unified_runtime", "reflection_engine", "knowledge_memory"],
         )
         self._record_provenance(provenance.to_dict())
-        self._record_knowledge(execution)
+        if "market_observation" in request.metadata:
+            execution.metadata["market_memory"] = self._record_market_analysis(execution, request.metadata["market_observation"])
+        else:
+            self._record_knowledge(execution)
 
         self._save_checkpoint(
             CognitiveCheckpointRecord.create(
@@ -197,7 +204,7 @@ class CognitiveIngress:
     def _authorize(self, *, request: CognitiveRequestRecord, mode: Any) -> dict[str, Any]:
         allowed = True
         reason = "allowed"
-        if getattr(mode, "run_governance", False) and request.metadata.get("authorization_denied"):
+        if request.metadata.get("authorization_denied"):
             allowed = False
             reason = "metadata_denied"
         return {"allowed": allowed, "reason": reason, "mode": getattr(mode, "mode_name", "")}
@@ -206,6 +213,61 @@ class CognitiveIngress:
     def _execution_errors(exec_result: Any) -> list[str]:
         step_results = list(getattr(exec_result, "step_results", []) or [])
         return [str(getattr(item, "error", "") or "") for item in step_results if not getattr(item, "success", True) and getattr(item, "error", "")]
+
+    def _record_market_analysis(self, execution, observation):
+        """Use Core's existing authorized outbox; no new store or worker."""
+        import hashlib
+        import json
+        try:
+            from modules.memory_laboratory.runtime import MemoryRuntime, runtime_memory
+            runtime = runtime_memory()
+            if runtime is None:
+                return {"state": "disabled", "queued": False}
+            analysis = execution.metadata.get("market_analysis", {})
+            evidence_identity = dict(observation) if isinstance(observation, dict) else {}
+            identity = [evidence_identity.get(k) for k in
+                        ("symbol", "venue", "timeframe", "mode", "account_scope")]
+            if not all(isinstance(v, str) and v.strip() for v in identity):
+                return {"state": "unscoped", "queued": False}
+            # Partition retrieval, not just metadata. Namespace derives from
+            # configured Core scope plus immutable producer/account/mode identity.
+            strategy_scope = {
+                "policy": analysis.get("policy_version", "unavailable"),
+                "strategies": sorted(c.get("strategy", "") for c in analysis.get("candidates", []))}
+            namespace = runtime.gateway.register_market_partition(
+                runtime.scope["namespace"], identity, strategy_scope, runtime.scope["principal"])
+            scoped = MemoryRuntime(runtime.gateway, scope={
+                "namespace": namespace, "principal": runtime.scope["principal"]})
+            # Poll-time age is response telemetry, not a new immutable episode.
+            analysis = json.loads(json.dumps(analysis))
+            for key in ("as_of", "age_seconds", "received_at"):
+                analysis.get("observation", {}).pop(key, None)
+            observation = json.loads(json.dumps(observation))
+            observation.pop("received_at",None)
+            episode = {"analysis": analysis, "authorization": execution.metadata["authorization"],
+                       "observation": observation, "verification": "unverified_observation",
+                       "execution_authorized": False}
+            content = json.dumps(episode, sort_keys=True, allow_nan=False)
+            source = "market-analysis://" + hashlib.sha256(content.encode()).hexdigest()
+            receipt = scoped.enqueue(source=source, content=content, category="episodic",
+                metadata={"confidence": 0.2, "source_type": "market_analysis",
+                          "parent_namespace": runtime.scope["namespace"],
+                          "provenance": {"mode": identity[3], "verification": "unverified_observation"}})
+            try:
+                from modules.chart_annotations import record_chart_annotations
+                execution.metadata['chart_annotations'] = record_chart_annotations(
+                    scoped, observation, analysis, execution.metadata['authorization'])
+            except Exception as exc:
+                # A renderer/projection view failure cannot stop cognition or market memory.
+                execution.metadata['chart_annotations'] = {'state':'pending','error_type':type(exc).__name__,
+                                                           'annotations':[],'execution_authorized':False}
+            return {"state": "queued_to_core", "queued": True, "id": receipt,
+                    "namespace": namespace, "source": source,
+                    "projection": "pending_not_verified"}
+        except Exception as exc:
+            # The normal cognitive checkpoint retains the observation and retry
+            # state. Permission failures never become ingestion permissions.
+            return {"state": "pending", "queued": False, "error_type": type(exc).__name__}
 
     def _record_knowledge(self, execution: CognitiveExecutionRecord) -> None:
         if not execution.response.strip():

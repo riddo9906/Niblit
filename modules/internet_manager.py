@@ -369,11 +369,15 @@ class InternetManager:
     # SMART SEARCH
     # Returns structured results with source, text, and optional url
     def search(self, query, max_results=5, use_llm=True):
+        from modules.phased_research_engine import research_checkpoint
+
+        research_checkpoint()
         results = []
 
         # ───────── SERPEX (primary — used when SERPEX_API_KEY is set) ─────────
         if self.serpex_api_key:
             try:
+                research_checkpoint()
                 serpex_results = self._serpex_search(
                     query, max_results=max_results, category="web"
                 )
@@ -384,6 +388,7 @@ class InternetManager:
 
             # Also fetch news for richer context
             try:
+                research_checkpoint()
                 news_results = self._serpex_search(
                     query, max_results=max(2, max_results // 2), category="news"
                 )
@@ -395,6 +400,7 @@ class InternetManager:
         # ───────── SERPAPI (secondary — used when SERPAPI_API_KEY is set) ─────────
         if not results and self.serpapi_api_key:
             try:
+                research_checkpoint()
                 serpapi_results = self._serpapi_search(query, max_results=max_results)
                 if serpapi_results:
                     results.extend(serpapi_results)
@@ -406,7 +412,7 @@ class InternetManager:
             # Prefer duckduckgo-search package (returns real multi-result search)
             if DDGS_ENABLED:
                 try:
-                    with DDGS(timeout=10) as ddgs:
+                    with DDGS(timeout=research_checkpoint(10)) as ddgs:
                         ddg_hits = ddgs.text(query, max_results=max_results)
                     for hit in (ddg_hits or []):
                         # duckduckgo-search ≥6 returns 'body'; older versions
@@ -427,7 +433,7 @@ class InternetManager:
                     r = requests.get(
                         DDG_API,
                         params={"q": query, "format": "json", "no_html": 1},
-                        timeout=self.timeout
+                        timeout=research_checkpoint(self.timeout)
                     )
                     js = r.json()
                     if js.get("AbstractText"):
@@ -445,14 +451,14 @@ class InternetManager:
                     WIKI_SEARCH,
                     params={"action": "query", "list": "search", "srsearch": query, "format": "json"},
                     headers=HEADERS,
-                    timeout=self.timeout
+                    timeout=research_checkpoint(self.timeout)
                 )
                 js = r.json()
                 search_hits = js.get("query", {}).get("search", [])
                 if search_hits:
                     title = search_hits[0]["title"]
                     # Summary API
-                    r2 = requests.get(WIKI_SUMMARY.format(title.replace(" ", "_")), headers=HEADERS, timeout=self.timeout)
+                    r2 = requests.get(WIKI_SUMMARY.format(title.replace(" ", "_")), headers=HEADERS, timeout=research_checkpoint(self.timeout))
                     if r2.status_code == 200:
                         js2 = r2.json()
                         if js2.get("extract"):
@@ -471,7 +477,7 @@ class InternetManager:
                     if BS4_AVAILABLE:
                         # Fetch Google AI snippet box (fast — just parse the SERP HTML)
                         search_url = f"https://www.google.com/search?q={_url_quote(query)}"
-                        r_snip = requests.get(search_url, headers=HEADERS, timeout=10)
+                        r_snip = requests.get(search_url, headers=HEADERS, timeout=research_checkpoint(10))
                         if r_snip.status_code == 200:
                             soup = BeautifulSoup(r_snip.text, "html.parser")
                             snippet_divs = soup.find_all("div", class_=re.compile(r"(ayqGOc|xpdopen)"))
@@ -489,7 +495,7 @@ class InternetManager:
                         if not BS4_AVAILABLE:
                             break
                         try:
-                            page = requests.get(url, timeout=5, headers=HEADERS)
+                            page = requests.get(url, timeout=research_checkpoint(5), headers=HEADERS)
                             if page.status_code == 200:
                                 soup = BeautifulSoup(page.text, "html.parser")
                                 first_p = next(
@@ -564,6 +570,7 @@ class InternetManager:
         # can retrieve them semantically.
         if self.semantic_agent and cleaned_results:
             try:
+                research_checkpoint()
                 self.semantic_agent.store_knowledge(
                     [{"snippet": r["text"], "title": r.get("source", ""), "url": r.get("url")}
                      for r in cleaned_results if r.get("text")],

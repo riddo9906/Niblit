@@ -36,7 +36,7 @@ def test_memory_view_reports_real_counts_and_queries():
     finally:
         chat._instance = original
     assert result['memory']['counts']['facts'] == 1
-    assert result['records'] == [{'value': 'SQLite'}]
+    assert result['records'] == [{'value':'SQLite','summary':'SQLite','confidence':.5}]
     database.recall.assert_called_once_with(query='SQLite', limit=5)
 
 

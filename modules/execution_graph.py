@@ -84,6 +84,7 @@ class ExecutionResult:
     step_results: List[StepResult] = field(default_factory=list)
     tools_called: List[str] = field(default_factory=list)
     forecast_signal: str = "HOLD"
+    market_analysis: Dict[str, Any] = field(default_factory=dict)
     reflection_notes: str = ""
     mode: str = ""
     intent: str = ""
@@ -100,6 +101,7 @@ class ExecutionResult:
             "steps_run": self.steps_run,
             "tools_called": self.tools_called,
             "forecast_signal": self.forecast_signal,
+            "market_analysis": self.market_analysis,
             "reflection_notes": self.reflection_notes,
             "mode": self.mode,
             "intent": self.intent,
@@ -154,6 +156,12 @@ class ExecutionGraph:
         t0 = time.monotonic()
         ctx: Dict[str, Any] = dict(context or {})
         ctx["input"] = text
+        if "market_observation" in ctx:
+            ctx["forecast_signal"] = "HOLD"
+            ctx["market_analysis"] = {
+                "signal": "ABSTAIN", "abstain_reason": "analysis_unavailable",
+                "analysis_only": True, "execution_authorized": False,
+                "assessment_complete": False, "candidates": []}
         # Tool results must come from the governed LlmToolLoop only. Do not
         # accept caller-supplied result fields that could masquerade as executed
         # tools in the response, reflection, or telemetry.
@@ -168,7 +176,27 @@ class ExecutionGraph:
                 mode = get_cognitive_router().route(text)
 
             ctx["mode"] = mode
-            steps = self._build_steps(mode)
+            denied = (isinstance(ctx.get("authorization"), dict)
+                      and ctx["authorization"].get("allowed") is False)
+            if denied:
+                # Core denial precedes every specialist, irrespective of mode.
+                ctx["forecast_signal"] = "HOLD"
+                ctx["response"] = "Core authorization denied; no specialist action was run."
+                if "market_observation" in ctx:
+                    ctx["market_analysis"] = {
+                        "signal": "ABSTAIN", "abstain_reason": "core_denied",
+                        "analysis_only": True, "execution_authorized": False,
+                        "assessment_complete": False, "candidates": []}
+                steps = [("reflect", self._step_reflect)]
+            else:
+                steps = self._build_steps(mode)
+                if "market_observation" in ctx:
+                    # Structured evidence must not depend on text intent guessing.
+                    steps = [(name, fn) for name, fn in steps
+                             if name not in ("retrieve_memory", "run_forecast", "validate_risk")]
+                    index = next(i for i,(name,_) in enumerate(steps) if name=="generate_response")
+                    steps[index:index] = [("run_forecast", self._step_run_forecast),
+                                          ("validate_risk", self._step_validate_risk)]
             step_results: List[StepResult] = []
 
             for step_name, step_fn in steps:
@@ -183,6 +211,7 @@ class ExecutionGraph:
                 step_results=step_results,
                 tools_called=ctx.get("tools_called", []),
                 forecast_signal=ctx.get("forecast_signal", "HOLD"),
+                market_analysis=ctx.get("market_analysis", {}),
                 reflection_notes=ctx.get("reflection_notes", ""),
                 mode=mode.mode_name,
                 intent=mode.intent,
@@ -287,7 +316,13 @@ class ExecutionGraph:
             ctx["memory_results"] = []
 
     def _step_run_forecast(self, ctx: Dict) -> None:
-        """Consult the ForecastArbitrator or TFT adapter."""
+        """Consult existing rules for structured data, otherwise legacy forecasts."""
+        if "market_observation" in ctx:
+            from modules.strategy_manager import assess_observation
+            analysis = assess_observation(ctx["market_observation"])
+            ctx["market_analysis"] = analysis
+            ctx["forecast_signal"] = analysis["signal"] if analysis["signal"] in ("BUY", "SELL") else "HOLD"
+            return
         try:
             from modules.forecast_arbitrator import get_forecast_arbitrator
             arb = get_forecast_arbitrator()
@@ -307,7 +342,13 @@ class ExecutionGraph:
                 ctx["forecast_signal"] = "HOLD"
 
     def _step_validate_risk(self, ctx: Dict) -> None:
-        """Basic safety/risk check."""
+        """Record analysis limits without granting specialist order authority."""
+        if "market_observation" in ctx:
+            analysis = ctx.get("market_analysis", {})
+            analysis["execution_authorized"] = False
+            analysis["execution_gate"] = "analysis_only_existing_order_approval_still_required"
+            ctx["risk_validated"] = False
+            return
         try:
             from nibblebots.governance_evolution_engine import record_governance_event, EVT_CYCLE
             record_governance_event(EVT_CYCLE)
@@ -318,6 +359,14 @@ class ExecutionGraph:
     def _step_generate_response(self, ctx: Dict) -> None:
         """Assemble the final response string from context."""
         parts: List[str] = []
+
+        if "market_observation" in ctx:
+            analysis = ctx.get("market_analysis", {})
+            ctx["response"] = (
+                "Market analysis: " + analysis.get("signal", "ABSTAIN") + ". "
+                + analysis.get("abstain_reason", analysis.get("selection_reason", ""))
+                + " Analysis only; execution is not authorized.")
+            return
 
         # Attach forecast signal if available
         signal = ctx.get("forecast_signal")

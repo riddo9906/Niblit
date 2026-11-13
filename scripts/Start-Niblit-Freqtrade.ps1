@@ -4,6 +4,7 @@ $bundleRoot = $PSScriptRoot
 $configFile = (Resolve-Path -LiteralPath $ConfigPath).Path
 $config = Get-Content -LiteralPath $configFile -Raw | ConvertFrom-Json
 if (-not ($config.dry_run -is [bool])) { throw 'The private profile must explicitly set dry_run to true or false.' }
+if ($config.dry_run -eq $false -and $EnableTradingControls.IsPresent) { throw 'Real-money engine controls are disabled in this release. Live profiles support stopped observation only.' }
 if ($config.initial_state -ne 'stopped') { throw 'This launcher requires initial_state=stopped. Start trading deliberately through Freqtrade after reviewing the profile.' }
 if ($config.api_server.listen_ip_address -ne '127.0.0.1' -or $config.api_server.listen_port -ne 18080) { throw 'Set the Freqtrade API to 127.0.0.1:18080.' }
 if (-not $config.api_server.username -or -not $config.api_server.password) { throw 'Private Freqtrade API credentials are required.' }

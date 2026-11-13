@@ -1,0 +1,9 @@
+.venv/
+state/
+logs/
+backups/
+*.token
+gateway.json
+core-profile.json
+*.sqlite3*
+__pycache__/

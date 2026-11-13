@@ -1,0 +1,96 @@
+# Offline preparation only. Existing PVCs/Secret, image distribution and native
+# endpoint/CIDR configuration are prerequisites. Do not apply on this desktop.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: niblit-hybrid-portal
+data:
+  NIBLIT_PORTAL_DATA: /data
+  PORT: '8768'
+  NIBLIT_PORTAL_ORIGIN: http://portal.local.invalid
+  NIBLIT_PORTAL_MODEL_BACKEND: local_gguf
+  NIBLIT_PORTAL_GGUF_URL: http://192.0.2.1:8766
+  NIBLIT_PORTAL_GGUF_KEY_FILE: /run/secrets/local_model_key
+  NIBLIT_SHARED_ADMISSION: '1'
+  NIBLIT_ADMISSION_URL: http://192.0.2.1:8772
+  NIBLIT_PORTAL_LOCAL_LEARNING: '0'
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: niblit-hybrid-portal
+  annotations:
+    niblit.ai/acceptance: offline-contract-validation-only
+spec:
+  replicas: 1
+  strategy: {type: Recreate}
+  selector:
+    matchLabels: {app: niblit-hybrid-portal}
+  template:
+    metadata:
+      labels: {app: niblit-hybrid-portal}
+    spec:
+      automountServiceAccountToken: false
+      terminationGracePeriodSeconds: 30
+      securityContext: {runAsNonRoot: true, runAsUser: 1000, runAsGroup: 1000, fsGroup: 1000}
+      containers:
+        - name: portal
+          image: niblit/portal:2026.11.12-hybrid1
+          imagePullPolicy: IfNotPresent
+          ports: [{containerPort: 8768}]
+          envFrom: [{configMapRef: {name: niblit-hybrid-portal}}]
+          resources:
+            requests: {cpu: 100m, memory: 128Mi}
+            limits: {cpu: '1', memory: 512Mi}
+          securityContext:
+            readOnlyRootFilesystem: true
+            allowPrivilegeEscalation: false
+            capabilities: {drop: [ALL]}
+          readinessProbe:
+            exec:
+              command: [python, -c, "import os,urllib.request,urllib.parse; r=urllib.request.Request('http://127.0.0.1:8768/api/health',headers={'Host':urllib.parse.urlsplit(os.environ['NIBLIT_PORTAL_ORIGIN']).netloc}); urllib.request.urlopen(r,timeout=3)"]
+            initialDelaySeconds: 5
+            periodSeconds: 15
+            timeoutSeconds: 5
+          livenessProbe:
+            tcpSocket: {port: 8768}
+            initialDelaySeconds: 30
+            periodSeconds: 30
+          volumeMounts:
+            - {name: data, mountPath: /data}
+            - {name: backups, mountPath: /backups}
+            - {name: tmp, mountPath: /tmp}
+            - {name: local-key, mountPath: /run/secrets, readOnly: true}
+      volumes:
+        - {name: data, persistentVolumeClaim: {claimName: niblit-portal-data-existing}}
+        - {name: backups, persistentVolumeClaim: {claimName: niblit-portal-backups-existing}}
+        - {name: tmp, emptyDir: {medium: Memory, sizeLimit: 64Mi}}
+        - name: local-key
+          secret:
+            secretName: niblit-native-model-key
+            defaultMode: 288
+            items: [{key: key, path: local_model_key}]
+---
+apiVersion: v1
+kind: Service
+metadata: {name: niblit-hybrid-portal}
+spec:
+  type: ClusterIP
+  selector: {app: niblit-hybrid-portal}
+  ports: [{name: http, port: 8768, targetPort: 8768}]
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata: {name: niblit-hybrid-portal}
+spec:
+  podSelector:
+    matchLabels: {app: niblit-hybrid-portal}
+  policyTypes: [Ingress, Egress]
+  ingress:
+    - from: [{podSelector: {matchLabels: {app: niblit-ui}}}]
+      ports: [{protocol: TCP, port: 8768}]
+  egress:
+    - to: [{ipBlock: {cidr: 192.0.2.1/32}}]
+      ports: [{protocol: TCP, port: 8766}, {protocol: TCP, port: 8772}]
+    - to: [{namespaceSelector: {matchLabels: {kubernetes.io/metadata.name: kube-system}}}]
+      ports: [{protocol: UDP, port: 53}, {protocol: TCP, port: 53}]

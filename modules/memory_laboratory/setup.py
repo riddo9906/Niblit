@@ -10,6 +10,7 @@ import json
 import math
 import os
 import re
+import threading
 from dataclasses import dataclass, field
 from urllib.parse import urlsplit
 from uuid import uuid4
@@ -86,18 +87,24 @@ def validate_vector(vector):
     return [v / norm for v in result]
 
 
+def embedding_batch_size():
+    """Bound CPU/RAM demand independently of model/collection identity."""
+    try:
+        return max(1, min(int(os.getenv("NIBLIT_MEMORY_EMBEDDING_BATCH_SIZE", "4")), 8))
+    except ValueError:
+        return 4
+
+
 class DedicatedEmbedder:
-    """Pinned CPU embedding model. No Qwen, fabricated or zero-vector fallback."""
+    """Same pinned CPU model, serialized bounded batches; no Qwen fallback."""
     def __init__(self, config):
         self.config = config
         self._model = None
+        self._lock = threading.RLock()
 
-    def embed(self, text, *, query=False):
-        if not text.strip():
-            raise ValueError("empty embedding input")
+    def _load_model(self):
         if self._model is None:
             import torch
-            # Bound CPU contention with the UI, market feeds and local chat.
             torch.set_num_threads(max(1, min(int(os.getenv("NIBLIT_MEMORY_EMBEDDING_THREADS", "2")), 8)))
             from sentence_transformers import SentenceTransformer
             self._model = SentenceTransformer(
@@ -105,10 +112,30 @@ class DedicatedEmbedder:
                 device="cpu", trust_remote_code=False,
                 local_files_only=not self.config.allow_download,
             )
+        return self._model
+
+    def embed(self, text, *, query=False):
+        return self.embed_many([text], query=query)[0]
+
+    def embed_many(self, texts, *, query=False):
+        if not isinstance(texts, list) or not 1 <= len(texts) <= 200 or any(
+                not isinstance(text,str) or not text.strip() or len(text)>4000 for text in texts):
+            raise ValueError("invalid bounded embedding inputs")
         prefix = ("query: " if query else "passage: ") if "e5" in self.config.model.lower() else ""
-        vector = self._model.encode(prefix + text, normalize_embeddings=True,
-                                    show_progress_bar=False).tolist()
-        return validate_vector(vector)
+        size = embedding_batch_size()
+        vectors = []
+        with self._lock:
+            model = self._load_model()
+            for start in range(0,len(texts),size):
+                batch = [prefix + text for text in texts[start:start+size]]
+                encoded = model.encode(batch, batch_size=size, normalize_embeddings=True,
+                                       show_progress_bar=False).tolist()
+                if len(encoded) != len(batch):
+                    raise ValueError("incomplete embedding batch")
+                vectors.extend(validate_vector(v) for v in encoded)
+        if any(len(v)!=len(vectors[0]) for v in vectors):
+            raise ValueError("embedding dimensions changed within batch")
+        return vectors
 
 
 class QdrantSetup:

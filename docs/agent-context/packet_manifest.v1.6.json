@@ -1,0 +1,369 @@
+{
+  "version": "1.6",
+  "updated_at": "2026-11-01T17:18:24.489046+00:00",
+  "repositories": {
+    "Niblit": {
+      "root": "C:\\Users\\Operator\\Documents\\GitHub\\Niblit",
+      "head": "1b40c4113b0df61ecb561b73b8f7a38ed4280832",
+      "diff_check": "PASS"
+    },
+    "Niblit-cloud-server": {
+      "root": "C:\\Users\\Operator\\Documents\\GitHub\\Niblit-cloud-server",
+      "head": "c6f2291f0ca9fc76ab77b3f2723d439c7dd78c32",
+      "diff_check": "PASS"
+    }
+  },
+  "source_sha256": {
+    "Niblit/modules/trading_desk.py": "2cad4ca21c4c47fa30d96a94459aad8478081279f6600a1f3d803be95bbcc2dd",
+    "Niblit-cloud-server/app/trading/freqtrade_adapter.py": "2b17a4882c8bb0ea77f912bc83ec18e42f6c9bbef83a6751acb6251470e3eb39",
+    "Niblit-cloud-server/app/trading/router.py": "304cd139f9987784bb7de9143297afccfd89cc0b8d0ce8b8bc9abbff4206eb7b",
+    "Niblit-cloud-server/app/trading/freqtrade_supervisor.py": "9f44ebcfbed7a8916fc68d83875ec4dbbd0e304ad98311470d3f082d44e51b8c",
+    "Niblit-cloud-server/app/execution/freqtrade_adapters.py": "df2264d25d33c4507351b94c59b7d472c1b9de217b15a289190622189e2137a5",
+    "Niblit-cloud-server/tests/test_trading_pipeline.py": "a55576a517764826303f28d5f9194a0d880868ba61fbdc9ea9479b320e84178d",
+    "Niblit/server.py": "0c0edb301d84c1d8c4526960f4b1e60ecc370d8de8538369ac006276e3a9c7ce",
+    "Niblit-cloud-server/tests/test_cloud_execution_governance.py": "c87b144b61ce99f9b3ba80e54260a86e3aba2322dd1026d9c6d0f2c2ca2dd072",
+    "Niblit-cloud-server/tests/core_execution_contract_cases.py": "c1319ea9f6af438e839e3f94a0dfc7b66c308c6cd15c1e1d53dbea2c917700e0",
+    "Niblit/scripts/check-market-pipeline.py": "b63b2ed45d1b5570671a72c0636975a5d32bed1a3e56fb791169d5e148ffcae5",
+    "Niblit/tests/test_market_pipeline_readiness.py": "583f79b36c4e1f4521acb4c5ae707ab45e08ed67091878776c66f2757232e7a1"
+  },
+  "v15_reconciled": {
+    "modules/strategy_manager.py": true,
+    "modules/execution_graph.py": true,
+    "modules/cognitive_ingress.py": true,
+    "server.py": true,
+    "modules/memory_laboratory/runtime.py": true,
+    "modules/freqtrade_research.py": true,
+    "modules/trading_desk.py": true,
+    "tests/test_core_market_pipeline.py": true
+  },
+  "checkpoint": "C:\\Users\\Operator\\Documents\\GitHub\\Niblit\\docs\\agent-context\\checkpoints\\v1.6-start.json",
+  "core_results": {
+    "tests": 279,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0
+  },
+  "cloud_results": {
+    "tests": 238,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0
+  },
+  "cloud_deselected_existing_failure": 1,
+  "contract_nested_cases": 34,
+  "contract_outer_passed": true,
+  "evidence": [
+    {
+      "evidence_id": "v16-core-final",
+      "repo": "Niblit",
+      "result": "PASS",
+      "exit_code": 0,
+      "tests": 279,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "command": "C:\\Users\\Operator\\Documents\\GitHub\\Niblit\\niblit-env\\Scripts\\python.exe -m pytest tests/test_core_market_pipeline.py tests/test_strategy_failure_consensus.py tests/test_freqtrade_analysis_integration.py tests/test_freqtrade_research.py tests/test_strategy_manager.py tests/test_demo_autotrader.py tests/test_trading_desk.py tests/test_strategy_research.py tests/test_online_market_study.py tests/test_native_runtime_readiness.py tests/test_memory_persistence_ownership.py tests/test_memory_framework_runtime.py tests/test_memory_laboratory_gateway.py tests/test_phase5r_governance_hardening.py tests/test_paper_gateway.py tests/test_mt5_orders.py tests/test_mt5_bridge.py tests/test_market_pipeline_readiness.py test_cognitive_contract_rollout.py test_phase21_cognitive_layer.py -q -p no:cacheprovider --basetemp=C:\\Users\\Operator\\Documents\\Codex\\2026-11-01\\referenced-chatgpt-conversation-this-is-an\\work\\v16-core-final --junitxml=C:\\Users\\Operator\\Documents\\Codex\\2026-11-01\\referenced-chatgpt-conversation-this-is-an\\work\\v16\\core-final.xml",
+      "log": "C:\\Users\\Operator\\Documents\\GitHub\\Niblit\\docs\\agent-context\\evidence\\v1.6\\core-final.log",
+      "captured_at": "2026-11-01T17:18:24.489046+00:00",
+      "source_sha256": {
+        "Niblit/modules/trading_desk.py": "2cad4ca21c4c47fa30d96a94459aad8478081279f6600a1f3d803be95bbcc2dd",
+        "Niblit-cloud-server/app/trading/freqtrade_adapter.py": "2b17a4882c8bb0ea77f912bc83ec18e42f6c9bbef83a6751acb6251470e3eb39",
+        "Niblit-cloud-server/app/trading/router.py": "304cd139f9987784bb7de9143297afccfd89cc0b8d0ce8b8bc9abbff4206eb7b",
+        "Niblit-cloud-server/app/trading/freqtrade_supervisor.py": "9f44ebcfbed7a8916fc68d83875ec4dbbd0e304ad98311470d3f082d44e51b8c",
+        "Niblit-cloud-server/app/execution/freqtrade_adapters.py": "df2264d25d33c4507351b94c59b7d472c1b9de217b15a289190622189e2137a5",
+        "Niblit-cloud-server/tests/test_trading_pipeline.py": "a55576a517764826303f28d5f9194a0d880868ba61fbdc9ea9479b320e84178d",
+        "Niblit/server.py": "0c0edb301d84c1d8c4526960f4b1e60ecc370d8de8538369ac006276e3a9c7ce",
+        "Niblit-cloud-server/tests/test_cloud_execution_governance.py": "c87b144b61ce99f9b3ba80e54260a86e3aba2322dd1026d9c6d0f2c2ca2dd072",
+        "Niblit-cloud-server/tests/core_execution_contract_cases.py": "c1319ea9f6af438e839e3f94a0dfc7b66c308c6cd15c1e1d53dbea2c917700e0",
+        "Niblit/scripts/check-market-pipeline.py": "b63b2ed45d1b5570671a72c0636975a5d32bed1a3e56fb791169d5e148ffcae5",
+        "Niblit/tests/test_market_pipeline_readiness.py": "583f79b36c4e1f4521acb4c5ae707ab45e08ed67091878776c66f2757232e7a1"
+      },
+      "repositories": {
+        "Niblit": {
+          "root": "C:\\Users\\Operator\\Documents\\GitHub\\Niblit",
+          "head": "1b40c4113b0df61ecb561b73b8f7a38ed4280832",
+          "diff_check": "PASS"
+        },
+        "Niblit-cloud-server": {
+          "root": "C:\\Users\\Operator\\Documents\\GitHub\\Niblit-cloud-server",
+          "head": "c6f2291f0ca9fc76ab77b3f2723d439c7dd78c32",
+          "diff_check": "PASS"
+        }
+      },
+      "working_directory": "C:\\Users\\Operator\\Documents\\GitHub\\Niblit"
+    },
+    {
+      "evidence_id": "v16-cloud-final",
+      "repo": "Niblit-cloud-server",
+      "result": "PASS_SCOPED",
+      "exit_code": 0,
+      "tests": 238,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "command": "C:\\Users\\Operator\\Documents\\GitHub\\Niblit\\niblit-env\\Scripts\\python.exe -m pytest tests/test_cloud_execution_governance.py tests/test_trading_pipeline.py tests/test_api.py tests/test_cognitive_gateway.py tests/test_interoperability_bridge.py tests/test_runtime_tooling_layer.py tests/test_cognitive_runtime.py -k 'not test_termux_inference_server_dry_run_resolves_termux_defaults' -q -p no:cacheprovider --basetemp=C:\\Users\\Operator\\Documents\\Codex\\2026-11-01\\referenced-chatgpt-conversation-this-is-an\\work\\v16-cloud-final --junitxml=C:\\Users\\Operator\\Documents\\Codex\\2026-11-01\\referenced-chatgpt-conversation-this-is-an\\work\\v16\\cloud-final.xml",
+      "log": "C:\\Users\\Operator\\Documents\\GitHub\\Niblit\\docs\\agent-context\\evidence\\v1.6\\cloud-final.log",
+      "deselected": 1,
+      "limitation": "Independent Windows/Termux launcher failure in unchanged code, reproduced separately. Not marked passed.",
+      "captured_at": "2026-11-01T17:18:24.489046+00:00",
+      "source_sha256": {
+        "Niblit/modules/trading_desk.py": "2cad4ca21c4c47fa30d96a94459aad8478081279f6600a1f3d803be95bbcc2dd",
+        "Niblit-cloud-server/app/trading/freqtrade_adapter.py": "2b17a4882c8bb0ea77f912bc83ec18e42f6c9bbef83a6751acb6251470e3eb39",
+        "Niblit-cloud-server/app/trading/router.py": "304cd139f9987784bb7de9143297afccfd89cc0b8d0ce8b8bc9abbff4206eb7b",
+        "Niblit-cloud-server/app/trading/freqtrade_supervisor.py": "9f44ebcfbed7a8916fc68d83875ec4dbbd0e304ad98311470d3f082d44e51b8c",
+        "Niblit-cloud-server/app/execution/freqtrade_adapters.py": "df2264d25d33c4507351b94c59b7d472c1b9de217b15a289190622189e2137a5",
+        "Niblit-cloud-server/tests/test_trading_pipeline.py": "a55576a517764826303f28d5f9194a0d880868ba61fbdc9ea9479b320e84178d",
+        "Niblit/server.py": "0c0edb301d84c1d8c4526960f4b1e60ecc370d8de8538369ac006276e3a9c7ce",
+        "Niblit-cloud-server/tests/test_cloud_execution_governance.py": "c87b144b61ce99f9b3ba80e54260a86e3aba2322dd1026d9c6d0f2c2ca2dd072",
+        "Niblit-cloud-server/tests/core_execution_contract_cases.py": "c1319ea9f6af438e839e3f94a0dfc7b66c308c6cd15c1e1d53dbea2c917700e0",
+        "Niblit/scripts/check-market-pipeline.py": "b63b2ed45d1b5570671a72c0636975a5d32bed1a3e56fb791169d5e148ffcae5",
+        "Niblit/tests/test_market_pipeline_readiness.py": "583f79b36c4e1f4521acb4c5ae707ab45e08ed67091878776c66f2757232e7a1"
+      },
+      "repositories": {
+        "Niblit": {
+          "root": "C:\\Users\\Operator\\Documents\\GitHub\\Niblit",
+          "head": "1b40c4113b0df61ecb561b73b8f7a38ed4280832",
+          "diff_check": "PASS"
+        },
+        "Niblit-cloud-server": {
+          "root": "C:\\Users\\Operator\\Documents\\GitHub\\Niblit-cloud-server",
+          "head": "c6f2291f0ca9fc76ab77b3f2723d439c7dd78c32",
+          "diff_check": "PASS"
+        }
+      },
+      "working_directory": "C:\\Users\\Operator\\Documents\\GitHub\\Niblit-cloud-server"
+    },
+    {
+      "evidence_id": "v16-cloud-core-contract",
+      "result": "PASS",
+      "exit_code": 0,
+      "nested_test_cases": 34,
+      "outer_tests": 1,
+      "command": "C:\\Users\\Operator\\Documents\\GitHub\\Niblit\\niblit-env\\Scripts\\python.exe -m pytest C:\\Users\\Operator\\Documents\\GitHub\\Niblit-cloud-server\\tests\\test_cloud_execution_governance.py -q -p no:cacheprovider --basetemp=C:\\Users\\Operator\\Documents\\Codex\\2026-11-01\\referenced-chatgpt-conversation-this-is-an\\work\\v16-contract-isolated --junitxml=C:\\Users\\Operator\\Documents\\Codex\\2026-11-01\\referenced-chatgpt-conversation-this-is-an\\work\\v16\\contract-isolated.xml",
+      "log": "C:\\Users\\Operator\\Documents\\GitHub\\Niblit\\docs\\agent-context\\evidence\\v1.6\\contract-isolated.log",
+      "limitation": "Real HTTP handlers/Core ticket ledger; fake broker. Wrapper asserts 34 child tests pass. No authenticated real-service execution.",
+      "captured_at": "2026-11-01T17:18:24.489046+00:00",
+      "source_sha256": {
+        "Niblit/modules/trading_desk.py": "2cad4ca21c4c47fa30d96a94459aad8478081279f6600a1f3d803be95bbcc2dd",
+        "Niblit-cloud-server/app/trading/freqtrade_adapter.py": "2b17a4882c8bb0ea77f912bc83ec18e42f6c9bbef83a6751acb6251470e3eb39",
+        "Niblit-cloud-server/app/trading/router.py": "304cd139f9987784bb7de9143297afccfd89cc0b8d0ce8b8bc9abbff4206eb7b",
+        "Niblit-cloud-server/app/trading/freqtrade_supervisor.py": "9f44ebcfbed7a8916fc68d83875ec4dbbd0e304ad98311470d3f082d44e51b8c",
+        "Niblit-cloud-server/app/execution/freqtrade_adapters.py": "df2264d25d33c4507351b94c59b7d472c1b9de217b15a289190622189e2137a5",
+        "Niblit-cloud-server/tests/test_trading_pipeline.py": "a55576a517764826303f28d5f9194a0d880868ba61fbdc9ea9479b320e84178d",
+        "Niblit/server.py": "0c0edb301d84c1d8c4526960f4b1e60ecc370d8de8538369ac006276e3a9c7ce",
+        "Niblit-cloud-server/tests/test_cloud_execution_governance.py": "c87b144b61ce99f9b3ba80e54260a86e3aba2322dd1026d9c6d0f2c2ca2dd072",
+        "Niblit-cloud-server/tests/core_execution_contract_cases.py": "c1319ea9f6af438e839e3f94a0dfc7b66c308c6cd15c1e1d53dbea2c917700e0",
+        "Niblit/scripts/check-market-pipeline.py": "b63b2ed45d1b5570671a72c0636975a5d32bed1a3e56fb791169d5e148ffcae5",
+        "Niblit/tests/test_market_pipeline_readiness.py": "583f79b36c4e1f4521acb4c5ae707ab45e08ed67091878776c66f2757232e7a1"
+      },
+      "repositories": {
+        "Niblit": {
+          "root": "C:\\Users\\Operator\\Documents\\GitHub\\Niblit",
+          "head": "1b40c4113b0df61ecb561b73b8f7a38ed4280832",
+          "diff_check": "PASS"
+        },
+        "Niblit-cloud-server": {
+          "root": "C:\\Users\\Operator\\Documents\\GitHub\\Niblit-cloud-server",
+          "head": "c6f2291f0ca9fc76ab77b3f2723d439c7dd78c32",
+          "diff_check": "PASS"
+        }
+      }
+    },
+    {
+      "evidence_id": "v16-readiness-unit",
+      "result": "PASS",
+      "exit_code": 0,
+      "tests": 10,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "command": "C:\\Users\\Operator\\Documents\\GitHub\\Niblit\\niblit-env\\Scripts\\python.exe -m pytest tests/test_market_pipeline_readiness.py -q -p no:cacheprovider --basetemp=C:\\Users\\Operator\\Documents\\Codex\\2026-11-01\\referenced-chatgpt-conversation-this-is-an\\work\\v16-readiness-tests --junitxml=C:\\Users\\Operator\\Documents\\Codex\\2026-11-01\\referenced-chatgpt-conversation-this-is-an\\work\\v16\\readiness-tests.xml",
+      "repo": "Niblit",
+      "captured_at": "2026-11-01T17:18:24.489046+00:00",
+      "source_sha256": {
+        "Niblit/modules/trading_desk.py": "2cad4ca21c4c47fa30d96a94459aad8478081279f6600a1f3d803be95bbcc2dd",
+        "Niblit-cloud-server/app/trading/freqtrade_adapter.py": "2b17a4882c8bb0ea77f912bc83ec18e42f6c9bbef83a6751acb6251470e3eb39",
+        "Niblit-cloud-server/app/trading/router.py": "304cd139f9987784bb7de9143297afccfd89cc0b8d0ce8b8bc9abbff4206eb7b",
+        "Niblit-cloud-server/app/trading/freqtrade_supervisor.py": "9f44ebcfbed7a8916fc68d83875ec4dbbd0e304ad98311470d3f082d44e51b8c",
+        "Niblit-cloud-server/app/execution/freqtrade_adapters.py": "df2264d25d33c4507351b94c59b7d472c1b9de217b15a289190622189e2137a5",
+        "Niblit-cloud-server/tests/test_trading_pipeline.py": "a55576a517764826303f28d5f9194a0d880868ba61fbdc9ea9479b320e84178d",
+        "Niblit/server.py": "0c0edb301d84c1d8c4526960f4b1e60ecc370d8de8538369ac006276e3a9c7ce",
+        "Niblit-cloud-server/tests/test_cloud_execution_governance.py": "c87b144b61ce99f9b3ba80e54260a86e3aba2322dd1026d9c6d0f2c2ca2dd072",
+        "Niblit-cloud-server/tests/core_execution_contract_cases.py": "c1319ea9f6af438e839e3f94a0dfc7b66c308c6cd15c1e1d53dbea2c917700e0",
+        "Niblit/scripts/check-market-pipeline.py": "b63b2ed45d1b5570671a72c0636975a5d32bed1a3e56fb791169d5e148ffcae5",
+        "Niblit/tests/test_market_pipeline_readiness.py": "583f79b36c4e1f4521acb4c5ae707ab45e08ed67091878776c66f2757232e7a1"
+      },
+      "repositories": {
+        "Niblit": {
+          "root": "C:\\Users\\Operator\\Documents\\GitHub\\Niblit",
+          "head": "1b40c4113b0df61ecb561b73b8f7a38ed4280832",
+          "diff_check": "PASS"
+        },
+        "Niblit-cloud-server": {
+          "root": "C:\\Users\\Operator\\Documents\\GitHub\\Niblit-cloud-server",
+          "head": "c6f2291f0ca9fc76ab77b3f2723d439c7dd78c32",
+          "diff_check": "PASS"
+        }
+      },
+      "working_directory": "C:\\Users\\Operator\\Documents\\GitHub\\Niblit"
+    },
+    {
+      "evidence_id": "v16-real-market",
+      "result": "BLOCKED",
+      "exit_code": 1,
+      "command": "C:\\Users\\Operator\\Documents\\GitHub\\Niblit\\niblit-env\\Scripts\\python.exe scripts/check-market-pipeline.py",
+      "repo": "Niblit",
+      "log": "C:\\Users\\Operator\\Documents\\GitHub\\Niblit\\docs\\agent-context\\evidence\\v1.6\\real-market-host.json",
+      "limitation": "ConnectError; no actual feed/strategy/Core roundtrip acceptance",
+      "captured_at": "2026-11-01T17:18:24.489046+00:00",
+      "source_sha256": {
+        "Niblit/modules/trading_desk.py": "2cad4ca21c4c47fa30d96a94459aad8478081279f6600a1f3d803be95bbcc2dd",
+        "Niblit-cloud-server/app/trading/freqtrade_adapter.py": "2b17a4882c8bb0ea77f912bc83ec18e42f6c9bbef83a6751acb6251470e3eb39",
+        "Niblit-cloud-server/app/trading/router.py": "304cd139f9987784bb7de9143297afccfd89cc0b8d0ce8b8bc9abbff4206eb7b",
+        "Niblit-cloud-server/app/trading/freqtrade_supervisor.py": "9f44ebcfbed7a8916fc68d83875ec4dbbd0e304ad98311470d3f082d44e51b8c",
+        "Niblit-cloud-server/app/execution/freqtrade_adapters.py": "df2264d25d33c4507351b94c59b7d472c1b9de217b15a289190622189e2137a5",
+        "Niblit-cloud-server/tests/test_trading_pipeline.py": "a55576a517764826303f28d5f9194a0d880868ba61fbdc9ea9479b320e84178d",
+        "Niblit/server.py": "0c0edb301d84c1d8c4526960f4b1e60ecc370d8de8538369ac006276e3a9c7ce",
+        "Niblit-cloud-server/tests/test_cloud_execution_governance.py": "c87b144b61ce99f9b3ba80e54260a86e3aba2322dd1026d9c6d0f2c2ca2dd072",
+        "Niblit-cloud-server/tests/core_execution_contract_cases.py": "c1319ea9f6af438e839e3f94a0dfc7b66c308c6cd15c1e1d53dbea2c917700e0",
+        "Niblit/scripts/check-market-pipeline.py": "b63b2ed45d1b5570671a72c0636975a5d32bed1a3e56fb791169d5e148ffcae5",
+        "Niblit/tests/test_market_pipeline_readiness.py": "583f79b36c4e1f4521acb4c5ae707ab45e08ed67091878776c66f2757232e7a1"
+      },
+      "repositories": {
+        "Niblit": {
+          "root": "C:\\Users\\Operator\\Documents\\GitHub\\Niblit",
+          "head": "1b40c4113b0df61ecb561b73b8f7a38ed4280832",
+          "diff_check": "PASS"
+        },
+        "Niblit-cloud-server": {
+          "root": "C:\\Users\\Operator\\Documents\\GitHub\\Niblit-cloud-server",
+          "head": "c6f2291f0ca9fc76ab77b3f2723d439c7dd78c32",
+          "diff_check": "PASS"
+        }
+      },
+      "working_directory": "C:\\Users\\Operator\\Documents\\GitHub\\Niblit"
+    },
+    {
+      "evidence_id": "v16-existing-launcher-defect",
+      "result": "FAIL_IN_UNCHANGED_CODE",
+      "exit_code": 1,
+      "tests": 1,
+      "failures": 1,
+      "errors": 0,
+      "skipped": 0,
+      "command": "C:\\Users\\Operator\\Documents\\GitHub\\Niblit\\niblit-env\\Scripts\\python.exe -m pytest tests/test_runtime_tooling_layer.py::TestRuntimeProfiles::test_termux_inference_server_dry_run_resolves_termux_defaults -q -p no:cacheprovider --basetemp=C:\\Users\\Operator\\Documents\\Codex\\2026-11-01\\referenced-chatgpt-conversation-this-is-an\\work\\v16-termux-independent --junitxml=C:\\Users\\Operator\\Documents\\Codex\\2026-11-01\\referenced-chatgpt-conversation-this-is-an\\work\\v16\\termux-independent.xml",
+      "repo": "Niblit-cloud-server",
+      "limitation": "Reproduces without Core-contract imports; existing Git Bash/Windows Termux path conversion loses the model filename. No tooling source was changed.",
+      "captured_at": "2026-11-01T17:18:24.489046+00:00",
+      "source_sha256": {
+        "Niblit/modules/trading_desk.py": "2cad4ca21c4c47fa30d96a94459aad8478081279f6600a1f3d803be95bbcc2dd",
+        "Niblit-cloud-server/app/trading/freqtrade_adapter.py": "2b17a4882c8bb0ea77f912bc83ec18e42f6c9bbef83a6751acb6251470e3eb39",
+        "Niblit-cloud-server/app/trading/router.py": "304cd139f9987784bb7de9143297afccfd89cc0b8d0ce8b8bc9abbff4206eb7b",
+        "Niblit-cloud-server/app/trading/freqtrade_supervisor.py": "9f44ebcfbed7a8916fc68d83875ec4dbbd0e304ad98311470d3f082d44e51b8c",
+        "Niblit-cloud-server/app/execution/freqtrade_adapters.py": "df2264d25d33c4507351b94c59b7d472c1b9de217b15a289190622189e2137a5",
+        "Niblit-cloud-server/tests/test_trading_pipeline.py": "a55576a517764826303f28d5f9194a0d880868ba61fbdc9ea9479b320e84178d",
+        "Niblit/server.py": "0c0edb301d84c1d8c4526960f4b1e60ecc370d8de8538369ac006276e3a9c7ce",
+        "Niblit-cloud-server/tests/test_cloud_execution_governance.py": "c87b144b61ce99f9b3ba80e54260a86e3aba2322dd1026d9c6d0f2c2ca2dd072",
+        "Niblit-cloud-server/tests/core_execution_contract_cases.py": "c1319ea9f6af438e839e3f94a0dfc7b66c308c6cd15c1e1d53dbea2c917700e0",
+        "Niblit/scripts/check-market-pipeline.py": "b63b2ed45d1b5570671a72c0636975a5d32bed1a3e56fb791169d5e148ffcae5",
+        "Niblit/tests/test_market_pipeline_readiness.py": "583f79b36c4e1f4521acb4c5ae707ab45e08ed67091878776c66f2757232e7a1"
+      },
+      "repositories": {
+        "Niblit": {
+          "root": "C:\\Users\\Operator\\Documents\\GitHub\\Niblit",
+          "head": "1b40c4113b0df61ecb561b73b8f7a38ed4280832",
+          "diff_check": "PASS"
+        },
+        "Niblit-cloud-server": {
+          "root": "C:\\Users\\Operator\\Documents\\GitHub\\Niblit-cloud-server",
+          "head": "c6f2291f0ca9fc76ab77b3f2723d439c7dd78c32",
+          "diff_check": "PASS"
+        }
+      },
+      "working_directory": "C:\\Users\\Operator\\Documents\\GitHub\\Niblit-cloud-server"
+    }
+  ],
+  "readiness": {
+    "checked_at": 1793552577.4624422,
+    "ready_for_analysis": false,
+    "execution_ready": false,
+    "orders_sent": 0,
+    "services_started": false,
+    "execution_limit": "A separately reviewed current human Core ticket and all account/risk checks are still required.",
+    "blocked": "existing_dependency_unavailable",
+    "error_type": "ConnectError"
+  },
+  "service_probe": {
+    "checked_at": 1793552647.9793582,
+    "scope": "TCP presence only; not authorization or application health",
+    "ports": {
+      "Core": {
+        "port": 5000,
+        "listening": false
+      },
+      "CoreHumanDesk": {
+        "port": 8767,
+        "listening": false
+      },
+      "Freqtrade": {
+        "port": 8080,
+        "listening": false
+      },
+      "Lean": {
+        "port": 8100,
+        "listening": false
+      },
+      "LocalModel": {
+        "port": 8766,
+        "listening": false
+      },
+      "Memory": {
+        "port": 8772,
+        "listening": false
+      }
+    }
+  },
+  "delivery": "Governance hardening and contract verification complete for observed legacy Cloud mutation paths; real demo trading not operationally verified.",
+  "orders_sent_to_real_services": 0,
+  "services_started": [],
+  "live_configuration_changed": false,
+  "test_artifacts": [
+    {
+      "source": "C:\\Users\\Operator\\Documents\\GitHub\\Niblit-cloud-server\\niblit_memory.json",
+      "archived": "C:\\Users\\Operator\\Documents\\Codex\\2026-11-01\\referenced-chatgpt-conversation-this-is-an\\work\\v16\\import-artifacts\\niblit_memory.json",
+      "size": 700,
+      "sha256": "b0e9c0b942ab22af6d641e7d465530d3360c5303fe193e4680cadb2d6eca486f",
+      "reason": "Session-created import-time test snapshot; absent from v1.6 baseline"
+    },
+    {
+      "source": "C:\\Users\\Operator\\Documents\\GitHub\\Niblit-cloud-server\\niblit_memory.json.backup",
+      "archived": "C:\\Users\\Operator\\Documents\\Codex\\2026-11-01\\referenced-chatgpt-conversation-this-is-an\\work\\v16\\import-artifacts\\niblit_memory.json.backup",
+      "size": 700,
+      "sha256": "b0e9c0b942ab22af6d641e7d465530d3360c5303fe193e4680cadb2d6eca486f",
+      "reason": "Session-created import-time test snapshot; absent from v1.6 baseline"
+    }
+  ],
+  "next_action": {
+    "version": "1.6",
+    "updated_at": "2026-11-01T17:18:24.489046+00:00",
+    "task": "Restore the user's existing dependencies safely, then verify the real read-only market -> actual rules -> bound Core analysis -> canonical memory path.",
+    "root": "C:\\Users\\Operator\\Documents\\GitHub\\Niblit",
+    "next_command": "C:\\Users\\Operator\\Documents\\GitHub\\Niblit\\niblit-env\\Scripts\\python.exe scripts/check-market-pipeline.py",
+    "expected": "ready_for_analysis=true with current exchange candles, six actual rules, Core allow and canonical enqueue; execution_ready stays false.",
+    "preconditions": [
+      "Reinspect both repository HEAD/status/diffs and preserve v1.4-v1.6 uncommitted work",
+      "Check the existing private Freqtrade profile is dry_run=true and understand restart-enabled container/position state before starting Docker; do not resume entries implicitly",
+      "Reuse existing Core5000, human desk8767, Freqtrade8080, model8766 and memory8772; do not duplicate the build or mint new permissions"
+    ],
+    "after": "Only after separate deliberate human review use the existing current dry-run preview/ticket/ack/session contract to exercise bounded open/monitor/reconcile/close. Never infer permission from analysis readiness.",
+    "remaining": [
+      "Real services unavailable",
+      "Actual broker lifecycle not verified",
+      "Windows/Termux launcher defect in unchanged tooling",
+      "Lifecycle/cancel/config mutations have no supported transferable Core grant and remain blocked",
+      "Cloud ticket relay requires co-located loopback Core/human desk; remote delegation not provisioned"
+    ],
+    "started_processes": [],
+    "orders_sent": 0
+  }
+}

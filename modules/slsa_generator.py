@@ -137,7 +137,7 @@ class SLSAGenerator:
         try:
             import requests  # optional dep; harmless if unavailable  # pylint: disable=import-outside-toplevel
             url = _WIKI_SUMMARY.format(topic.replace(" ", "_"))
-            resp = requests.get(url, timeout=300)
+            resp = requests.get(url, timeout=10)
             if resp.status_code == 200:
                 js = resp.json()
                 self._stats["wiki_hits"] += 1
@@ -181,7 +181,7 @@ class SLSAGenerator:
         if not engine:
             return None
         try:
-            result = engine.research(topic, skip_phase3=True)
+            result = engine.research(topic, skip_phase3=True, cancel_event=self.stop_event)
             collected: Dict[str, List[str]] = {"phase1": [], "phase2": [], "phase3": []}
             for phase_key in ("phase1", "phase2", "phase3"):
                 phase_obj = getattr(result, phase_key, None)
@@ -430,13 +430,17 @@ class SLSAGenerator:
             self._thread.start()
             return self._thread
 
-    def stop(self, timeout: float = 5.0) -> None:
+    def stop(self, timeout: float = 15.0) -> bool:
         """Stop the loop and wait a bounded time for an in-flight request."""
         with self._start_lock:
             self.stop_event.set()
             thread = self._thread
         if thread is not None and thread is not threading.current_thread():
             thread.join(timeout=timeout)
+        stopped = thread is None or not thread.is_alive()
+        if not stopped:
+            log.warning("SLSAGeneratorThread still pending after cancellation")
+        return stopped
 
     def add_topic(self, topic: str) -> None:
         """Add a new topic to the running generation list."""
@@ -497,4 +501,3 @@ if __name__ == "__main__":
     print(_out)
     print("\nStats:", _gen.get_stats())
     print("\nSLSAGenerator OK")
-

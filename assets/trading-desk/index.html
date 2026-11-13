@@ -1,12 +1,44 @@
-<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="desk-token" content="TOKEN_PLACEHOLDER"><title>Niblit Market Desk</title><link rel="stylesheet" href="/desk.css"><script src="/desk.js" defer></script></head><body>
-<header><div><small>NIBLIT / MARKET WORKSPACE</small><h1>Market Desk</h1></div><div><span id="mode">Connecting</span><button id="refresh">Refresh</button><label><input id="poll" type="checkbox" checked> Update every 15 seconds</label></div></header>
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="desk-token" content="TOKEN_PLACEHOLDER"><meta name="desk-base" content="BASE_PLACEHOLDER"><title>Niblit Market Desk</title><link rel="stylesheet" href="/desk.css"><script src="/chart.js" defer></script><script src="/desk.js" defer></script><script src="/remote-observation.js" defer></script><script src="/broker-view.js" defer></script><script src="/sessions.js" defer></script></head><body>
+<header><div><small>NIBLIT / MARKET WORKSPACE</small><h1>Market Desk</h1></div><div><span id="mode">Connecting</span><button id="refresh">Refresh</button><label><input id="poll" type="checkbox" checked> Update every 15 seconds</label></div></header><section class="panel" id="core-trading"><h2 id="broker-workspace-title">Broker account workspace</h2>
+<section id="broker-selector" aria-label="Broker account view" hidden>
+<label>Account view <select id="broker-view"><option value="auto">Follow MT5 account</option><option value="xm">XM live — read-only</option><option value="exness">Remote demo — Exness / XM / MT5</option></select></label>
+<p id="broker-view-status" role="status">Waiting for Core account verification</p>
+<small>This selects the displayed profile. Change the login manually in the VPS MT5 terminal. Viewing another account leaves existing sessions unchanged; trading still requires an exact verified account and an explicit demo scope.</small>
+</section><section aria-label="Remote XM observation"><h2>Windows VPS · XM observation</h2>
+<pre id="remote-gateway-status">Remote gateway awaiting Core status.</pre>
+<div class="remote-observation-grid" aria-label="Remote XM account observation">
+<section><h3>XM account · read-only</h3><pre id="remote-account-fields">Awaiting Core observation</pre></section>
+<section><h3>Connection and safety</h3><pre id="remote-safety-fields">Execution disabled</pre></section>
+<section><h3>Broker inventory and history</h3><pre id="remote-inventory-fields">Unverified</pre></section>
+</div></section>
+<section id="exness-demo" aria-label="Exness demo strategy testing" hidden><h2>Remote MT5 demo · crypto laboratory</h2>
+<pre id="exness-status">Awaiting Core demo verification</pre><p id="exness-execution-state" role="status">CORE DEMO EXECUTION OFF</p>
+<label>Demo symbol <select id="exness-symbol"><option>BTCUSDm</option></select></label>
+<label>Session minutes <input id="exness-minutes" type="number" min="1" max="60" value="30"></label>
+<label>Maximum volume per entry (lots) <input id="exness-volume" type="number" min="0.01" max="0.10" step="0.01" value="0.01"></label>
+<p id="exness-volume-rules">Volume is capped by the verified adapter and broker; risk sizing may reduce it or skip entry.</p>
+<label>Maximum demo entries <select id="exness-entries"><option value="1">1</option><option value="2">2</option><option value="3" selected>3</option></select></label>
+<label>Cash risk per entry <input id="exness-risk-cash" type="number" min="0.01" max="25" step="0.01" value="25"></label>
+<label>Equity risk per entry (%) <input id="exness-risk-percent" type="number" min="0.001" max="0.25" step="0.001" value="0.25"></label>
+<label>Margin cap (% equity) <input id="exness-margin-percent" type="number" min="0.1" max="10" step="0.1" value="10"></label>
+<label>Concurrent owned positions <input id="exness-positions" type="number" min="1" max="5" value="1"></label>
+<button id="exness-wave-15" type="button">Set 15-minute demo wave · review required</button>
+<p>A wave is a bounded session, not a promise of scalping entries. Existing closed-bar consensus, protective stops and risk checks decide each action.</p>
+<p>Six existing strategies · up to three sequential entries per reviewed session · one open position at a time · reviewed volume up to 0.10 lots · stop loss and take profit required. Broker minimum volume and risk limits must fit the reviewed cap.</p>
+<button id="exness-observe" disabled>Observe strategies</button><button id="exness-propose" disabled>Review demo execution</button><button id="exness-activate" disabled>Enable reviewed demo execution</button><button id="exness-stop">Stop demo execution</button>
+<pre id="exness-review"></pre><pre id="exness-sessions"></pre><pre id="exness-strategies"></pre><pre id="exness-orders"></pre><pre id="exness-inventory">Broker inventory unavailable</pre><pre id="exness-protection">Crypto protection preview unavailable</pre><pre id="exness-market">Broker data unavailable</pre></section>
+<p id="core-session-state" role="status">Connecting to Core…</p><p>All six strategies are compared. Orders require an exact account, symbol, duration and risk scope. Real-money submission remains disabled.</p><button id="core-observe">Observe selected market</button><button id="core-propose">Review selected demo scope</button><label>Owned Core order ID <input id="core-close-order" autocomplete="off"></label><button id="core-propose-close">Review close-only scope</button><pre id="core-owned-orders"></pre><button id="core-activate" disabled>Activate reviewed scope</button><label><input id="core-clear-stop" type="checkbox"> Explicitly reset emergency stop on activation</label><button id="core-stop">Stop execution; keep observing</button><button id="core-emergency">Emergency stop all sessions</button><pre id="core-proposal"></pre><section aria-label="MT5 accounts"><h3>MT5 terminal</h3>
+<p id="core-mt5-active">Awaiting account verification</p>
+<label>View account record <select id="core-mt5-record"></select></label>
+<small>Viewing a record does not change the MT5 login. Switch accounts manually in MT5.</small>
+<pre id="core-mt5-history"></pre></section><pre id="core-session-list"></pre><pre id="core-observer-list"></pre><button id="core-notifications">Enable desktop notifications</button><label>Quiet hours from <input id="core-quiet-from" type="time"></label><label>to <input id="core-quiet-to" type="time"></label><div id="core-alerts" aria-live="polite"></div><small>Alerts open this workspace; they never place orders. Undelivered alerts remain recorded when the desktop is closed.</small></section>
 <label>Trading environment <select id="environment" aria-label="Trading environment"><option value="mt5">MT5 desktop · demo connection</option><option value="freqtrade">Freqtrade · exchange dry-run</option></select></label>
 <p id="health" role="status">Connecting to the selected trading environment…</p><p id="error" role="alert"></p>
 <section id="metrics" class="metrics"></section>
-<main id="mt5-workspace"><section class="panel"><div class="toolbar"><h2>MT5 broker prices</h2><select id="mt5-symbol" aria-label="MT5 symbol"></select></div><p id="mt5-quote"></p><p id="mt5-source"></p><svg id="mt5-chart" viewBox="0 0 900 240" role="img" aria-label="MT5 completed five-minute candle closes"></svg><p>Live broker quotes · demo account · completed 5-minute candles. This bridge does not generate trading advice.</p></section>
+<main id="mt5-workspace"><section class="panel"><div class="toolbar"><h2>MT5 broker prices</h2><select id="mt5-symbol" aria-label="MT5 symbol"></select></div><p id="mt5-quote"></p><p id="mt5-source"></p><svg id="mt5-chart" viewBox="0 0 900 240" role="img" aria-label="MT5 completed five-minute candles and strategy annotations"></svg><p>Live broker quotes · demo account · completed 5-minute candles. This bridge does not generate trading advice.</p></section>
 <section class="panel"><h2>Manual MT5 demo order</h2><p>Submit a real order to the demo server using virtual money. Review the price, stop loss and take profit before confirming.</p><label>Side <select id="mt5-side"><option value="buy">Buy</option><option value="sell">Sell</option></select></label><label>Volume (lots) <input id="mt5-volume" type="number" min="0.01" max="0.01" step="0.01" value="0.01"></label><button id="mt5-submit" disabled>Review demo order</button><button id="mt5-check" disabled>Preflight only</button><p id="mt5-permissions"></p><pre id="mt5-result" role="status"></pre><small>Maximum 0.01 lots, one Niblit test position. Stop loss and take profit are attached to entries. Estimated stop risk is capped; gaps can change the simulated realized result.</small></section>
 <section class="panel"><h2>MT5 positions</h2><p id="mt5-orders"></p><div id="mt5-positions"></div><small>Only Niblit's demo test positions have close controls. Other positions remain visible.</small></section><section class="panel"><h2>MT5 order activity</h2><button id="mt5-reconcile">Reconcile MT5 deliveries</button><div id="mt5-history"></div></section></main>
-<main id="freqtrade-workspace" hidden><section class="panel"><div class="toolbar"><h2>Exchange market · completed candles</h2><select id="pair" aria-label="Market pair"></select></div><p id="source"></p><svg id="chart" viewBox="0 0 900 240" role="img" aria-label="Latest completed candle closing prices"></svg><p id="signal"></p><small>Strategy signals describe the configured strategy. They do not establish an edge or guarantee a profitable trade.</small></section>
+<main id="freqtrade-workspace" hidden><section class="panel"><div class="toolbar"><h2>Exchange market · completed candles</h2><select id="pair" aria-label="Market pair"></select></div><p id="source"></p><svg id="chart" viewBox="0 0 900 240" role="img" aria-label="Completed OHLC candles and Core strategy annotations"></svg><p id="signal"></p><small>Strategy signals describe the configured strategy. They do not establish an edge or guarantee a profitable trade.</small></section>
 <section class="panel"><h2>Manual Freqtrade dry-run order</h2><p>Confirmed orders are sent to the dry-run engine and can create simulated positions. Market data comes from the exchange through Freqtrade.</p><label>Stake in account currency <input id="stake" type="number" value="20" min="1" max="100"></label><button id="entry">Review dry-run entry</button><p id="capability"></p><small>Maximum manual stake: 100. Entry checks mode, whitelist, completed-candle freshness, engine state, duplicate positions and position limit. Freqtrade applies its own balance, exchange and strategy controls.</small></section>
 <section class="panel"><h2>Open positions</h2><div id="positions"></div></section>
 <section class="panel"><h2>Completed trades and feedback</h2><p id="outcomes"></p><div id="trades"></div><small>Recorded outcomes are execution evidence, separate from verified knowledge. They do not automatically train a model.</small></section>
@@ -16,17 +48,25 @@
 <p>Choose the symbol in the MT5 selector above. Start authorizes automatic demo entries and exits for this bounded session. No funded accounts or paid AI calls.</p>
 <label>Strategy <select id="auto-strategy"><option value="auto">Manager · compare all strategies</option><option value="trend_v1">Trend · 20/50 mean + momentum</option><option value="breakout_v1">Breakout · previous 20 bars</option></select></label>
 <label>Session minutes <input id="auto-minutes" type="number" min="1" max="60" value="30"></label>
+<label>Maximum volume per entry (lots) <input id="core-demo-volume" type="number" min="0.01" max="0.10" step="0.01" value="0.01"></label>
 <label>Maximum entries <input id="auto-entries" type="number" min="1" max="10" value="3"></label>
+<label>Cash risk per entry <input id="core-risk-cash" type="number" min="0.01" max="25" step="0.01" value="25"></label>
+<label>Equity risk per entry (%) <input id="core-risk-percent" type="number" min="0.001" max="0.25" step="0.001" value="0.25"></label>
+<label>Margin cap (% equity) <input id="core-margin-percent" type="number" min="0.1" max="10" step="0.1" value="10"></label>
+<label>Concurrent owned positions <input id="core-positions" type="number" min="1" max="5" value="1"></label>
+<button id="core-wave-15" type="button">Set 15-minute demo wave · review required</button>
+<p>Editable values are proposals. Larger volumes, cash amounts and position counts remain subject to configured ceilings, broker limits, balance, margin and protective-stop validation. Funded execution is disabled; prediction calibration is not yet established.</p>
 <button id="auto-start">Start automatic MT5 demo session</button><button id="auto-stop">Stop new automatic actions</button>
 <button id="auto-observe">Observe strategies · no orders</button><button id="notify-enable">Enable desktop alerts</button>
 <p id="notify-status">Setup alerts appear here while the desk is open. Desktop notifications are optional; they never start a session.</p>
 <div id="opportunities" aria-live="polite"></div>
-<p id="auto-status" role="status"></p><p>Risk budget: 0.25% of equity, capped at 25 account currency units; maximum 0.01 lots. Volume rounds down or the trade is skipped. Stop at 2% session drawdown. Stop/session expiry leaves open positions protected by their broker stop loss and take profit.</p>
+<p id="auto-status" role="status"></p><p>Risk budget: 0.25% of equity, capped at 25 account currency units; reviewed maximum up to 0.10 lots on verified demo accounts. Volume rounds down or the trade is skipped. Stop at 2% session drawdown. Stop/session expiry leaves open positions protected by their broker stop loss and take profit.</p>
 <p>After the execution window ends, the manager continues observing while this service runs. It records new conditions but submits no orders until another session starts. Stop ends observation too. It never loosens risk limits to obtain a trade.</p>
 <h3>Strategy manager · latest scan</h3><p id="manager-reason"></p><div id="manager-candidates"></div><div id="manager-risk"></div>
 <h3>Predictive research · no order authority</h3><p id="research-state"></p><div id="research-forecast"></div>
 <h3>Predictions checked against later completed candles</h3><div id="forecast-outcomes"></div>
 <h3>Niblit's proposed rule experiments</h3><p>When all entry rules wait, the research engine composes bounded momentum/reversion candidates, selects on a training prefix and reports the following holdout separately. Candidates cannot trade themselves.</p><div id="research-proposals"></div>
+<h3>Position intelligence (read-only)</h3><p>Entries and amounts are engine records. Candle marks and gross P&amp;L are estimates excluding costs, not fills or realized profits. EXIT-CANDIDATE requires human review. Recorded entry theses use timestamped public bid/ask observations, not guaranteed fills; positions without saved theses are not adopted.</p><p id="position-intelligence-state"></p><div id="position-intelligence"></div>
 <h3>Freqtrade research parity</h3><p>Select Freqtrade and a pair above, then refresh this read-only laboratory. The native strategy stays unchanged until a separate activation; existing positions keep their current strategy.</p><button id="ft-research-refresh">Refresh Freqtrade research</button><p id="ft-research-status"></p><div id="ft-research-conditions"></div><div id="ft-research-forecast"></div><div id="ft-research-proposals"></div>
 <h3>Why this trade?</h3><div id="auto-decisions"></div>
 <h3>Broker outcomes · after costs</h3><div id="auto-outcomes"></div>
@@ -34,4 +74,14 @@
 <h3>Understanding market events</h3><div id="auto-lessons"></div>
 <button id="events-refresh">Collect Federal Reserve research</button><p id="events-health"></p><div id="events-list"></div>
 <p>Federal Reserve announcements are collected at most every ten minutes during a demo session, with publication and availability timestamps. This feed covers US monetary policy. Politics/war coverage and validated news-based signals remain future work. Headline context does not determine an order. Recorded outcomes are evidence, not automatic model training.</p></section>
-<section class="panel"><h2>Current-moment comparer</h2><p>Forecast → incoming completed candle → error → bounded research adjustment. No order or risk-setting authority.</p><p id="online-state">Waiting for a fresh research observation.</p><pre id="online-report"></pre></section></body></html>
+<section class="panel"><h2>Current-moment comparer</h2><p>Forecast → incoming completed candle → error → bounded research adjustment. No order or risk-setting authority.</p><p id="online-state">Waiting for a fresh research observation.</p><pre id="online-report"></pre></section><section class="panel" id="desktop-intelligence"><h2>Desktop market intelligence · observation only</h2>
+<p>The desktop account is independent of the VPS broker selector. Binding changes require a fresh review. Patterns are observations, not extra strategy votes or calibrated predictions.</p>
+<label>Exact desktop broker symbol <input id="intelligence-symbol" value="BTCUSDm"></label>
+<button id="intelligence-bind">Inspect desktop account</button><p id="intelligence-binding"></p>
+<button id="intelligence-refresh" disabled>Read closed-candle intelligence for this account</button>
+<p id="intelligence-status" role="status"></p><pre id="intelligence-report"></pre>
+<h3>Continuous source observation</h3>
+<p id="continuous-status" role="status">Checking configured observation workers…</p>
+<pre id="continuous-report"></pre></section>
+<section><h2>Shadow prediction evaluation</h2><p>Read-only continuation baseline. Uncalibrated estimates never authorize an order. Missing costs remain unknown.</p><pre id="prediction-report">Waiting for Core prediction status…</pre></section>
+<script src="/intelligence.js" defer></script></body></html>

@@ -128,6 +128,11 @@ def _command_outcome(result):
         return 'unavailable', 'The original handler returned no response'
     if isinstance(result, dict):
         state = result.get('status')
+        if 'execution_started' in result or 'worker_finished' in result:
+            lifecycle=result.get('state')
+            mapped={'unavailable':'unavailable','failed':'error','busy':'busy','deferred':'deferred',
+                    'awaiting_approval':'authorization_required','pending':'pending','stopping':'pending'}
+            if lifecycle in mapped:return mapped[lifecycle],str(result.get('reason') or lifecycle)
         if state in {'unavailable', 'authorization_required', 'rejected'}:
             return state, str(result.get('error') or result.get('message') or state)
         if (result.get('success') is False or result.get('ok') is False
@@ -139,8 +144,8 @@ def _command_outcome(result):
         first_line = result.strip().split('\n', 1)[0]
         if re.match(r'(?i)^\[UNAVAILABLE\]', first_line):
             return 'unavailable', result
-        if len(result) < 600 and re.match(r'^(?:\[|⚠)', first_line):
-            if re.search(r'(?i)(not available|unavailable|not initiali[sz]ed|API missing)', first_line):
+        if len(result) < 600 and re.match(r'^(?:\[|⚠|⚫)', first_line):
+            if re.search(r'(?i)(not available|unavailable|not initiali[sz]ed|not loaded|API missing)', first_line):
                 return 'unavailable', result
     return 'success', None
 
@@ -231,6 +236,7 @@ def execute_operator_command(core, name, arguments=None, *, confirmed=False, req
                     'authorization_action':denied[0]}
         from modules.core_tool_runtime import _emit_command_event
         _emit_command_event('command.execution.started', {**base, 'channel': 'operator'})
+        effect=None
         try:
             if target == 'registry':
                 # Exact selection avoids a broad, higher-priority prefix
@@ -244,11 +250,18 @@ def execute_operator_command(core, name, arguments=None, *, confirmed=False, req
             else:
                 result = getattr(core, target).handle_command(text)
             status, error = _command_outcome(result)
+            from modules.command_effects import observe
+            effect=observe(core,text)
+            if status=='success' and effect is not None and not effect['verified']:
+                if not effect['expected_active'] and effect.get('observed_active'):
+                    status,error='pending','Stop requested; the owned worker is still finishing'
+                else:
+                    status,error='error','The command returned without the requested state change'
             result = json.loads(json.dumps(result, default=str))
         except Exception as exc:
             result, status, error = None, 'error', str(exc)
         outcome = {**base, 'status': status, 'result': result, 'error': error,
-                   'duration_ms': round((time.monotonic()-started)*1000, 2),
+                   'duration_ms': round((time.monotonic()-started)*1000, 2),'effect':effect,
                    'governance': {'schema_validated': True, 'executor': f'original.{target}',
                        'dispatch_path': 'Desktop operator -> original handler (not an LLM tool)'}}
         _emit_command_event('command.execution.completed', {**base, 'channel': 'operator', 'status': status})
