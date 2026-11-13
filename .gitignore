@@ -199,3 +199,11 @@ runtime/client-portal/cloudflare-tunnel-token
 *.db-journal
 *.db-wal
 *.db-shm
+
+# Raw local execution evidence: generated diffs, process state and test captures.
+# Keep architecture Markdown, source, tests and publishable templates visible.
+/docs/agent-context/evidence/
+/.secrets/
+*.token
+*.pfx
+*.p12
