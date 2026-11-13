@@ -87,3 +87,14 @@ See SOURCE_REVIEW_STATUS.md for privacy substitutions and incomplete acceptance.
 ## Validation of reviewed changes
 
 Core 384 passed; UI 63 passed and TypeScript no-emit passed; Cloud 68 passed (including a nested 34-case contract run, not added to the parent count); LEAN 25 passed. These are isolated fixture/source checks, not new broker/runtime/deployment acceptance. No native-model training or funded trading was performed.
+
+## Additional validation limitation
+
+The additional Node broker-view fixture suite has 5 passes and 1 failure. The
+same failure reproduces in the untouched original source: the synthetic demo
+account lacks a broker field, producing an undefined broker label in the selected
+XM view. This is not caused by privacy substitutions. No application or fixture
+repair was made during repository synchronization. Core validation is therefore
+partial despite the 384 passing Python cases. The separate observation-freshness
+and intelligence UI fixture scripts pass. Do not treat this branch as fully
+accepted for production deployment.
