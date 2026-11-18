@@ -50,7 +50,7 @@ def normalize_hit(raw: Any, query: str, rank: int,
         "url": _as_text(hit.get("url") or hit.get("href") or hit.get("link")),
         "snippet": _as_text(hit.get("snippet") or hit.get("body")
                             or hit.get("summary") or hit.get("description")),
-        "provider": PROVIDER_NAME,
+        "provider": _as_text(hit.get('source') or PROVIDER_NAME),
         "source": hit.get("source") or PROVIDER_NAME,
         "rank": hit["rank"] if isinstance(hit.get("rank"), int) else rank,
         "retrieved_at": timestamp,
@@ -71,7 +71,10 @@ class DuckDuckGoSearchProvider:
         if self._engine is None:
             from modules.researcher_engine import ResearcherEngine
 
-            self._engine = ResearcherEngine()
+            import inspect
+            self._engine = (ResearcherEngine(enable_vector_cache=False)
+                            if 'enable_vector_cache' in inspect.signature(ResearcherEngine).parameters
+                            else ResearcherEngine())
         return self._engine
 
     def search(self, query: str, max_results: Optional[int] = None) -> List[Dict[str, Any]]:
@@ -84,7 +87,11 @@ class DuckDuckGoSearchProvider:
         raw_results = None
         hits_fn = getattr(engine, "web_search_hits", None)
         if callable(hits_fn):
-            raw_results = hits_fn(query.strip(), limit)
+            import inspect
+            if 'governed' in inspect.signature(hits_fn).parameters:
+                raw_results = hits_fn(query.strip(), limit, governed=True)
+            else:
+                raw_results = hits_fn(query.strip(), limit)
         if raw_results is None:
             # Legacy summary-only engine: degrade honestly to a single
             # URL-less hit; GovernedSearch drops it and callers see the gap.

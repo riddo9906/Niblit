@@ -420,6 +420,13 @@ class GradedCurriculum:
 
     def start_teaching(self) -> None:
         """Release startup deferral and schedule learning under Core ownership."""
+        import os
+        if os.getenv('NIBLIT_LOOPS', 'true').lower() not in ('true', '1'):
+            # Core readiness calls this even in manual-only acceptance mode.
+            # Keep queued curriculum topics, but do not consume inference or
+            # manufacture learning independently of the operator's cycle.
+            self._defer_teaching = True
+            return
         self._defer_teaching = False
         self._seed_grade_topics(self.current_grade)
 

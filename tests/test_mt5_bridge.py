@@ -16,10 +16,10 @@ def bridge():
     api.initialize.return_value=True
     api.account_info.return_value=Obj(login=12345678,server='Example-Demo',trade_mode=0,
         currency='USD',balance=1000,equity=1000,profit=0,margin=0,margin_free=1000,
-        leverage=1,trade_allowed=True)
+        leverage=1,trade_allowed=True,trade_expert=True)
     api.terminal_info.return_value=Obj(connected=True,build=1,trade_allowed=False,tradeapi_disabled=False)
     api.symbols_get.return_value=[Obj(name='EURUSD',visible=True)]
-    api.symbol_info.return_value=Obj(visible=True,volume_min=.01,volume_max=100,volume_step=.01,filling_mode=1)
+    api.symbol_info.return_value=Obj(visible=True,volume_min=.01,volume_max=100,volume_step=.01,filling_mode=1,trade_mode=4)
     api.symbol_info_tick.return_value=Obj(time_msc=int((time.time()+7200)*1000),time=int(time.time()+7200),bid=1.1,ask=1.1001)
     api.copy_rates_from_pos.return_value=[dict(time=int(time.time())+7200-300,open=1.,high=2.,low=.5,close=1.1,tick_volume=10)]
     api.positions_get.return_value=[]

@@ -35,7 +35,8 @@ def settings():
     endpoint=os.environ.get(name,default).rstrip('/')
     target=urlsplit(endpoint)
     allowed={'localhost','127.0.0.1','ollama'} if backend=='ollama' else {'localhost','127.0.0.1','host.docker.internal'}
-    port=11434 if backend=='ollama' else 8766
+    port=11434 if backend=='ollama' else int(os.environ.get('NIBLIT_PORTAL_GGUF_PORT','8766'))
+    if not 1024<=port<=65535:raise ValueError('Invalid explicitly configured local model port')
     if target.scheme!='http' or target.hostname not in allowed or target.port!=port or target.username or target.password or target.path or target.query or target.fragment:
         raise ValueError('Use the explicitly configured private local model service')
     headers={}

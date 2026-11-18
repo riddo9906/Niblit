@@ -21,6 +21,7 @@ and ``result.terminate()`` — which is why **every** code path in
 from __future__ import annotations
 
 import logging
+import json
 import os
 import platform
 import shutil
@@ -159,6 +160,17 @@ class UiLaunchResult:
             if proc is None:
                 continue
             try:
+                if proc is self._cloud_process and self.cloud_url and os.environ.get('NIBLIT_SERVICE_CONTROL_KEY_FILE'):
+                    try:
+                        key=Path(os.environ['NIBLIT_SERVICE_CONTROL_KEY_FILE']).read_text().strip()
+                        request=urllib.request.Request(self.cloud_url.rstrip('/')+'/internal/desktop/shutdown',
+                            data=b'{}',headers={'Content-Type':'application/json','X-Niblit-Service-Key':key})
+                        with urllib.request.build_opener(urllib.request.ProxyHandler({})).open(request,timeout=3) as reply:
+                            reply.read(4096)
+                        proc.wait(timeout=10)
+                        continue
+                    except Exception:
+                        log.warning('Owned Cloud graceful stop unavailable; stopping only its owned process')
                 proc.terminate()
                 try:
                     proc.wait(timeout=5)
@@ -554,6 +566,18 @@ def _validate_ui_repository(ui_path: str) -> Dict[str, Any]:
     return result
 
 
+def finish_failed_packaged_ui(result, core) -> bool:
+    """A packaged desktop failure must not leave a hidden interactive shell."""
+    if result.success or not os.getenv('NIBLIT_INSTALLATION_MANIFEST'):
+        return False
+    for cleanup in (result.terminate, core.shutdown):
+        try:
+            cleanup()
+        except Exception:
+            __import__('logging').getLogger(__name__).exception('Packaged desktop cleanup failed')
+    return True
+
+
 def _build_child_env(ui_path: str) -> Dict[str, str]:
     """Build a child process environment that preserves PATH and adds Node/Cargo bins."""
     env = os.environ.copy()
@@ -620,7 +644,7 @@ def _launch_tauri_dev_process(
     }
 
     if platform.system().lower() == "windows":
-        kwargs["creationflags"] = getattr(subprocess, "CREATE_NEW_PROCESS_GROUP", 0)
+        kwargs["creationflags"] = getattr(subprocess, "CREATE_NEW_PROCESS_GROUP", 0) | getattr(subprocess,"CREATE_NO_WINDOW",0)
 
     try:
         proc = subprocess.Popen(cmd, **kwargs)
@@ -859,14 +883,23 @@ def launch_primary_ui(
     ui_url = ""
     ui_failure_reason = ""
 
-    if getattr(sys, "frozen", False):
+    if getattr(sys, "frozen", False) or os.environ.get("NIBLIT_INSTALLATION_MANIFEST"):
         bundled_ui = Path(sys.executable).resolve().parent / "niblit-ui.exe"
+        if os.environ.get("NIBLIT_INSTALLATION_MANIFEST"):
+            from niblit_core.config.paths import environment_plan, EnvironmentResolutionError
+            bound_ui = environment_plan()["resources"].get("ui", {})
+            if bound_ui.get("kind") != "executable" or bound_ui.get("status") != "available":
+                raise EnvironmentResolutionError("Manifest-enabled UI launch requires verified executable identity")
+            bundled_ui = Path(bound_ui["value"])
         ui_url = str(bundled_ui)
         if bundled_ui.is_file():
             try:
                 ui_process = subprocess.Popen(
                     [str(bundled_ui)], cwd=str(bundled_ui.parent),
-                    env=_build_child_env(str(bundled_ui.parent)),
+                    env={**_build_child_env(str(bundled_ui.parent)), 'NIBLIT_DESKTOP_BINDING':json.dumps({
+                        'core_url':api_url,'cloud_url':c_url,'core_pid':os.getpid(),
+                        'instance':os.environ.get('NIBLIT_DESKTOP_INSTANCE',''),
+                        'release':os.environ.get('NIBLIT_INSTALLATION_MANIFEST','')})},
                 )
                 if not _wait_for_process_stabilisation(ui_process, emit):
                     ui_process.kill()
@@ -918,6 +951,7 @@ def launch_primary_ui(
             readiness=readiness,
             _api_thread=api_thread,
             _owned_server=owned,
+            _cloud_process=cloud_process,
         )
 
     # Mode determination
@@ -1035,6 +1069,25 @@ def _maybe_start_cloud_server(
     emit: Callable[[str], None],
 ) -> Optional[subprocess.Popen]:
     """Best-effort start the local Niblit-cloud-server if it is not already healthy."""
+    if os.environ.get("NIBLIT_INSTALLATION_MANIFEST"):
+        # Default relocation remains observation-only. An explicitly owned,
+        # pinned packaged sidecar may be started by this installation alone.
+        if os.environ.get('NIBLIT_MANAGE_PACKAGED_CLOUD')!='1' or not getattr(sys,'frozen',False):
+            emit("[Cloud] Relocation profile preserves existing service ownership; autostart disabled")
+            return None
+        from niblit_core.config.paths import environment_plan
+        plan=environment_plan()
+        bound=plan['resources'].get('cloud_executable',{})
+        endpoint=plan['resources'].get('cloud',{})
+        if (os.environ.get('NIBLIT_MANAGE_PACKAGED_CLOUD')!='1' or not getattr(sys,'frozen',False)
+                or bound.get('kind')!='executable' or bound.get('status')!='available'
+                or endpoint.get('value','').rstrip('/')!=url.rstrip('/')):
+            emit("[Cloud] Relocation profile preserves existing service ownership; autostart disabled")
+            return None
+        expected=Path(sys.executable).resolve().parent/'cloud'/'niblit-cloud.exe'
+        if Path(bound['value'])!=expected:
+            emit('[Cloud] Owned sidecar does not match packaged cloud path')
+            return None
     frozen = getattr(sys, "frozen", False)
     cloud_root = (
         Path(sys.executable).resolve().parent / "cloud"
@@ -1069,7 +1122,7 @@ def _maybe_start_cloud_server(
         "bufsize": 1,
     }
     if platform.system().lower() == "windows":
-        kwargs["creationflags"] = getattr(subprocess, "CREATE_NEW_PROCESS_GROUP", 0)
+        kwargs["creationflags"] = getattr(subprocess, "CREATE_NEW_PROCESS_GROUP", 0) | getattr(subprocess,"CREATE_NO_WINDOW",0)
 
     try:
         # An unread PIPE eventually blocks the server's logging thread (and

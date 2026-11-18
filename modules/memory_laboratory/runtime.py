@@ -397,6 +397,9 @@ class MemoryRuntime:
         self.last_cycle = time.time()
 
     def start(self):
+        if os.environ.get('NIBLIT_MEMORY_PROJECTION_WORKER','1')=='0':
+            self.phase_status['worker']={'state':'disabled_by_profile','checked_at':time.time()}
+            return
         with self._start_lock:
             if self.thread and self.thread.is_alive():
                 return

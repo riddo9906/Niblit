@@ -346,6 +346,11 @@ class MarketDataProviders:
                 raise ValueError("stale_or_slow_quote")
             return {**result, "fresh": True, "timestamp": timestamp,
                     "bid": bid, "ask": ask, "bid_size": bid_size, "ask_size": ask_size,
+                      "public_market": {k:instrument.get(k) for k in
+                          ('active','linear','contractSize','precision','limits','maker','taker')},
+                      "public_default_fees": {k:(getattr(client,'fees',{}) or {}).get('trading',{}).get(k) for k in ('maker','taker')},
+                      "fee_provenance": "CCXT public market/default schedule; simulation reference, not verified account-tier costs",
+                      "ccxt_version": getattr(_ccxt,'__version__','UNKNOWN'),
                     "received_at": received, "price_basis": "Public top of book; no fill or depth guarantee"}
         except Exception as exc:
             return {**result, "reason": str(exc) if type(exc) is ValueError else type(exc).__name__}

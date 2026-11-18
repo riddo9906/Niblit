@@ -589,8 +589,8 @@ def register_research_tools(loop: Any) -> GovernedSearch:
     def web_search(query: str, max_results: int = 5) -> Dict[str, Any]:
         return search.search(query, max_results=max_results)
 
-    def web_fetch(url: str) -> Dict[str, Any]:
-        return governed_fetch(url)
+    def web_fetch(url: str, allowed_domains=None, timeout=20, max_bytes=400000) -> Dict[str, Any]:
+        return governed_fetch(url, allowed_domains=allowed_domains, timeout=timeout, max_bytes=max_bytes)
 
     loop.register_capability("web_search", web_search, WEB_SEARCH_SCHEMA)
     loop.register_capability("web_fetch", web_fetch, WEB_FETCH_SCHEMA)

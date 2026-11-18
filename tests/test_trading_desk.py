@@ -140,3 +140,23 @@ def test_origin_host_and_token_required(desk):
     html=client.get('/').text
     token=html.split('name="desk-token" content="')[1].split('"')[0]
     assert client.post('/api/preview',json=body,headers={'origin':'http://127.0.0.1:8767','x-desk-token':token}).status_code==200
+
+
+def test_packaged_core_port_is_bound_without_allowing_other_hosts(desk, monkeypatch):
+    monkeypatch.setenv('NIBLIT_API_PORT','5100')
+    app=create_app(desk,core_hosted=True)
+    with TestClient(app,base_url='http://127.0.0.1:5100') as client:
+        assert client.get('/').status_code==200
+        assert client.get('/',headers={'host':'untrusted.example'}).status_code==400
+
+
+def test_packaged_observation_profile_denies_execution_before_token_or_adapter(desk,monkeypatch):
+    monkeypatch.setenv('NIBLIT_API_PORT','5100')
+    monkeypatch.setenv('NIBLIT_DESKTOP_OBSERVATION_ONLY','1')
+    app=create_app(desk,core_hosted=True)
+    with TestClient(app,base_url='http://127.0.0.1:5100') as client:
+        for path in ('/api/demo/start','/api/mt5/confirm','/api/core-trading/activate'):
+            response=client.post(path,json={},headers={'origin':'http://127.0.0.1:5100'})
+            assert response.status_code==403
+            assert 'EXECUTION_DENIED' in response.text
+    assert not desk.transport.called

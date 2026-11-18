@@ -49,7 +49,13 @@ def _url_allowed(url: str) -> tuple:
 
 
 class _PublicRedirects(urllib.request.HTTPRedirectHandler):
+    def __init__(self, allowed_domains=None):
+        super().__init__()
+        self.allowed_domains = allowed_domains
+
     def redirect_request(self, req, fp, code, msg, headers, newurl):
+        if self.allowed_domains is not None and urlparse(newurl).hostname not in self.allowed_domains:
+            raise urllib.error.URLError("redirect outside approved domains blocked")
         allowed, _ = _url_allowed(newurl)
         if not allowed:
             raise urllib.error.URLError("redirect to a non-public target blocked")
@@ -57,9 +63,13 @@ class _PublicRedirects(urllib.request.HTTPRedirectHandler):
 
 
 def governed_fetch(url: str, max_bytes: int = MAX_FETCH_BYTES,
-                   timeout: float = FETCH_TIMEOUT) -> Dict[str, Any]:
+                   timeout: float = FETCH_TIMEOUT, allowed_domains=None) -> Dict[str, Any]:
     """Fetch public HTTP(S) text with SSRF/size/timeout guards. Structured
     failures; provenance (url/domain/timestamp/evidence_id) on success."""
+    if allowed_domains is not None and urlparse(url).hostname not in allowed_domains:
+        return {"error": "domain not approved", "url": url}
+    max_bytes = min(max(int(max_bytes), 1), MAX_FETCH_BYTES)
+    timeout = min(max(float(timeout), .1), FETCH_TIMEOUT)
     allowed, reason = _url_allowed(url)
     if not allowed:
         return {"error": reason, "url": url}
@@ -68,7 +78,7 @@ def governed_fetch(url: str, max_bytes: int = MAX_FETCH_BYTES,
     )
     t0 = time.time()
     try:
-        with urllib.request.build_opener(_PublicRedirects()).open(req, timeout=timeout) as resp:
+        with urllib.request.build_opener(_PublicRedirects(allowed_domains)).open(req, timeout=timeout) as resp:
             ctype = resp.headers.get("Content-Type", "")
             if not any(t in ctype for t in ("text/", "json", "xml")):
                 return {"error": f"unsupported content-type {ctype!r}", "url": url}
@@ -83,6 +93,19 @@ def governed_fetch(url: str, max_bytes: int = MAX_FETCH_BYTES,
     except (urllib.error.URLError, TimeoutError, OSError) as exc:
         return {"error": f"network failure: {exc}", "url": url}
 
+    import hashlib
+    source_hash = hashlib.sha256(data).hexdigest()
+    if "html" in ctype:
+        text = _article_text(text)
+    elif urlparse(final_url).path.endswith('.rst'):
+        import re
+        paragraphs = []
+        for block in re.split(r'\n\s*\n',text):
+            block = ' '.join(block.split())
+            if block.startswith(('.. ',':')) or len(set(block)) < 4:
+                continue
+            paragraphs.append(block)
+        text = '\n'.join(paragraphs)
     domain = urlparse(final_url).hostname or ""
     item = EvidenceItem(query="", source_url=final_url, source_domain=domain,
                         extracted_text=text[:20000], provider="governed_fetch")
@@ -91,9 +114,30 @@ def governed_fetch(url: str, max_bytes: int = MAX_FETCH_BYTES,
                      "source_url": item.source_url,
                      "source_domain": item.source_domain,
                      "retrieved_at": item.retrieved_at,
-                     "extracted_text": item.extracted_text},
+                     "extracted_text": item.extracted_text,
+                     "source_hash": source_hash, "content_type": ctype,
+                     "text_truncated": len(text) > 20000},
         "bytes": len(text), "duration_ms": round((time.time() - t0) * 1000, 1),
     }
+
+
+def _article_text(html):
+    """Extract visible article text before capping evidence; never execute HTML."""
+    from html.parser import HTMLParser
+    class Article(HTMLParser):
+        def __init__(self):
+            super().__init__(convert_charrefs=True)
+            self.parts = []; self.hidden = 0
+        def handle_starttag(self, tag, attrs):
+            if tag in {'script','style','nav','header','footer'}: self.hidden += 1
+            if tag in {'p','li','h1','h2','h3','tr','br'}: self.parts.append('\n')
+        def handle_endtag(self, tag):
+            if tag in {'script','style','nav','header','footer'}: self.hidden = max(0,self.hidden-1)
+            if tag in {'p','li','h1','h2','h3','tr'}: self.parts.append('\n')
+        def handle_data(self, data):
+            if not self.hidden:self.parts.append(data)
+    parser = Article(); parser.feed(html)
+    return '\n'.join(' '.join(line.split()) for line in ''.join(parser.parts).splitlines() if line.strip())
 
 
 class GovernedSearch:
@@ -178,7 +222,9 @@ WEB_FETCH_SCHEMA = {
         ),
         "parameters": {
             "type": "object",
-            "properties": {"url": {"type": "string"}},
+            "properties": {"url": {"type": "string"},
+                           "allowed_domains": {"type":"array","items":{"type":"string"}},
+                           "timeout": {"type":"number"}, "max_bytes":{"type":"integer"}},
             "required": ["url"],
         },
     },

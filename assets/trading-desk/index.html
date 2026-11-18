@@ -27,7 +27,14 @@
 <p>Six existing strategies · up to three sequential entries per reviewed session · one open position at a time · reviewed volume up to 0.10 lots · stop loss and take profit required. Broker minimum volume and risk limits must fit the reviewed cap.</p>
 <button id="exness-observe" disabled>Observe strategies</button><button id="exness-propose" disabled>Review demo execution</button><button id="exness-activate" disabled>Enable reviewed demo execution</button><button id="exness-stop">Stop demo execution</button>
 <pre id="exness-review"></pre><pre id="exness-sessions"></pre><pre id="exness-strategies"></pre><pre id="exness-orders"></pre><pre id="exness-inventory">Broker inventory unavailable</pre><pre id="exness-protection">Crypto protection preview unavailable</pre><pre id="exness-market">Broker data unavailable</pre></section>
-<p id="core-session-state" role="status">Connecting to Core…</p><p>All six strategies are compared. Orders require an exact account, symbol, duration and risk scope. Real-money submission remains disabled.</p><button id="core-observe">Observe selected market</button><button id="core-propose">Review selected demo scope</button><label>Owned Core order ID <input id="core-close-order" autocomplete="off"></label><button id="core-propose-close">Review close-only scope</button><pre id="core-owned-orders"></pre><button id="core-activate" disabled>Activate reviewed scope</button><label><input id="core-clear-stop" type="checkbox"> Explicitly reset emergency stop on activation</label><button id="core-stop">Stop execution; keep observing</button><button id="core-emergency">Emergency stop all sessions</button><pre id="core-proposal"></pre><section aria-label="MT5 accounts"><h3>MT5 terminal</h3>
+<section aria-label="Demo execution readiness"><h3>Demo controls · Core governed</h3>
+<p id="core-deployment-policy" role="status">Checking Core deployment policy. Activation unavailable until verified.</p>
+<label>Execution-controller instrument <input id="core-execution-symbol" placeholder="Exact symbol; empty uses selected observation" autocomplete="off"></label>
+<p>Freqtrade execution uses the isolated CoreManaged controller. The original Lab positions below remain observation-only.</p>
+<button id="core-readiness" disabled>Review selected demo readiness</button><button id="core-rehearse" disabled>Run governed intercepted lifecycle</button>
+<pre id="core-readiness-result" role="status">No readiness review yet. A signal is not execution authority.</pre>
+<pre id="core-rehearsal-result" role="status">No simulated lifecycle requested.</pre></section>
+<p id="core-session-state" role="status">Connecting to Core…</p><p>All six strategies are compared. Orders require an exact account, symbol, duration and risk scope. Real-money submission remains disabled.</p><button id="core-observe" disabled>Observe selected market</button><button id="core-propose" disabled>Review selected demo scope</button><label>Owned Core order ID <input id="core-close-order" autocomplete="off"></label><button id="core-propose-close" disabled>Review close-only scope</button><pre id="core-owned-orders"></pre><button id="core-activate" disabled>Activate reviewed scope</button><label><input id="core-clear-stop" type="checkbox"> Explicitly reset emergency stop on activation</label><button id="core-stop">Stop execution; keep observing</button><button id="core-emergency">Emergency stop all sessions</button><pre id="core-proposal"></pre><section aria-label="MT5 accounts"><h3>MT5 terminal</h3>
 <p id="core-mt5-active">Awaiting account verification</p>
 <label>View account record <select id="core-mt5-record"></select></label>
 <small>Viewing a record does not change the MT5 login. Switch accounts manually in MT5.</small>
@@ -56,7 +63,7 @@
 <label>Concurrent owned positions <input id="core-positions" type="number" min="1" max="5" value="1"></label>
 <button id="core-wave-15" type="button">Set 15-minute demo wave · review required</button>
 <p>Editable values are proposals. Larger volumes, cash amounts and position counts remain subject to configured ceilings, broker limits, balance, margin and protective-stop validation. Funded execution is disabled; prediction calibration is not yet established.</p>
-<button id="auto-start">Start automatic MT5 demo session</button><button id="auto-stop">Stop new automatic actions</button>
+<button id="auto-start">Review bounded demo scope</button><button id="auto-stop">Stop new automatic actions</button>
 <button id="auto-observe">Observe strategies · no orders</button><button id="notify-enable">Enable desktop alerts</button>
 <p id="notify-status">Setup alerts appear here while the desk is open. Desktop notifications are optional; they never start a session.</p>
 <div id="opportunities" aria-live="polite"></div>

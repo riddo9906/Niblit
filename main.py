@@ -74,6 +74,70 @@ from modules.resilient_boot import (
 
 _BOOT_STATUS = BootStatus()
 load_environment(BASE_DIR, _BOOT_STATUS)
+if os.environ.get('NIBLIT_INSTALLATION_MANIFEST'):
+    from niblit_core.config.paths import apply_environment
+    _desktop_environment = apply_environment()
+    _desktop_data = _desktop_environment['resources'].get('runtime_data', {})
+    if _desktop_data.get('kind') == 'directory' and _desktop_data.get('status') == 'available':
+        os.chdir(_desktop_data['value'])
+# Read-only projection policy is explicit; canonical SQLite learning remains governed.
+if os.environ.get('NIBLIT_QDRANT_READ_ONLY')=='1':
+    from qdrant_client import QdrantClient
+    def _deny_desktop_projection_mutation(*args,**kwargs):
+        raise PermissionError('Desktop projection is read-only; canonical evidence is preserved')
+    for _operation in ('upsert','delete','delete_vectors','update_vectors','set_payload','overwrite_payload',
+        'delete_payload','clear_payload','batch_update_points','create_collection','recreate_collection',
+        'delete_collection','update_collection','create_payload_index','delete_payload_index',
+        'upload_records','upload_points','upload_collection','update_collection_aliases'):
+        if hasattr(QdrantClient,_operation):setattr(QdrantClient,_operation,_deny_desktop_projection_mutation)
+
+
+# Preserve existing worker commands when sys.executable is this frozen app.
+# This is not a general Python/script runner: only pinned application workers.
+if __name__=='__main__' and getattr(sys,'frozen',False):
+    if len(sys.argv) in (4,6) and sys.argv[1]=='-B' and sys.argv[3]=='--collect':
+        expected=os.path.join(BASE_DIR,'modules','trading_observation.py')
+        if os.path.normcase(os.path.abspath(sys.argv[2]))!=os.path.normcase(os.path.abspath(expected)):
+            raise SystemExit('Unrecognized observation worker')
+        if len(sys.argv)==6 and (sys.argv[4]!='--review' or sys.argv[5] not in ('all','mt5','freqtrade')):
+            raise SystemExit('Invalid observation scope')
+        from modules.permission_manager import PermissionManager
+        if not PermissionManager().check('command.observe_trading'):
+            raise SystemExit('Observation permission denied')
+        from modules.trading_observation import collect
+        print(json.dumps(collect(len(sys.argv)==6,sys.argv[5] if len(sys.argv)==6 else 'all'),allow_nan=False))
+        raise SystemExit(0)
+    if len(sys.argv)==5 and sys.argv[1]=='-B' and sys.argv[3]=='--worker':
+        expected=os.path.join(BASE_DIR,'modules','trading_execution_rehearsal.py')
+        if os.path.normcase(os.path.abspath(sys.argv[2]))!=os.path.normcase(os.path.abspath(expected)):
+            raise SystemExit('Unrecognized application worker')
+        import re
+        if not re.fullmatch(r'execution-rehearsal-[0-9a-f]{32}',sys.argv[4]):
+            raise SystemExit('Invalid rehearsal identity')
+        from modules.permission_manager import PermissionManager
+        if not PermissionManager().check('command.run_execution_rehearsal'):
+            raise SystemExit('Rehearsal permission denied')
+        from modules.trading_execution_rehearsal import worker
+        print(json.dumps(worker(sys.argv[4]),default=str))
+        raise SystemExit(0)
+    if len(sys.argv)==5 and sys.argv[1:3]==['-I','-B']:
+        from pathlib import Path
+        from modules.paper_trading import _replay_manifest
+        deployment=_replay_manifest()
+        if Path(sys.argv[3]).resolve()!=Path(deployment['worker']).resolve():
+            raise SystemExit('Unrecognized paper worker')
+        if not Path(sys.argv[4]).resolve().is_relative_to(Path(deployment['run_root']).resolve()):
+            raise SystemExit('Paper request outside owned run root')
+        from modules.permission_manager import PermissionManager
+        if not PermissionManager().check('command.run_paper_replay'):
+            raise SystemExit('Paper permission denied')
+        sys.dont_write_bytecode=True
+        import runpy
+        sys.argv=[deployment['worker'],sys.argv[4]]
+        runpy.run_path(deployment['worker'],run_name='__main__')
+        raise SystemExit(0)
+    if any(arg in ('-B','-I','--collect','--worker') for arg in sys.argv[1:]):
+        raise SystemExit('Unsupported frozen worker command')
 
 # These imports are intentionally placed after environment loading to support the
 # lazy-loading pattern in niblit_core/__init__.py. pylint: disable=import-outside-toplevel
@@ -522,7 +586,7 @@ def _start_runtime_dependencies() -> dict:
     orchestrator = get_multi_repo_orchestrator()
     if orchestrator.get_repo_manifest("niblit-cloud-server") is None:
         orchestrator.boot()
-    names = ["niblit-cloud-server"]
+    names = [] if (getattr(sys, "frozen", False) and os.getenv("NIBLIT_MANAGE_PACKAGED_CLOUD") == "1") else ["niblit-cloud-server"]
     if getattr(sys, "frozen", False):
         names.append("niblit-lean-algos")
     return orchestrator.start_managed_repositories(names)
@@ -557,7 +621,7 @@ def _run_staged_runtime_bootstrap(core, io) -> dict:
         # niblit-ui is intentionally excluded here: it must only be started
         # in the desktop launch path (main()) after CLI args have been
         # evaluated (e.g. --headless skips the UI entirely).
-        managed_repositories = ["niblit-cloud-server"]
+        managed_repositories = [] if (getattr(sys, "frozen", False) and os.getenv("NIBLIT_MANAGE_PACKAGED_CLOUD") == "1") else ["niblit-cloud-server"]
         # The release bundle owns the Lean one-folder runtime; development
         # startup keeps its established Cloud-only behavior.
         if getattr(sys, "frozen", False):
@@ -1353,7 +1417,7 @@ def main(argv=None):
                 # Drain and print any progress messages pushed by the init thread.
                 _printed = _drain_init_messages(_init_pq, io)
 
-                if _phase in ("complete", "failed"):
+                if _phase in ("complete", "failed", "disabled_by_configuration"):
                     break
 
                 # Safety valve: avoid waiting forever if deferred init gets stuck.
@@ -1384,6 +1448,8 @@ def main(argv=None):
         _phase = getattr(core, "_deferred_init_phase", "complete")
         if not isinstance(_phase, str):
             _phase = "complete"
+        if _phase == "disabled_by_configuration":
+            io.out("Optional bootstrap disabled by deployment; required Core/API/inference readiness is checked separately.")
         if _phase == "complete":
             _sr = getattr(core, "startup_report", None)
             try:
@@ -1586,6 +1652,10 @@ def main(argv=None):
                             pass
                     return exit_code
                 else:
+                    from modules.niblit_ui_launcher import finish_failed_packaged_ui
+                    if finish_failed_packaged_ui(ui_result, core):
+                        io.error(f"{timestamp()} [NIBLIT-UI] Desktop closed or unavailable; owned cleanup requested. See startup diagnostics.")
+                        return 1
                     io.error(
                         f"{timestamp()} [NIBLIT-UI] {ui_result.message or 'launch failed'} "
                         "— falling back to CLI (backend API may still be running)"
@@ -1646,3 +1716,4 @@ if __name__ == "__main__":
         RUNTIME_LOGGER.info("Main cleanup finished", event="shutdown", component="main",
                             elapsed_seconds=round(time.monotonic() - shutdown_started, 3),
                             state="cleanup_complete")
+

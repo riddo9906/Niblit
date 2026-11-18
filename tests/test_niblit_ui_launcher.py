@@ -37,9 +37,13 @@ from modules.niblit_ui_launcher import (
 # ─────────────────────────────────────────────────────────────────────────────
 
 @pytest.fixture(autouse=True)
-def owned_api_for_mocked_http_tests(monkeypatch):
+def owned_api_for_mocked_http_tests(monkeypatch, tmp_path):
     # These legacy tests stub HTTP readiness; ownership has dedicated tests.
     monkeypatch.setattr('modules.niblit_ui_launcher._api_owned_by_current_process',lambda url:True)
+    # Apply to every test group, not only TestLaunchPrimaryUi. Contract tests
+    # must never discover the user's real sibling UI or Cloud installation.
+    monkeypatch.setenv('NIBLIT_UI_PATH', str(tmp_path / 'absent-ui'))
+    monkeypatch.setattr('modules.niblit_ui_launcher._find_cloud_server_root', lambda: None)
 
 @pytest.mark.parametrize("present", [True, False])
 def test_frozen_cloud_autostart_uses_service_executable(tmp_path, present, monkeypatch):

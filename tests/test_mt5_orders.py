@@ -12,10 +12,12 @@ def orders(bridge,tmp_path):
     info=bridge._api.symbol_info.return_value
     info.point=.00001; info.digits=5; info.trade_stops_level=10
     bridge._api.order_calc_profit.return_value=-2
+    bridge._api.order_calc_margin.return_value=10.
     bridge._api.order_send.return_value=Obj(retcode=10009,deal=45,order=44,volume=.01,price=1.1001,comment='Done')
     advance(bridge)
     bridge.snapshot()
-    return DemoOrders(bridge,tmp_path/'mt5.sqlite3')
+    binding={k:v for k,v in bridge.account_record(bridge._api,bridge._api.account_info(),bridge._api.terminal_info()).items() if k!='login'}
+    return DemoOrders(bridge,tmp_path/'mt5.sqlite3',expected_binding=binding,execution_transport=bridge._api.order_send)
 
 
 def intent(orders,**extra):

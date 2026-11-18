@@ -76,7 +76,7 @@ def _reset_singleton():
 
 def test_build_loop_registers_all_capabilities_and_no_execution():
     loop = build_governed_tool_loop(lambda: FakeCore())
-    assert set(loop.allowed_tool_names()) == EXPECTED_TOOLS
+    assert set(loop.allowed_tool_names()) == EXPECTED_TOOLS | {'run_learning','recall_learning'}
     for name in FORBIDDEN_EXECUTION_NAMES:
         assert name not in loop.allowed_tool_names()
         assert name not in json.dumps(getattr(loop, "_schemas", {}))
@@ -188,7 +188,7 @@ def test_inference_chat_tools_branch(monkeypatch):
         def __init__(self):
             self.calls = []
 
-        def chat(self, messages, tools=None, model="x"):
+        def chat(self, messages, tools=None, model="x", max_tokens=None, cancel_event=None):
             self.calls.append({"messages": messages, "model": model})
             return {"text": "done",
                     "trace": [{"tool": "trading_runtime_status",

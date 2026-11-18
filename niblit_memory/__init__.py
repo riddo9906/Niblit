@@ -98,6 +98,11 @@ def _writable_path(filename: str, env_var: Optional[str] = None) -> str:
     This ensures Niblit can store runtime data on read-only deployments such
     as Vercel Lambda where only ``/tmp`` is writable.
     """
+    if env_var == "NIBLIT_MEMORY_PATH" and os.environ.get("NIBLIT_INSTALLATION_MANIFEST"):
+        from niblit_core.config.paths import guard_persistent_resource
+        value = os.environ.get(env_var, "")
+        guard_persistent_resource("memory", value)
+        return value
     if env_var:
         env_val = os.environ.get(env_var, "").strip()
         if env_val:
@@ -1651,6 +1656,8 @@ class RuntimePersistenceCoordinator:
         return self.mutation_queue.enqueue()
 
     def _commit_snapshot(self) -> None:
+        from niblit_core.config.paths import guard_persistent_resource
+        guard_persistent_resource("memory", self.path)
         start = time.perf_counter()
         payload = self.payload_supplier()
         payload = self.validator.normalize(payload)
@@ -1780,6 +1787,8 @@ class KnowledgeDB:
             self.persistence_manager.memory_path if self.persistence_manager is not None else _writable_path("niblit_memory.json", "NIBLIT_MEMORY_PATH")
         )
         self.backup_path = self.path + ".backup"
+        from niblit_core.config.paths import guard_persistent_resource
+        guard_persistent_resource("memory", self.path)
         self.snapshot_path = self.path + ".snapshot"
         self.quarantine_path = self.path + ".quarantine.jsonl"
         self.autosave_interval = autosave_interval
@@ -3501,6 +3510,8 @@ class NiblitMemory:
     def save(self):
         """Save memory state to persistent JSON file with backup."""
         try:
+            from niblit_core.config.paths import guard_persistent_resource
+            guard_persistent_resource("memory", self.filename)
             knowledge = getattr(self, "_shared_knowledge", None)
             if knowledge is not None:
                 if not _same_storage_path(self.filename, knowledge.path):

@@ -81,7 +81,8 @@ class ChartView:
                 try:
                     import httpx
                     with httpx.Client(trust_env=False,timeout=5) as c:
-                        r=c.get('http://127.0.0.1:5000/api/trading/positions');r.raise_for_status();reports=r.json()
+                        from modules.trading_desk import core_origin
+                        r=c.get(core_origin()+'/api/trading/positions');r.raise_for_status();reports=r.json()
                     actual={p['trade_id']:p for p in self.desk.api('status')}
                     position=next((p for p in reports.get('positions',[]) if p.get('recorded',{}).get('pair')==symbol and p.get('scope',{}).get('account_scope')==account and p['recorded'].get('trade_id') in actual and all(p['recorded'].get(k)==actual[p['recorded']['trade_id']].get(k) for k in ('open_rate','amount','is_short','is_open'))),None)
                     if position:observation['position_intelligence']=position

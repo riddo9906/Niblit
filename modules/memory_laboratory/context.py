@@ -2,6 +2,7 @@
 import json
 import os
 import threading
+import re
 from pathlib import Path
 
 from .gateway import MemoryGateway
@@ -55,11 +56,26 @@ def augment_messages(messages, *, gateway=None, scope=None):
                       if m.get("role") == "user"), "")
         if not isinstance(query, str) or not query.strip():
             return working, report
-        result = gateway.retrieve(query, namespace=namespace, principal=principal, limit=4)
+        identifiers = re.findall(r'\b[0-9a-fA-F]{8}-(?:[0-9a-fA-F]{4}-){3}[0-9a-fA-F]{12}\b', query)
+        result = gateway.retrieve(query, namespace=namespace, principal=principal, limit=12 if identifiers else 4)
         report["issues"] = result["issues"]
+        hits = result['results']
+        if identifiers:
+            # A semantic neighbour is not evidence for a requested record ID.
+            # Keep sibling chunks only after an exact identifier anchors a source.
+            roots = {h['citation'].split('#offset=')[0] for h in hits
+                     if all(identifier.casefold() in h['content'].casefold() or
+                            identifier in h.get('matched_identifiers', []) for identifier in identifiers)}
+            hits = [h for h in hits if h['citation'].split('#offset=')[0] in roots]
+            if not hits:
+                report['issues'].append('requested_record_not_found_in_retrieved_evidence')
+                working.insert(0, {'role':'system', 'content':
+                    'The requested record ID was not found in authorized retrieved evidence. '
+                    'Report UNKNOWN; do not reconstruct its contents from prior assistant messages.'})
         evidence = [{"id": h["id"], "text": h["content"],
                      "source_location": h["citation"], "verification": h["verification"],
-                     "confidence": h["confidence"]} for h in result["results"]]
+                     "confidence": h["confidence"],
+                     "matched_identifiers": h.get('matched_identifiers', [])} for h in hits[:4]]
         report["citations"] = [h["source_location"] for h in evidence]
         if evidence:
             # The policy is constant trusted code; no retrieved bytes enter a

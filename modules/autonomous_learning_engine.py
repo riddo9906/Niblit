@@ -965,6 +965,8 @@ class AutonomousLearningEngine:
     # ─────────────────────────────────────────────
     def _autonomous_idea_generation(self) -> str:
         """Step 2: Generate ideas based on research using SelfIdeaImplementation when available."""
+        if not self._has_research_findings():
+            return "[No established research findings; idea generation skipped]"
         topic = self.learning_history.get("last_research_topic") or "system improvement"
         prompt = f"Generate an innovative idea based on research about: {topic}"
 
@@ -1094,8 +1096,24 @@ class AutonomousLearningEngine:
         return "[No implementation module available]"
 
     # ─────────────────────────────────────────────
+    def _has_research_findings(self) -> bool:
+        """Guard every producer, including ModuleAutonomy's out-of-cycle call."""
+        from modules.research_contracts import learning_outcome
+        rows = []
+        for result in getattr(self, '_last_research_results', []):
+            if isinstance(result, dict):
+                rows.append({'content': result.get('content') or result.get('snippet') or '',
+                             'citation': result.get('citation') or result.get('source') or 'legacy:unresolved'})
+            else:
+                rows.append({'content': str(result), 'citation': 'legacy:unresolved'})
+        return learning_outcome(self.learning_history.get('last_research_topic', ''), rows)['learning_succeeded']
+
     def _autonomous_reflection(self) -> str:
         """Step 4: Reflect on the actual research content and store as memory."""
+        # ModuleAutonomy also calls this outside an ALE cycle. No topic/results
+        # must mean no learning, not a synthetic 'system learning' success.
+        if not self._has_research_findings() or not self.learning_history.get('last_research_topic'):
+            return "[No established research findings; reflection skipped]"
         if not self.reflect:
             return "[Reflect module unavailable]"
 
@@ -1193,6 +1211,9 @@ class AutonomousLearningEngine:
                             "reflection": reflection_output,
                             "idea": last_idea,
                             "source": "ale_step4_reflection",
+                            "verification_status": "tentative",
+                            "interpretation_verified": False,
+                            "learning_outcome": getattr(self, '_last_learning_outcome', {}),
                         },
                         tags=["ale_learned", "memory", "autonomous", topic_tag],
                     )
@@ -1305,6 +1326,8 @@ class AutonomousLearningEngine:
     # ─────────────────────────────────────────────
     def _autonomous_learning(self) -> str:
         """Step 6: Feed learning to self-teacher with spaced review, active-recall test, and richer logging."""
+        if not self._has_research_findings():
+            return "[No established research findings; teaching skipped]"
         if not self.self_teacher:
             return "[Self-teacher unavailable]"
 
@@ -2130,7 +2153,17 @@ class AutonomousLearningEngine:
                 except Exception:
                     pass
 
-            # Persist enriched ale_learned entry with confidence + source provenance
+            # Preserve the same-cycle evidence for Ideas/Learning/Reflection.
+            # The previous phased path never forwarded this content, causing
+            # later steps to fall back to 'system learning' with no findings.
+            outcome = getattr(artifact, 'outcome', {}) if artifact else {}
+            self._last_research_results = [f['excerpt'] for f in outcome.get('findings', [])]
+            self.learning_history['last_research_topic'] = topic
+            self._last_learning_outcome = outcome
+            if outcome.get('learning_succeeded'):
+                self.learning_history['research_completed'] += 1
+
+            # Persist an outcome even when empty, but never label it learned.
             if self.knowledge_db:
                 try:
                     ts = int(time.time())
@@ -2141,20 +2174,21 @@ class AutonomousLearningEngine:
                     )
                     related = (artifact.semantic_links if artifact else [])[:5]
                     self.knowledge_db.add_fact(
-                        f"ale_learned:{topic.replace(' ', '_')}:{ts}",
+                        f"{'ale_learned' if outcome.get('learning_succeeded') else 'ale_investigation'}:{topic.replace(' ', '_')}:{ts}",
                         {
                             "topic": topic,
                             "summary": artifact.summary if artifact else result.summary()[:300],
                             "confidence_score": confidence,
                             "source_type": source_type,
                             "source_provenance": list(result.phases_run),
-                            "verification_status": "internal_only" if internal_hit and confidence >= 0.75 else "external_verified",
+                            "verification_status": outcome.get('status', 'inconclusive'),
+                            "learning_outcome": outcome,
                             "related_concepts": related,
                             "facts_stored": result.total_facts,
                             "cycle": self._cycle_count,
                             "source": "phased_research",
                         },
-                        tags=["ale_learned", "memory", "phased_research", topic_tag, source_type],
+                        tags=["ale_learned" if outcome.get('learning_succeeded') else "investigation_no_findings", "memory", "phased_research", topic_tag, source_type],
                     )
                 except Exception as _kb_e:
                     log.debug("[PhasedResearch] ale_learned write failed: %s", _kb_e)
@@ -4269,7 +4303,9 @@ class AutonomousLearningEngine:
                                                        'truth_verified':False}
                             pm.finish_learning(gateway,ident,'failed',self._native_cycle_result);raise
                         else:
-                            pm.finish_learning(gateway,ident,'completed',getattr(self,'_native_cycle_result',{}));return result
+                            report=getattr(self,'_native_cycle_result',{})
+                            terminal='failed' if report.get('state') in ('failed','retrieval_failure','persistence_failed') else 'completed'
+                            pm.finish_learning(gateway,ident,terminal,report);return result
                 future = executor.submit(governed_step)
                 self._step_futures[future] = step_name
             def _finished(done):
@@ -6020,6 +6056,9 @@ class AutonomousLearningEngine:
                     research=lambda topic:research_local_evidence(topic,spec['source_path']),
                     authorize=self._approved_learning_guard)
                 self._native_cycle_result=report
+                self.learning_history['last_research_topic']=spec['topic']
+                if report.get('learning_succeeded'):
+                    self.learning_history['research_completed'] += 1
                 return report['state']
             return self._run_step_with_timeout('NativeLocalEvidence',study_one,timeout=90)
         self._cycle_count += 1
@@ -6027,6 +6066,8 @@ class AutonomousLearningEngine:
 
         # ── Pin the research topic for this entire cycle ───────────────────
         self._current_cycle_topic = self._select_next_topic()
+        self._last_research_results = []
+        self._last_learning_outcome = {}
         self._record_cognitive_cycle_contract(cycle, self._current_cycle_topic or "unknown", [], "pending")
         log.info("=" * 70)
         log.info("🔄 [AUTONOMOUS CYCLE #%d] Topic: %r", cycle, self._current_cycle_topic)
@@ -6607,7 +6648,7 @@ class AutonomousLearningEngine:
                     'last_worker_error':self._worker_error,
                     'owner':'core.autonomous_engine',
                     'learning_profile':'local_evidence_only' if local_safe_profile() else 'legacy',
-                    'last_native_cycle':{k:v for k,v in getattr(self,'_native_cycle_result',{}).items() if k in ('state','topic','model_calls','truth_verified','citation_check','research_performed','memory','self_teacher','trainer_source_observations')},
+                    'last_native_cycle':{k:v for k,v in getattr(self,'_native_cycle_result',{}).items() if k in ('state','topic','model_calls','truth_verified','citation_check','research_performed','memory','self_teacher','trainer_source_observations','outcome','learning_succeeded','reason')},
                     'scope':'ALE worker only; Core research, curriculum and SLSA may operate separately'}
 
     # ─────────────────────────────────────────────

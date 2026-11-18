@@ -1,4 +1,4 @@
-"""Human-only demo order tickets. No live-account or automatic retry path."""
+"""Demo order delivery through the MT5 terminal. Live accounts are rejected; automatic retry is disabled."""
 from contextlib import contextmanager
 import json
 import math
@@ -13,7 +13,17 @@ MAGIC = 29102026
 
 
 class DemoOrders:
-    def __init__(self, bridge, path, *, price_drift_fraction=0.,crypto_stops=False,autonomous_max_volume=.01):
+    def __init__(self, bridge, path, *, price_drift_fraction=0.,crypto_stops=False,autonomous_max_volume=.01,
+                 expected_binding=None, execution_transport=None):
+        self.expected_binding = dict(expected_binding) if expected_binding else None
+        if self.expected_binding is not None:
+            required={'identity','environment','server','broker','terminal_id'}
+            if (not required<=self.expected_binding.keys() or self.expected_binding['environment']!='demo'
+                    or any(not isinstance(self.expected_binding[k],str) or not self.expected_binding[k].strip() for k in required)):
+                raise ValueError('Exact verified demo identity, broker/server and terminal binding required')
+        if execution_transport is not None and (not callable(execution_transport) or not self.expected_binding):
+            raise ValueError('An intercepted transport requires an explicit demo account binding')
+        self.execution_transport = execution_transport
         if type(autonomous_max_volume) not in (int,float) or not math.isfinite(autonomous_max_volume) or not 0<autonomous_max_volume<=.10:
             raise ValueError("Autonomous demo volume ceiling must be finite and at most 0.10 lots")
         self.autonomous_max_volume=autonomous_max_volume
@@ -40,13 +50,22 @@ class DemoOrders:
         api,account,terminal=self.bridge.connect()
         if account.trade_mode!=api.ACCOUNT_TRADE_MODE_DEMO:
             raise ValueError('Only demo accounts may submit orders')
+        if not terminal.connected:
+            raise ValueError('MT5 terminal is disconnected')
+        binding=self.bridge.account_record(api,account,terminal)
         if self.bridge.identity(account)!=body['account_identity']:
             raise ValueError('MT5 account changed; refresh and review again')
-        if not account.trade_allowed or not terminal.trade_allowed or terminal.tradeapi_disabled:
+        if self.expected_binding and any(binding.get(k)!=v for k,v in self.expected_binding.items()):
+            raise PermissionError('Intended MT5 account/broker/server/terminal binding changed')
+        if not account.trade_allowed or not getattr(account,'trade_expert',False) or not terminal.trade_allowed or terminal.tradeapi_disabled:
             raise ValueError('MT5 or broker trading permission is disabled')
         symbol=body['symbol']; volume=body['volume']
         info=api.symbol_info(symbol)
         if info is None or not info.visible: raise ValueError('Select a visible broker symbol')
+        if body.get('action') not in ('open','close') or body.get('side') not in ('buy','sell'):
+            raise ValueError('Unsupported MT5 action or direction')
+        if body['action']=='open' and getattr(info,'trade_mode',None) not in (4,1 if body['side']=='buy' else 2):
+            raise ValueError('Broker symbol does not permit this entry direction')
         if type(volume) not in (int,float) or not math.isfinite(volume) or not 0<volume<=(self.autonomous_max_volume if core_owned else .01):
             raise ValueError('Volume exceeds the reviewed demo execution ceiling')
         if not info.volume_min<=volume<=info.volume_max or info.volume_step<=0 or abs((volume-info.volume_min)/info.volume_step-round((volume-info.volume_min)/info.volume_step))>1e-6:
@@ -70,6 +89,11 @@ class DemoOrders:
                 raise ValueError('Pending order state prevents another entry')
         order_type=api.ORDER_TYPE_BUY if side=='buy' else api.ORDER_TYPE_SELL
         price=tick['ask'] if side=='buy' else tick['bid']
+        if body['action']!='close':
+            from modules.trading_values import number
+            margin=number(api.order_calc_margin(order_type,symbol,volume,price),'broker margin requirement')
+            available=number(account.margin_free,'free margin')
+            if margin<0 or available<margin:raise ValueError('Insufficient free margin for the broker minimum/volume')
         filling=api.ORDER_FILLING_FOK if info.filling_mode&1 else api.ORDER_FILLING_IOC if info.filling_mode&2 else api.ORDER_FILLING_RETURN
         request={'action':api.TRADE_ACTION_DEAL,'symbol':symbol,'volume':volume,'type':order_type,
             'price':price,'deviation':20,'magic':MAGIC,'comment':'niblit_'+key[:12],
@@ -89,6 +113,7 @@ class DemoOrders:
                 request['tp']=round(price+2*distance if side=='buy' else price-2*distance,info.digits)
             profit=api.order_calc_profit(order_type,symbol,volume,price,request['sl'])
             if profit is None or not math.isfinite(profit): raise ValueError('Broker risk calculation unavailable')
+            if profit>=0:raise ValueError('Broker stop-risk calculation must describe a loss')
             risk=abs(profit)
             if risk>min(25,account.equity*.01): raise ValueError('Stop-loss risk exceeds the demo test limit')
             # The automatic controller supplies its stricter equity budget. It
@@ -100,6 +125,8 @@ class DemoOrders:
         check=api.order_check(request)
         if check is None or check.retcode!=0:
             raise ValueError('Broker rejected preflight'+(f' (code {check.retcode}): {check.comment}' if check else ''))
+        if body['action']!='close' and (not math.isfinite(check.margin_free) or check.margin_free<0):
+            raise ValueError('Insufficient margin after broker preflight')
         if body['action']!='close' and check.margin>account.equity*.1:
             raise ValueError('Margin exceeds 10% of demo equity')
         return api,request,{'mode':'demo','server':account.server,'currency':account.currency,
@@ -135,6 +162,9 @@ class DemoOrders:
             row=db.execute('SELECT * FROM mt5_tickets WHERE id=?',(key,)).fetchone()
             if row is None: raise ValueError('Unknown ticket')
             if row['state']!='preview': return {'state':row['state'],'result':json.loads(row['result'] or 'null')}
+            if self.execution_transport is None:
+                return {'state':'execution_denied','mode':'demo',
+                    'result':{'message':'External MT5 delivery remains DENIED; no broker call or ticket consumption'}}
             if db.execute("SELECT 1 FROM mt5_tickets WHERE state IN ('sending','unknown','placed') LIMIT 1").fetchone():
                 raise ValueError('Reconcile the earlier delivery before submitting another ticket')
             if time.time()-row['created']>30: raise ValueError('Review expired; refresh and review again')
@@ -179,7 +209,7 @@ class DemoOrders:
                     state,result='rejected',{'message':'MT5 binding or execution permission changed before delivery; no order sent'}
                 else:
                     try:
-                        response=api.order_send(request)
+                        response=self.execution_transport(request)
                         after_account, after_terminal = api.account_info(), api.terminal_info()
                         if (after_account is None or after_terminal is None or not after_terminal.connected
                                 or self.bridge.account_record(api,after_account,after_terminal) != review['account_binding']):

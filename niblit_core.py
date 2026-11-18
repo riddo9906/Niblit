@@ -490,6 +490,7 @@ class NiblitConfig:
     enable_improvements: bool = True
     enable_self_improvements: bool = True
     enable_autonomous_engine: bool = True
+    enable_optional_bootstrap: bool = True
 
     def __post_init__(self):
         if self.tools_dir is None:
@@ -509,6 +510,7 @@ class NiblitConfig:
             enable_improvements=os.getenv("NIBLIT_IMPROVEMENTS", "true").lower() in ("true", "1"),
             enable_self_improvements=os.getenv("NIBLIT_SELF_IMPROVEMENTS", "true").lower() in ("true", "1"),
             enable_autonomous_engine=os.getenv("NIBLIT_AUTONOMOUS_ENGINE", "true").lower() in ("true", "1"),
+            enable_optional_bootstrap=os.getenv("NIBLIT_OPTIONAL_BOOTSTRAP", "true").lower() in ("true", "1"),
         )
 
 
@@ -2140,6 +2142,20 @@ class NiblitCore:
             # Background health/trainer/research loops start now; they
             # guard all component access with getattr(..., None) so
             # they tolerate None components during Phase 1.
+            if not self.config.enable_optional_bootstrap:
+                # Explicit reduced runtime: retain real DB, security, registry
+                # and router, without starting trading or optional workers.
+                self._deferred_init_phase = "disabled_by_configuration"
+                self._deferred_init_event.set()
+                self._essential_ready = self.startup_report.is_healthy()
+                self._essential_init_event.set()
+                self._optional_init_status = 'disabled_by_configuration'
+                self._trading_api_server = None
+                self._trading_api_thread = None
+                self.trading_runtime_manager = None
+                self.lean_algo_manager = None
+                log.info("Core essential services ready; optional bootstrap explicitly disabled")
+                return
             self._start_background_services()
 
             if self.startup_report.is_healthy():

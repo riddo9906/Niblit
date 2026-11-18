@@ -42,6 +42,7 @@ class ResearcherEngine:
         qdrant_url: str = "",
         qdrant_api_key: str = "",
         memory=None,
+        enable_vector_cache: bool = True,
     ) -> None:
         qdrant_config = QdrantConfig.load()
         _url = qdrant_url or qdrant_config.url
@@ -62,6 +63,8 @@ class ResearcherEngine:
 
         # ── VectorStore (uses same Qdrant backend when available) ─────────────
         self.vector_store = None
+        if not enable_vector_cache:
+            return
         try:
             from modules.vector_store import VectorStore
             self.vector_store = VectorStore(
@@ -178,7 +181,7 @@ class ResearcherEngine:
 
         return None
 
-    def web_search_hits(self, topic: str, max_results: int = 5) -> list[dict]:
+    def web_search_hits(self, topic: str, max_results: int = 5, *, governed: bool = False) -> list[dict]:
         """Structured variant of :meth:`web_search` (Phase 5B).
 
         Reuses the SAME key-free search chain (SerpEx -> DuckDuckGo
@@ -191,6 +194,14 @@ class ResearcherEngine:
         client UAs; DDG instant-answer frequently 202s niche technical
         queries, in which case the Wikipedia fallback carries the hit).
         """
+        if governed:
+            # The instant-answer API below is not a general web search engine.
+            # Reuse the installed free metasearch client, no paid-key
+            # fallback or cache writes. Results remain candidates, not evidence.
+            from ddgs import DDGS
+            hits = DDGS(timeout=5,api_url=None,spawn_api=False).text(topic, max_results=min(max_results,8),backend='auto')
+            return [{'title':h.get('title',''),'url':h.get('href',''),
+                     'snippet':h.get('body',''),'source':'ddgs_auto'} for h in hits]
         hits: list[dict] = []
         ua = {"User-Agent": "NiblitResearch/1.0 (local governed research)"}
 

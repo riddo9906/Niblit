@@ -24,6 +24,12 @@ from typing import Literal
 
 ROOT = Path(__file__).resolve().parents[1]
 
+def core_origin():
+    port=int(os.getenv('NIBLIT_API_PORT','5000'))
+    if not 1024<=port<=65535:raise ValueError('Invalid local Core port')
+    return f'http://127.0.0.1:{port}'
+
+
 
 class FreqtradeRejection(RuntimeError):
     pass
@@ -76,9 +82,18 @@ class DemoSession(BaseModel):
 
 
 class Desk:
-    def __init__(self, root=ROOT, transport=None):
+    def __init__(self, root=ROOT, transport=None, *, config_path=None, api_base=None, native_demo_delivery=False):
         self.root = Path(root)
+        self.config_path = Path(config_path) if config_path is not None else self.root.parent/'freqtrade/user_data/config.json'
+        if not self.config_path.is_absolute():raise ValueError('Absolute Freqtrade profile required')
+        self.api_base = api_base or 'http://127.0.0.1:8080/api/v1/'
+        parsed = urlparse(self.api_base)
+        if (parsed.scheme!='http' or parsed.hostname!='127.0.0.1' or not parsed.port
+                or parsed.username or parsed.password or parsed.query or parsed.fragment
+                or parsed.path!='/api/v1/'):
+            raise ValueError('Explicit loopback Freqtrade API required')
         self.transport = transport
+        self.native_demo_delivery = native_demo_delivery is True
         self.lock = threading.Lock()
         self.market_rules = None
         self.path = self.root/'runtime/trading-desk/orders.sqlite3'
@@ -98,19 +113,38 @@ class Desk:
 
     def connection(self):
         # The Docker profile is explicit; no silent fallback to another account.
-        path = self.root.parent/'freqtrade/user_data/config.json'
+        path = self.config_path
         config = json.loads(path.read_text(encoding='utf-8'))
         api = config['api_server']
         return config, (api['username'], api['password'])
 
-    def api(self, path, payload=None):
+    def api(self, path, payload=None, *, guard=None, ticket=None):
         if self.transport:
             return self.transport(path, payload)
+        if payload is not None:
+            if (not self.native_demo_delivery or os.getenv('NIBLIT_DESKTOP_OBSERVATION_ONLY')=='1'
+                    or path not in ('forceenter','forceexit') or not callable(guard) or not ticket):
+                raise PermissionError('Native Freqtrade delivery requires an explicitly enabled Core-managed scope')
+            private,_=self.connection();config=self.configuration()
+            if private.get('dry_run') is not True or config.get('dry_run') is not True or config.get('strategy')!='NiblitCoreManaged' or config.get('state')!='running':
+                raise FreqtradeRejection('Verified running CoreManaged dry-run identity required; nothing submitted')
+            try:receipt=guard() # Exactly once, immediately before native HTTP.
+            except Exception as exc:raise FreqtradeRejection('Core scope/risk denied before native HTTP; no order submitted') from exc
+            from modules.trading_session_adapters import FreqtradeSessionAdapter
+            expected='open' if path=='forceenter' else 'close'
+            if (not isinstance(receipt,dict) or receipt.get('environment')!='dry-run'
+                    or receipt.get('adapter')!='freqtrade' or receipt.get('account')!=FreqtradeSessionAdapter(self).identity()
+                    or receipt.get('action')!=expected or receipt.get('ticket')!=ticket
+                    or not isinstance(receipt.get('expires'),(int,float)) or receipt['expires']<=time.time()
+                    or (path=='forceenter' and receipt.get('symbol')!=payload.get('pair'))):
+                raise FreqtradeRejection('Core delivery receipt mismatch; nothing submitted')
+            if self.configuration()!=config:raise FreqtradeRejection('Engine identity changed before native HTTP; nothing submitted')
         _, auth = self.connection()
         # Fixed loopback target; configuration cannot redirect credentials.
-        with httpx.Client(base_url='http://127.0.0.1:8080/api/v1/', auth=auth,
+        with httpx.Client(base_url=self.api_base, auth=auth,
                           trust_env=False, timeout=12) as client:
             response = client.get(path) if payload is None else client.post(path, json=payload)
+            if response.status_code in (401,403):raise FreqtradeRejection('Native API authorization denied; no accepted order')
             if response.is_error and path=='forceenter':
                 # Freqtrade's RPC exception explicitly reports execute_entry=False.
                 # Other errors/timeouts remain uncertain and are never retried.
@@ -270,7 +304,8 @@ class Desk:
             for trade in trades:
                 if trade.get('is_open') is False:
                     selected = {key:trade.get(key) for key in ('trade_id','pair','open_date','close_date',
-                        'profit_abs','profit_ratio','fees','strategy','exit_reason')}
+                        'profit_abs','profit_ratio','fee_open','fee_open_cost','fee_close','fee_close_cost',
+                        'funding_fees','realized_profit','strategy','exit_reason')}
                     selected.update(mode='dry-run' if config['dry_run'] is True else 'live',
                                     exchange=config['exchange'])
                     identity = json.dumps([config['exchange'],config['dry_run'],trade.get('trade_id'),trade.get('open_date')])
@@ -279,7 +314,10 @@ class Desk:
             tickets = [dict(r) for r in db.execute('SELECT id,created,state,result FROM tickets ORDER BY created DESC LIMIT 20')]
             count = db.execute('SELECT count(*) FROM outcomes').fetchone()[0]
         memory = self.export_outcomes() if self.transport is None else {'state':'test'}
-        return dict(connected=True,checked_at=time.time(),configuration=config,pairs=pairs,
+        from modules.trading_values import freqtrade_actuals
+        actuals=freqtrade_actuals(parts['status'].get('data',[]),parts['balance'].get('data',{}),
+            parts['profit'].get('data',{}),trades,observed_at=time.time(),mode='dry-run' if config.get('dry_run') is True else 'UNKNOWN')
+        return dict(connected=True,checked_at=time.time(),configuration=config,pairs=pairs,actuals=actuals,
                     positions=parts['status'],balance=parts['balance'],profit=parts['profit'],
                     trades=parts['trades?limit=100'],market=market,tickets=tickets,
                     recorded_outcomes=count,memory=memory,manual_execution='dry-run only',funded_execution_enabled=False)
@@ -380,6 +418,8 @@ class Desk:
                 if not row: raise ValueError('Unknown ticket')
                 data = json.loads(row['payload'])
                 if data.get('core_owned') and guard is None:raise PermissionError('Core-owned ticket requires current Core session guard')
+                if row['state']=='preview' and self.transport is None and (not self.native_demo_delivery or os.getenv('NIBLIT_DESKTOP_OBSERVATION_ONLY')=='1' or not data.get('core_owned') or not callable(guard)):
+                    return {'state':'execution_denied','result':{'message':'External Freqtrade delivery remains DENIED; ticket not consumed'}}
                 config = None
                 if expected is not None:
                     # Binding and current non-live identity are checked inside
@@ -400,16 +440,17 @@ class Desk:
                 self.validate(intent,config)
                 db.execute("UPDATE tickets SET state='sending' WHERE id=?",(key,))
             # Persisted sending means a restart cannot cause a duplicate retry.
-            if guard is not None:
+            if guard is not None and self.transport is not None:
                 try: guard()
                 except Exception:
                     with self.db() as db:
                         db.execute("UPDATE tickets SET state='rejected',result=? WHERE id=?",(json.dumps({'message':'Core scope/risk guard denied; no order sent'}),key))
                     raise
             try:
+                delivery={} if self.transport is not None else {'guard':guard,'ticket':key}
                 result = self.api('forceenter',{'pair':intent.pair,'side':'short' if intent.action=='enter_short' else 'long','stakeamount':intent.stake,
-                    'ordertype':'market','entry_tag':data.get('entry_tag','niblit_'+key[:12]),'leverage':1}) if intent.action in ('enter_long','enter_short') else self.api(
-                    'forceexit',{'tradeid':str(intent.trade_id),'ordertype':'market'})
+                    'ordertype':'market','entry_tag':data.get('entry_tag','niblit_'+key[:12]),'leverage':1},**delivery) if intent.action in ('enter_long','enter_short') else self.api(
+                    'forceexit',{'tradeid':str(intent.trade_id),'ordertype':'market'},**delivery)
                 selected = {k:result.get(k) for k in ('trade_id','status','pair','is_open')}
                 state = 'submitted'  # Submission is not proof of a fill.
             except FreqtradeRejection as exc:
@@ -497,7 +538,7 @@ def create_app(desk=None, mt5=None, core_hosted=False):
     def core_position_intelligence():
         try:
             with httpx.Client(trust_env=False,timeout=8) as client:
-                response=client.get('http://127.0.0.1:5000/api/trading/positions')
+                response=client.get(core_origin()+'/api/trading/positions')
                 response.raise_for_status()
                 return response.json()
         except Exception:raise HTTPException(503,'Core position observations unavailable; no order was sent')
@@ -527,7 +568,7 @@ def create_app(desk=None, mt5=None, core_hosted=False):
                 match=next((o for o in auto.status()['opportunities'] if o['id']==body.opportunity_id and o['symbol']==body.symbol),None)
                 if match is None: raise ValueError('Opportunity expired or conditions changed; wait for another alert')
             if mt5.snapshot(body.symbol)['account']['mode']!='demo':raise ValueError('Connect a verified demo account')
-            raise ValueError('Review and activate the bounded session in Core trading controls; this legacy route cannot grant execution')
+            return auto.start(body.symbol, body.strategy, body.minutes, body.max_entries, observe_only=False)
         except ValueError as exc: raise HTTPException(409, str(exc))
         except Exception: raise HTTPException(503, 'Demo session unavailable; inspect the terminal')
 
@@ -608,7 +649,7 @@ def create_app(desk=None, mt5=None, core_hosted=False):
     async def guard(request:Request, call_next):
         host = request.headers.get('host','')
         allowed_hosts={'127.0.0.1:8767','localhost:8767','testserver'}
-        if core_hosted:allowed_hosts.update({'127.0.0.1:5000','localhost:5000'})
+        if core_hosted:allowed_hosts.update({urlparse(core_origin()).netloc,'localhost:'+str(urlparse(core_origin()).port)})
         if host not in allowed_hosts:
             from fastapi.responses import JSONResponse
             return JSONResponse({'detail':'Invalid host'},400)
@@ -624,7 +665,7 @@ def create_app(desk=None, mt5=None, core_hosted=False):
         if request.method != 'GET':
             origin = request.headers.get('origin','')
             allowed_origins={'http://127.0.0.1:8767','http://localhost:8767'}
-            if core_hosted:allowed_origins.update({'http://127.0.0.1:5000','http://localhost:5000'})
+            if core_hosted:allowed_origins.update({core_origin(),'http://localhost:'+str(urlparse(core_origin()).port)})
             if origin not in allowed_origins or not secrets.compare_digest(request.headers.get('x-desk-token',''),token):
                 from fastapi.responses import JSONResponse
                 return JSONResponse({'detail':'Open the local desk to review orders'},403)
@@ -647,7 +688,7 @@ def create_app(desk=None, mt5=None, core_hosted=False):
     @app.api_route('/api/core-trading/{action:path}',methods=['GET','POST'])
     async def core_trading_proxy(action:str,request:Request):
         import re
-        paths={'status':'','observe':'/observe','propose':'/propose','activate':'/activate','stop':'/stop'}
+        paths={'status':'','readiness':'/readiness','observe':'/observe','propose':'/propose','activate':'/activate','stop':'/stop'}
         if action in paths:tail=paths[action]
         elif re.fullmatch(r'alerts/[a-f0-9]{64}/delivered',action):tail='/'+action
         else:raise HTTPException(404,'Unknown Core trading action')
@@ -702,7 +743,7 @@ def create_app(desk=None, mt5=None, core_hosted=False):
         result=chart_snapshot(environment,symbol,timeframe);bundle=result['annotations']
         if not bundle.get('namespace'):return {'history':[],'state':'history_unavailable'}
         with httpx.Client(trust_env=False,timeout=10) as client:
-            response=client.get('http://127.0.0.1:5000/api/trading/chart-annotations',params={'chart_key':bundle['chart_key'],'namespace':bundle['namespace'],'history':'true'})
+            response=client.get(core_origin()+'/api/trading/chart-annotations',params={'chart_key':bundle['chart_key'],'namespace':bundle['namespace'],'history':'true'})
             response.raise_for_status();return response.json()
 
     @app.get('/api/charts/pine',response_class=PlainTextResponse)

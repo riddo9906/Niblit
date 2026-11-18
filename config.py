@@ -177,6 +177,9 @@ class Config:
             or cls.OPENAI_API_KEY
             or cls.ANTHROPIC_API_KEY
             or cls.RUFLO_API_URL
+            or (os.environ.get('NIBLIT_PORTAL_MODEL_BACKEND')=='local_gguf'
+                and os.environ.get('NIBLIT_PORTAL_GGUF_URL')
+                and os.path.isfile(os.environ.get('NIBLIT_PORTAL_GGUF_KEY_FILE','')))
         )
 
         lines = ["", "┌─── Niblit service status ───────────────────────────────────────┐"]

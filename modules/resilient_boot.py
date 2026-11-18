@@ -58,6 +58,12 @@ def load_environment(project_root: str, status: Optional[BootStatus] = None) -> 
         os.path.join(project_root, ".env"),
         os.path.join(os.getcwd(), ".env"),
     ]
+    if os.environ.get("NIBLIT_INSTALLATION_MANIFEST"):
+        # Relocated installations must not mix a foreign CWD/bundle .env into
+        # the explicitly bound configuration or silently create fresh memory.
+        from niblit_core.config.paths import guard_persistent_resource
+        guard_persistent_resource("configuration", candidates[0])
+        candidates = candidates[:1]
 
     dotenv_spec = importlib.util.find_spec("dotenv")
     if dotenv_spec is None:
@@ -95,6 +101,16 @@ def load_environment(project_root: str, status: Optional[BootStatus] = None) -> 
             log.warning("Failed loading .env from %s: %s", norm, exc)
             status.warnings.append(f".env load failed: {norm}")
 
+    # A frozen bundle may contain only a pointer to its external profile.
+    # Follow that explicit pointer once; never search a source checkout.
+    explicit=os.environ.get('NIBLIT_ENV_FILE','')
+    if explicit and os.path.normpath(explicit) not in seen:
+        if os.environ.get('NIBLIT_INSTALLATION_MANIFEST'):
+            from niblit_core.config.paths import guard_persistent_resource
+            guard_persistent_resource('configuration',explicit)
+        if os.path.isfile(explicit) and load_dotenv(explicit,override=False):
+            loaded_any=True
+            status.env_sources.append(os.path.normpath(explicit))
     status.environment_loaded = loaded_any or bool(os.environ)
     if not loaded_any:
         msg = "Niblit running without local .env file — using system environment"

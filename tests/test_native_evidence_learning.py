@@ -11,7 +11,7 @@ def isolated_research(monkeypatch):
 
 def test_native_cycle_records_only_unverified_evidence(monkeypatch):
     monkeypatch.setenv('NIBLIT_NATIVE_LOCAL_TRANSPORT','local_gguf')
-    g=Mock();g.retrieve.return_value={'results':[{'id':'a','content':'Source claim','citation':'source://a','verification':'unverified'}],'issues':[]}
+    g=Mock();g.retrieve.return_value={'results':[{'id':'a','content':'SQLite retains the original queued source evidence.','citation':'source://a','verification':'unverified'}],'issues':[]}
     infer=Mock(return_value='Source claim [1].')
     report=run_cycle(0,stopped=lambda:False,gateway=g,infer=infer)
     assert report['state']=='candidate_for_review' and report['model_calls']==1
@@ -34,7 +34,7 @@ def test_stop_after_inference_prevents_new_memory_work(monkeypatch):
     g=Mock();g.retrieve.return_value={'results':[{'id':'a','content':'source','citation':'source://a'}],'issues':[]}
     stopped=[False]
     def infer(*args,**kwargs):stopped[0]=True;return 'source [1]'
-    report=run_cycle(2,stopped=lambda:stopped[0],gateway=g,infer=infer)
+    report=run_cycle(2,stopped=lambda:stopped[0],gateway=g,infer=infer,topic='SQLite memory durability')
     assert report['state']=='stopped_before_memory_write'
     g.ingest.assert_not_called()
 

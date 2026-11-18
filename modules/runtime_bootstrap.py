@@ -36,6 +36,30 @@ def _find_repo_root(start: Optional[os.PathLike[str] | str] = None) -> Path:
 def bootstrap_runtime_environment(start: Optional[os.PathLike[str] | str] = None) -> Path:
     """Ensure the Niblit repo root is importable and the CWD is consistent."""
     repo_root = _find_repo_root(start)
+    # Installed releases have an independent, integrity-pinned runtime anchor.
+    # Never let a replaced bundle .env, foreign CWD or developer shell select it.
+    anchor = repo_root / 'release-runtime.json'
+    if getattr(sys, 'frozen', False) and anchor.is_file():
+        import json, hashlib
+        from dotenv import dotenv_values
+        binding = json.loads(anchor.read_text(encoding='utf-8'))
+        manifest = Path(binding['manifest'])
+        if hashlib.sha256(manifest.read_bytes()).hexdigest() != binding['manifest_sha256']:
+            raise RuntimeError('Installed runtime manifest integrity mismatch')
+        profile = Path(binding['configuration'])
+        declared = json.loads(manifest.read_text(encoding='utf-8'))['resources']['configuration']['path']
+        if profile.resolve() != Path(declared).resolve():
+            raise RuntimeError('Installed runtime configuration identity mismatch')
+        values = dotenv_values(profile)
+        for key,value in values.items():
+            if value is not None:os.environ[key] = value
+        os.environ.update(NIBLIT_ENV_FILE=str(profile), NIBLIT_INSTALLATION_MANIFEST=str(manifest),
+            NIBLIT_INSTALLATION_MANIFEST_SHA256=binding['manifest_sha256'])
+        for key in ('NIBLIT_MT5_DEMO_DELIVERY_ENABLED','NIBLIT_FREQTRADE_DEMO_DELIVERY_ENABLED'):
+            os.environ[key] = values.get(key) or '0'
+    if os.environ.get("NIBLIT_INSTALLATION_MANIFEST"):
+        from niblit_core.config.paths import apply_environment
+        apply_environment()
     repo_root_str = str(repo_root)
     parent_root_str = str(repo_root.parent)
 
@@ -48,7 +72,8 @@ def bootstrap_runtime_environment(start: Optional[os.PathLike[str] | str] = None
             sys.path.remove(path_str)
 
     sys.path.insert(0, repo_root_str)
-    sys.path.insert(1, parent_root_str)
+    if not (getattr(sys, "frozen", False) and os.environ.get("NIBLIT_INSTALLATION_MANIFEST")):
+        sys.path.insert(1, parent_root_str)
 
     return repo_root
 

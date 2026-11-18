@@ -15,7 +15,11 @@ except Exception:
 PERM_FILE = _mem_writable_path("niblit_perms.json", env_var="NIBLIT_PERMISSION_FILE")
 
 class PermissionManager:
-    def __init__(self):
+    def __init__(self, *, trading_scope=None):
+        self.trading_scope = dict(trading_scope or {'namespace':'desktop','principal':'desktop_operator'})
+        if (set(self.trading_scope)!={'namespace','principal'} or
+                any(not isinstance(v,str) or not v or len(v)>128 for v in self.trading_scope.values())):
+            raise ValueError('Explicit trading memory scope required')
         self.path = PERM_FILE
         self.perms = {}
         self._load()
@@ -172,27 +176,30 @@ class PermissionManager:
 
     def propose_trading(self, gateway, spec, runtime_id, equity):
         import time, uuid
-        gateway.require('read','desktop','desktop_operator')
-        gateway.require('ingest','desktop','desktop_operator')
+        gateway.require('read',**self.trading_scope)
+        gateway.require('ingest',**self.trading_scope)
         if spec.get('environment') not in ('demo','dry-run','simulation') or spec.get('live_money') is not False:raise PermissionError('Real-money trading scopes are disabled')
+        spec=dict(spec,memory_scope=self.trading_scope)
         fingerprint=self._learning_hash(spec)
         ident=uuid.uuid4().hex
         with gateway.db() as db:
             db.execute('INSERT INTO trading_sessions VALUES(?,?,?,?,?,?,?,?,?,?,?)',
                 (ident,json.dumps(spec,sort_keys=True,allow_nan=False),fingerprint,runtime_id,
                  'pending',time.time(),time.time()+300,equity,equity,0,None))
-            gateway.audit(db,'trading.proposed',ident,spec_hash=fingerprint)
+            gateway.audit(db,'trading.proposed',ident,spec_hash=fingerprint,**self.trading_scope)
         return ident
 
     def activate_trading(self, gateway, ident, fingerprint, runtime_id, *, clear_stop=False):
         import time
-        gateway.require('ingest','desktop','desktop_operator')
+        gateway.require('ingest',**self.trading_scope)
         with gateway.db() as db:
             db.execute('BEGIN IMMEDIATE')
             row=db.execute('SELECT * FROM trading_sessions WHERE id=?',(ident,)).fetchone()
             if not row or row['runtime_id']!=runtime_id or row['state']!='pending' or row['expires']<=time.time():
                 raise PermissionError('Trading proposal expired, interrupted or already decided')
             spec=json.loads(row['spec'])
+            if spec.get('memory_scope',{'namespace':'desktop','principal':'desktop_operator'})!=self.trading_scope:
+                raise PermissionError('Trading memory authorization scope changed')
             if spec.get('environment') not in ('demo','dry-run','simulation') or spec.get('live_money') is not False:raise PermissionError('Real-money trading scopes are disabled')
             if row['spec_hash']!=fingerprint or self._learning_hash(spec)!=fingerprint:
                 raise PermissionError('Trading scope changed; review a fresh proposal')
@@ -203,14 +210,14 @@ class PermissionManager:
             if clear_stop:db.execute('UPDATE trading_control SET stopped=0 WHERE singleton=1')
             db.execute("UPDATE trading_sessions SET state='active',expires=?,reason=NULL WHERE id=?",
                        (time.time()+spec['seconds'],ident))
-            gateway.audit(db,'trading.activated',ident,spec_hash=fingerprint,actor='desktop_operator')
+            gateway.audit(db,'trading.activated',ident,spec_hash=fingerprint,actor=self.trading_scope['principal'],**self.trading_scope)
         return spec
 
     def check_trading(self, gateway, ident, runtime_id, token, action, *, consume=False, db=None, token_hash=None, claimed_receipt=False):
         import time,hashlib
         from contextlib import nullcontext
         if action not in ('open','close'):raise PermissionError('Operation outside trading scope')
-        gateway.require('ingest','desktop','desktop_operator')
+        gateway.require('ingest',**self.trading_scope)
         with (gateway.db() if db is None else nullcontext(db)) as conn:
             row=conn.execute('SELECT * FROM trading_sessions WHERE id=?',(ident,)).fetchone()
             if not row or row['runtime_id']!=runtime_id or row['expires']<=time.time():raise PermissionError('Trading session expired or interrupted')
@@ -221,6 +228,8 @@ class PermissionManager:
             if not owner or owner['state']!='active' or owner['owner']!='trading_cycle' or owner['token_hash']!=(token_hash or hashlib.sha256(token.encode()).hexdigest()):
                 raise PermissionError('Original Core trading-cycle admission required')
             spec=json.loads(row['spec'])
+            if spec.get('memory_scope',{'namespace':'desktop','principal':'desktop_operator'})!=self.trading_scope:
+                raise PermissionError('Trading memory authorization scope changed')
             if self._learning_hash(spec)!=row['spec_hash']:raise PermissionError('Trading scope changed')
             if action not in spec.get('position_actions', ('open','close')):
                 raise PermissionError('Action outside approved position scope')

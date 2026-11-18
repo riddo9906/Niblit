@@ -1087,3 +1087,220 @@ The actual November 8 release is updated and is the active acceptance runtime; r
 ## 2026-11-13 Phase 6 prediction/Chat continuation
 
 Actual November 8 release updated to nov8+phase6-prediction-chat-20261113-r4; Core PID 11868 owns API. Native Niblit selection uses Core intent/context/scoped memory and existing local Qwen; foreground scheduling gives one bounded waiting chat the next inference slot without clearing leases. Greetings skip unrelated retrieval; fallback/memory labels corrected. Closed-candle shadow 5/15/30-minute forecasts and hypothetical outcomes persist with NUCM references; probabilities remain uncalibrated and net costs UNKNOWN. Desktop and VPS sources remain independently identity-bound; latest remote readback is Exness demo and the XM profile is consequently unverified. Earlier live XM verification is historical. No demo reactivation or funded mutations. 384 Python and 63 UI tests passed. Controlled UI wait/interrupt defect fixed; original unexplained exit remains unestablished. Full Phase 6 and new master addendum are not complete. Evidence/rollback: docs/architecture/PHASE6_SHADOW_PREDICTION_CHAT_ACCEPTANCE.md and task outputs/NIBLIT_PHASE6_CONTINUATION_REPORT.md.
+## 2026-11-14 Stage B — scoped D: build configuration
+
+Added an opt-in build profile shared by Core, UI, Cloud and LEAN. Existing
+PyInstaller specifications remain anchored to source paths; work/staging/candidate
+directories, Cargo target output, frontend output, TypeScript metadata, Vite
+configuration/cache, process temporary directories and supported tool caches are
+resolved under the selected build root (Windows entrypoint defaults to
+`D:\NiblitAIOS`). Tauri artifact discovery now honors the Cargo target directory,
+and UI/Tauri share the same frontend output override. Ordinary unscoped commands
+retain legacy behavior. Scoped builds reuse installed dependencies and disable
+implicit installs; no global environment or application settings changed.
+
+Configuration acceptance: 17 Node build/security tests, 112 Python regressions,
+63 existing UI tests and two no-emit TypeScript checks passed. All four repository
+planning entrypoints and the existing spec/input audit passed. Actual Vite config
+loading confirmed D: frontend/cache paths without compilation. Explicit C: model,
+inference executable and canonical-memory paths remain resolvable; authenticated
+model readiness returned the existing Qwen identity without generation.
+
+This is **configuration validation, not a successful cross-drive packaged build**.
+No candidate was compiled or deployed; the November 8 installation is unchanged.
+No model training, service restart, database migration or trading activation.
+The second pre-existing Cloud instance was traced to the old D: review directory;
+both Cloud instances had established connections, so neither was terminated.
+Client/authority attribution remains required before candidate runtime acceptance.
+The known broker-view fixture failure remains documented and unrepaired.
+
+Build usage, acceptance and rollback: `docs/architecture/SCOPED_BUILD_CONFIGURATION.md`.
+Detailed evidence is in the task-continuation Stage B acceptance report/manifest.
+Source changes are uncommitted; Stage C requires explicit authorization.
+
+
+## 2026-11-14 Stage C — adaptive paths source acceptance
+
+Stage B's 14 intentional files matched their saved hashes and were preserved before editing. Extended the existing Path Manager/bootstrap with independently derived executable/install/bundle/workspace roots and an opt-in pinned manifest for existing C: configuration, memory, ledger and external dependencies. Validated bounds, executable identity, SQLite/GGUF headers, safe disposable-directory repair, relocation observations and metadata-only rollback. Memory guards reject unavailable/rebound stores; relocation-mode implicit Cloud startup is disabled. No installed release, models, canonical databases or trading permissions changed.
+
+160 Python tests passed with one Windows symlink-privilege skip; the separate Windows junction test passed. All 17 Stage B Node tests and 63 UI tests passed. After the user reported unwanted windows, inspection found the existing launcher-test discovery isolation covered only one class; module-wide UI/Cloud isolation was fixed and all 74 launcher tests passed again in 3.01 seconds. Do not run legacy launcher contract tests without that fixture. Six monitored November 8 release payload hashes remain unchanged. Historical Cloud PIDs/listeners are absent in current diagnostics; no service restart was attempted. A source-bootstrap subprocess resolved D: installation fixtures and C: persistent fixtures; a read-only simulated D: plan resolved actual C: llama.cpp/GGUF/memory. This is not packaged-runtime portability acceptance.
+
+Evidence, exact files, limits and rollback: docs/architecture/ADAPTIVE_PATHS_STAGE_C.md and task outputs/NIBLIT_V2_STAGE_C_ACCEPTANCE.md. Stage D build/acceptance remains pending. Next user-prioritized workstream is FUNCTIONAL-INTELLIGENCE-TRADING-ACCEPTANCE: substantive ALE findings first, governed paper/demo lifecycle second, Core's grounded explanations third. It is WAITING_FOR_AUTHORIZATION after Stage C; no execution begins by registration. Native training and future autonomous repair remain excluded. Known broker-view fixture failure and Chat-grounding defect remain documented, unrepaired by Stage C.
+
+
+## 2026-11-14 Functional learning acceptance — installed runtime
+
+Targeted update `functional-learning-20261114-r4` is deployed to the actual November 8 executable. Five learning modules changed; 12021 other embedded modules are byte-identical to the prior installed executable. Stage B/C source changes are preserved and were not deployed by this targeted update. No models, dependencies, existing memory records or configuration files were removed. Runtime Core 14280 and one original UI process 7520 are connected; the UI WebView's API connection was attributed to its process tree.
+
+Historical installed records explicitly stored `(no research findings)` with generated ideas/reflections. Repairs guard empty research, transfer phased findings to subsequent learning, separate source evidence from interpretation/questions, report retrieval/persistence failures, and honor manual runtime policy for curriculum teaching. Native local scope is explicitly limited to the approved memory/runtime/admission implementation sources; unrelated topics now yield inconclusive outcomes instead of irrelevant knowledge.
+
+Actual positive command task 7461b8a61ac54d18b7fa1b3ec7c60fb2, outcome 264bd319-1b80-4b37-8c87-d01766391cf5: one governed workspace source read, one existing local Qwen generation, one canonical observation. SQLite task/outbox persistence, completed Qdrant projection, fresh Core retrieval and Niblit Chat application were verified. Related answer: "According to the learning outcome 264bd319-1b80-4b37-8c87-d01766391cf5, SQLite owns queued source evidence, and Qdrant is a rebuildable projection." Negative task b02fcfecc3e24fa99b16c1cb217d55ce returned inconclusive research with zero model calls, no findings or follow-up questions. No neural weights were trained. Generated briefs remain unverified; missing inline citations do not promote them to verified facts.
+
+Final combined source regression: 224 passed, one symlink-privilege skip; separate Windows junction test passed. Final frozen release/Phase6/broker-double checks passed. Source and actual installed command/API paths were exercised; interactive GUI buttons were not automated. Broader web research and all other capabilities are not certified by this local slice. Funded execution remains disabled; Freqtrade was read back as dry-run/stopped. No broker order was submitted and trading acceptance has not begun.
+
+Detailed evidence/rollback: task outputs/NIBLIT_FUNCTIONAL_LEARNING_ACCEPTANCE.md and work/phase6-continuation/learning-acceptance. Initial code rollback: D:/NiblitAIOS/releases/rollback/learning-repair-20261114-r2/installed-niblit.exe. Never restore old databases, permissions or broker state as code rollback. Stop at the learning gate; request authorization before the trading portion. Stage D, native-model training and the future autonomous repair layer remain inactive.
+
+
+## 2026-11-14 — Cognitive runtime repair checkpoint (not deployed)
+
+Focused source repair connects explicit read-only Chat self-assessment to the existing governed runtime_status and knowledge_stats capabilities, adds truthful live inference identity/evidence responses, and routes bounded explicit file/research requests through existing permission-checked tools. No new cognitive engine or native model. Ordinary generation exposes actual model metadata and retrieval references.
+
+Root cause found in exact learning-outcome retrieval: UUID 264bd319-1b80-4b37-8c87-d01766391cf5 crosses historical chunk offsets 2000/3000. Existing gateway now prioritizes authorized exact identifiers, including contiguous split identifiers; the context adapter rejects unrelated replacements. Correct episode recovered against the real ledger opened mode=ro with real scope permissions; dense retrieval deliberately disabled in that acceptance harness to avoid a duplicate embedding worker.
+
+Broad relevant regression: 205 passed, 4 skipped, 1 deselected. The deselected pre-existing inference tool-loop mock lacks max_tokens/cancel_event accepted by the unchanged endpoint; not silently repaired. Existing broker-view issue remains separate. Installed diagnostic command boundary returned real successful runtime_status and knowledge_stats results; the repaired Chat endpoint was tested in process with doubles, not deployed. November 8 executable hash remains 7936696e34cf39a3c0d67ef92485c8490e5483a8b1d49ba0d46d5e5009fb8b64. Services, canonical data, models and trading restrictions preserved; no UI windows opened.
+
+Status PARTIAL: actual Chat interface A-E acceptance, no-generation UI label, broader planning/token budgeting and canonical assessment indexing remain pending. Stop at this gate; next stage requires explicit authorization. Full evidence/report and safe preimages: current Codex continuation workspace outputs/NIBLIT_COGNITIVE_RUNTIME_REPAIR_ACCEPTANCE.md and work/phase6-continuation/cognitive-runtime-repair/manifest.json. No installed deployment/rollback required.
+
+
+## 2026-11-14 — Sync-producing learning process exposed through governed source tool
+
+Read-only streamed 634,956,545-byte historical sync_queue.jsonl: 1,512,769 JSON objects, overwhelmingly graph_rag_tier1 projection artifacts, plus 367 malformed lines. Original full SHA256 remains 98ce4f9a77474f001b2705c4b6aff42356158a2afe8bbfb41b96e250c4f5de34. No import/cleanup/repair. Graph append/projection is not proof of research or verified factual knowledge; historical execution/provenance gaps remain documented.
+
+Existing PhasedResearchEngine singleton now has a bounded research_governed entry registered as run_learning on existing LlmToolLoop, requiring command.run_learning and scoped memory.read/ingest. First supported profile: explicitly approved structured JSON workspace declarations. Recall/gap assessment precedes source reads; existing workspace authority enforces file boundaries. Canonical gateway keeps unique observations separate from repetition/conflict/completion audit events. Generated reflection is event data, not an accepted knowledge source. No new learning engine, service, database manager or queue consumer.
+
+Real standalone isolated validation (D:/NiblitAIOS/learning-validation-20261114-final) used real executor/workspace, canonical SQLite, cached pinned E5 and a separate collection namespace in existing Qdrant: two new observations, accurate retrieval/application niblit@1.0.0, repeat zero new records, contradiction held, command denial, malformed/reflection/escaped-path rejection. Six investigation events remain separate from two active knowledge records. No generation, training, Core startup or trading activation. Initial permission/collection/authentication failures were retained, not bypassed.
+
+Broad source regression: 236 passed, 2 skipped, 1 pre-existing mock-signature fixture deselected; subsequent focused 44 passed; final guard suite 10 passed. Installed UI/registry unchanged and not accepted. Original November 8 EXE SHA256 remains 7936696e34cf39a3c0d67ef92485c8490e5483a8b1d49ba0d46d5e5009fb8b64.
+
+Earlier D: source-built Chat candidate rendered but did not pass interface acceptance: origin allowlist mismatch and reduced-mode shutdown attributes require retest. Candidate-only processes stopped; source/config corrections retained, no restart after newer no-service-start restriction. See continuation workspace outputs/NIBLIT_ISOLATED_CHAT_CANDIDATE_CHECKPOINT.md and outputs/NIBLIT_GOVERNED_LEARNING_PROCESS_ACCEPTANCE.md. V2-SERVICES-PLATFORM registered WAITING_FOR_EXPLICIT_AUTHORIZATION; no platform/billing implementation or launch.
+
+
+## 2026-11-14 — Actual candidate Chat/learning acceptance passed
+
+User-visible workflow now demonstrated through the real rendered Niblit Chat UI at http://127.0.0.1:5183/chat (isolated D: candidate, not installed November 8 release). Selecting Niblit and sending `Learn name, version from file sample.json for subject demo.package` actually invoked the permission-checked existing phased learning tool, stored two source declarations and returned evidence IDs. A later `Use learned facts for demo.package to build a name@version label.` returned niblit-acceptance@2.4.0 from canonical memory.
+
+Repeat: zero new records and two observation events; contradictory version 9.9.9 held, original 2.4.0 retained. Real UI failure cases covered denied path, malformed JSON, missing subject evidence, ambiguous instruction, disabled candidate capability and revoked candidate tool permission. Ordinary greeting used actual qwen2.5-coder-3b with no fallback; deterministic evidence replies accurately say no model generation. Shared inference authority reused without new Cloud/model servers.
+
+Persistence passed across candidate Core PIDs 4944 → 13544 → 23480 and UI reload, retaining identical canonical IDs 6cebdc3e-5635-5421-ad0b-fea71822db03 / 8d2a2506-9972-5131-b56a-00efb12a2760. Clean corrected shutdown of PID 13544 recorded complete. Origin/preflight middleware, essential readiness, reduced shutdown fields, null-device guard and memory-status label defects were repaired while testing; failed attempts retained.
+
+Latest source regression: 184 passed, 2 skipped, 1 existing fixture deselected. Actual UI acceptance is separate from mocks/tests. Full evidence: current Codex workspace outputs/NIBLIT_CHAT_LEARNING_E2E_ACCEPTANCE.md, matching manifest, transcripts and screenshot. Candidate data is isolated at D:/NiblitAIOS/releases/candidates/chat-20261114/data/chat-learning/ledger.sqlite3, scope chat_acceptance; original queue checksum and installed EXE checksum unchanged. No trading activation or training; no production knowledge migration. Candidate remains available for review. Scope remains explicit JSON scalar declarations and exact recall, not broad research or native model training. Stop at gate; further stages/deployment require authorization. Working Functionality First directive recorded; Services Platform stays inactive.
+
+
+### 2026-11-15 — Phase 2 governed public-source research checkpoint (PARTIAL)
+
+The isolated React/real Core candidate at http://127.0.0.1:5183/chat now executes topic research through the existing governed learning tool, existing PhasedResearchEngine and existing search/fetch adapters. A real topic-only investigation used four tool calls in 7.364 seconds and persisted four source observations. A separate Microsoft/Odoo investigation repeated with zero new records/four observations; exact record IDs survived candidate restart. Narrow source-specific Qwen application passed. Seven failed title/navigation/locale test records were quarantined through existing review governance; records and audit remain. Zero duplicate active subject/value pairs remain.
+
+Overall Phase 2 remains PARTIAL: broad comparison can misattribute vendor-specific actions; semantic contradiction assessment, date/applicability evaluation and UI-to-backend cancellation remain unaccepted. Source excerpts are not independently verified universal facts. No installed deployment, native training, production-memory migration or trading activation. Installed EXE and original historical queue hashes unchanged. Existing Cloud/model/memory ownership retained.
+
+Validation: combined relevant suite 140 passed/2 skipped/1 pre-existing fixture deselected; final Chat focus 43 passed; final research focus 58 passed (overlapping counts). Source/build work remains uncommitted. Full receipts, changed files, exact scope, failures, recovery and continuation: workspace outputs/NIBLIT_PHASE2_RESEARCH_ACCEPTANCE.md and adjacent manifest/transcripts. Candidate Core 2856/UI 10032 left available; no automatic next workstream.
+
+
+### 2026-11-15 — Phase 2 completion accepted in isolated candidate
+
+The two completion defects now pass real Chat acceptance: source-bound Microsoft/Odoo comparison and request-owned backend research cancellation. Canonical claim/source IDs, excerpts, publisher/product scope, hashes and timestamps are exposed from existing memory/audit. Qwen proposes evidence priority; Core validates bindings, preserves both source scopes and renders attributed evidence. Unsupported proposals return grounded partial answers. Unknown research scope fails closed. No free model prose is promoted to verified knowledge.
+
+Actual Stop job da003098-491f-4fd1-ac9c-c57de83660d0 cancelled during a real fetch, retained two earlier valid records, rejected another session with HTTP 403, and admitted no later tool. Actual page reload job 4c4caeb1-daf1-491e-a58f-30f3f318100b cancelled during search with zero accepted records. The initial failed disconnect test remains preserved. Both durable cancellation receipts and the original four research IDs survived candidate restart. Structured learning repeated without duplicates; conflict held; generated reflection rejected; normal local Chat/diagnostics passed.
+
+Relevant source regressions: 183 passed, 2 skipped, 1 documented pre-existing FakeLoop fixture deselected; final focused safety tests 8 passed; UI 64 passed; TypeScript/Vite passed. These counts overlap. Candidate Core 14692 (5800), UI 13556 (5183), D:/NiblitAIOS/releases/candidates/chat-20261114, new ui-completion/ bundle with prior ui/ retained. Source-built web acceptance, not installed/Tauri deployment. All changes remain uncommitted.
+
+Installed EXE SHA256 unchanged: 7936696e34cf39a3c0d67ef92485c8490e5483a8b1d49ba0d46d5e5009fb8b64. Historical queue original 634956545-byte prefix remains byte-identical (98ce4f9a77474f001b2705c4b6aff42356158a2afe8bbfb41b96e250c4f5de34); two graph records totaling 444 bytes were observed appended by an unestablished writer. Appends were retained; no import/truncation/repair. Candidate/test queue paths remain on D:.
+
+Read-only trading preparation found the existing paper worker ready with healthy 1h replay, not broker-live evidence. Its existing paper execution flag was already true and was not changed. The local LEAN adapter explicitly reports unsupported direct execution. No trading implementation, orders, account changes, funded activation, native training or installed cutover. Next trading workstream remains WAITING_FOR_EXPLICIT_AUTHORIZATION.
+
+Completion evidence, exact transcripts, bindings, cancellation traces, recovery and limits: workspace outputs/NIBLIT_PHASE2_COMPLETION_ACCEPTANCE.md and adjacent manifest/transcripts. Readiness: outputs/NIBLIT_TRADING_EXECUTION_READINESS.md.
+
+
+## 2026-11-15 — Governed paper/replay candidate acceptance
+
+Verified through actual isolated Chat at http://127.0.0.1:5183/chat: existing six-rule strategy evaluation, consensus/abstention, deterministic risk rejection, four long/short favorable/adverse paper round trips, monitoring, existing exits, independently checked fees/net, canonical operational audit and retrieval after candidate restart. Final episode: `paper-acceptance-005`; exact recall: `Explain paper episode paper-acceptance-005`.
+
+Reused PaperAdapter, ExecutionCoordinator, RiskEngine, DecisionValidator, ExecutionRepository, Core strategy/exit policy and existing governed executor; no replacement engine. Manifest-pinned worker has bounded isolated writes/network denial, durable ID reservation, permission checks, cancellation and controller heartbeat. Repeated, cancelled and interrupted IDs cannot automatically resubmit. Cancelled/interrupted fixtures retain open simulated state for review, not forced closure.
+
+Evidence and continuation: `C:\Users\Riyaad\Documents\Codex\2026-11-07\referenced-chatgpt-conversation-this-is-an-2\outputs\NIBLIT_PAPER_TRADING_ACCEPTANCE.md`, adjacent manifest/transcripts/proof, and existing master queue. Source tests: 25 focused Core; 78 Chat/learning/research/exits; 64 LEAN execution/accounting; final 4 replay/lease tests; final 22 paper/governed-tool tests, 1 known unrelated deselection (overlapping runs).
+
+Installed November 8 release, production memory, original sync queue, models and broker state preserved. No training, deployment, broker/demo/funded orders or Git publication. Freqtrade read-only effective config: dry_run true, stopped, three existing simulated positions untouched. MT5 eligibility UNKNOWN; local LEAN direct orders unsupported. Qwen/Cloud native services were offline this session; model identity was honest UNKNOWN and paper results are Core evidence, not model generation. No new ordinary generative Chat acceptance claimed.
+
+STOPPED at scoped synthetic paper acceptance. Queue WAITING_FOR_AUTHORIZATION. Separate demo eligibility/preflight and execution authorization required; no other workstream activated.
+
+
+## 2026-11-15 — Joint historical MT5/Freqtrade reconciliation and safety readiness
+
+Recovered existing autonomous capability rather than building another engine: exact native Freqtrade signal/order/fill logs for positions 40/42/45; four saved MT5 autonomous deliveries with six auto-strategy assessments and actual later observations; saved other-demo outcomes +3.99/-1.99 USD; connected Exness demo broker history confirms Niblit-tagged -0.07 USD stop-loss. Original records preserved; inaccessible other-account broker history remains pending.
+
+Real Freqtrade actuals distinguish mixed-strategy closed P&L (161.34181591 USDT) from three open positions (18.01329513 USDT at 07:58 UTC). Earlier snapshot and valuation discrepancies retained. Five NiblitLabManager closed losses total -2.88272560; do not attribute SampleStrategy gains to Niblit. Current STOPPED engine does not run normal strategy/exit processing; do not infer monitoring from API valuations or auto-start it.
+
+Minimal existing-component changes: explicit demo account/broker/server/terminal pin and margin/symbol checks; native MT5/Freqtrade delivery DENIED by default, offline transports for tests; correct marked-equity accounting, preserve fee/funding fields, qualify missing prospective fees; read-only canonical historical reconciliation in actual candidate Chat, persisting across restart. Ask: `Explain reconciled trading history`. No installed release deployment, broker activation, strategy/account/configuration change or new external orders. Read-only MT5 order_check accepted; native order_send tripwire counted zero. Freqtrade mutations intercepted before HTTP; positions/config unchanged.
+
+Acceptance report/evidence: `C:\Users\Riyaad\Documents\Codex\2026-11-07\referenced-chatgpt-conversation-this-is-an-2\outputs\NIBLIT_JOINT_TRADING_READINESS.md` and adjacent manifest, reconciliation, platform evidence and actual Chat transcripts. Tests: 128 initial broad, 63 Chat/paper/readiness, 106 final binding/Core/ticket (overlapping runs). Both existing Core adapter round trips exercised with doubles and retained canonical receipts. All 96 prior protected artifacts unchanged.
+
+STOPPED at joint readiness gate; external execution DENIED and QuantConnect independently unverified/not invoked. Next proposed authorization: bounded observation-only reconnection for native FT positions and verified MT5 demo, with ownership preserved and no delivery. No next stage automatically started.
+
+## 2026-11-15 — bounded external trading observation
+Verified through isolated React Chat: Observe trading now, Compare trading observations,
+permission denial, canonical recall after restart, and historical trading retrieval.
+Reused ObservationSupervisor, DesktopMarketIntelligence, PositionIntelligence, existing
+Core analysis-only ingress, six-rule evaluation and canonical MemoryGateway receipts.
+Four real collector passes (eight receipts); three successful Chat observation passes.
+MT5 fresh observations changed HOLD to BUY without opening a position. Freqtrade
+remained stopped with trades 40/42/45 unchanged; exit findings remained advisory.
+Source regressions 91 passed; final binding/position focus 26 passed (overlap).
+Candidate only: http://127.0.0.1:5183/chat, select Niblit assistant. No deployment,
+broker restart, orders, strategy/account changes, training or queue rewrite.
+Candidate vector mutations now explicitly denied; reads scoped to candidate prefix.
+Report and exact evidence: continuation workspace outputs/NIBLIT_TRADING_OBSERVATION_ACCEPTANCE.md
+and NIBLIT_TRADING_OBSERVATION_MANIFEST.json. All external execution remains DENIED.
+Stopped at bounded observation gate; no next workstream authorized.
+
+## 2026-11-15 — joint execution quote/cost review (read-only)
+Actual candidate Chat now supports Review MT5 execution conditions, Review Freqtrade
+execution conditions, Compare current trading risk and costs, and Explain why execution
+remains denied. Reused the existing observer, broker calculators, ATR/structure stops,
+CCXT public quotes/fee references, canonical audit receipts and governed tool loop.
+Complete net cost and execution eligibility remain UNKNOWN/BLOCKED where cost schedules,
+account-specific authority or native prospective fee evidence are absent. Historical
+closing-rate and public-taker assumptions are separate scenarios, never fills.
+Fresh observations rechecked the prior advisory exits without closing any position.
+Final combined regression: 178 passed (offline broker doubles plus existing Chat/monitor tests).
+Installed release, strategy/account settings, three native Freqtrade positions and history
+preserved. All new external execution remains DENIED. No next task authorized.
+Evidence: continuation outputs/NIBLIT_EXECUTION_REVIEW_ACCEPTANCE.md and manifest/transcripts.
+
+## 2026-11-15 — scoped cost provenance and native ownership repair
+Candidate review now reuses existing mt5_trade_costs/account_exposure, reports typed
+broker observations versus modeled costs, and explicitly separates collateral margin
+from modeled stop loss and notional exposure without double-counting spread.
+Installed Freqtrade Exchange.get_fee was replayed public-only, without creating a bot:
+exact initial native maker bookkeeping 0.0002; explicit market/taker comparison 0.0005.
+The bot's current private fee cache is not exposed by RPC and remains UNVERIFIED.
+Added source precedence, override conflict, stale/binding, and zero-fallback rejection.
+Native Lab positions retain their original owner/tags; CoreManaged is a distinct gated
+entry mode, not an alias. Missing historical central Core receipts remain UNKNOWN.
+Actual candidate joint review and canonical recall passed. Combined tests 212 passed;
+final focused tests 19 passed (overlap). All external execution remains DENIED.
+Installed release, broker config/accounts/positions, memory, dirty worktrees preserved.
+Report: continuation outputs/NIBLIT_COST_OWNERSHIP_ACCEPTANCE.md and manifest/transcripts.
+Stopped at scoped repair gate; full execution readiness not claimed; next task not authorized.
+
+## 2026-11-15 — intercepted execution rehearsal
+Actual isolated Chat now runs/recalls the governed execution rehearsal through existing
+CoreTradingSessions, permissions, six rules, ticket ledgers, MT5/Freqtrade adapters,
+monitoring, exits and outcome reconciliation. Existing broker doubles intercept delivery.
+Final runtime: 34 cases, 10 simulated round trips, 28 intercepted calls, 12 position-watch
+receipts, zero native sends. Favorable/adverse BUY/SELL, organic disagreement, strategy
+reversal, partial/rejection/unknown outcome, capacity, cost/risk/account gates and abrupt
+coordinator recovery covered. Passed receipts retrieved after candidate restart.
+Repaired final entry-cost enforcement: complete fresh account/environment/symbol/currency
+bound modeled costs are required; production defaults remain missing/incomplete and deny.
+Fixture assumptions are explicit and never authorize real account execution.
+Final combined source regressions: 225 passed. Native Freqtrade positions/config/history,
+MT5 account and installed November8 release preserved. No external order ready/authorized.
+Non-executable proposals identify MT5 full-cost/signal gates and Freqtrade isolated-ledger,
+capacity/ownership and container-to-Core callback routing prerequisites.
+Report: continuation outputs/NIBLIT_EXECUTION_REHEARSAL_ACCEPTANCE.md plus manifest/proposals.
+Stopped at rehearsal gate; no new environment, broker execution or unattended autonomy.
+
+
+## 2026-11-15 — Execution environment preparation
+Separate stopped Freqtrade candidate on D: / loopback18080; API mutation firewall and real container-to-Core intercepted claim/round trip verified. Candidate Chat retrieves persisted preparation evidence. MT5 latest HOLD; full cost bounds unresolved. Persistent candidate native callback remains pending (5801 test harness stopped). No native orders, original positions/config/release preserved. Gate PREPARED_WITH_BLOCKERS; external execution DENIED. Report: C:\Users\Riyaad\Documents\Codex\2026-11-07\referenced-chatgpt-conversation-this-is-an-2\outputs\NIBLIT_EXECUTION_ENVIRONMENT_PREPARATION.md
+
+
+## 2026-11-15 — Persistent preparation callback verified
+Separate stopped Freqtrade candidate on D: / loopback18080; mutation firewall and native container-to-Core intercepted claim/round trip verified. Persistent candidate callback5800 is identity/token-bound with no execution provider; positive test harness5801 stopped. Candidate Chat retrieves persisted evidence. MT5 latest HOLD; full costs unresolved. No native orders, original positions/config/release preserved. Gate PREPARED_WITH_BLOCKERS; external execution DENIED. Report: C:\Users\Riyaad\Documents\Codex\2026-11-07\referenced-chatgpt-conversation-this-is-an-2\outputs\NIBLIT_EXECUTION_ENVIRONMENT_PREPARATION.md
+
+
+## 2026-11-15 — Operational demo preparation and release handoff
+Existing Binance public provider verified; isolated Freqtrade Desk/controller profile binding, native fee readback and trading-memory scope repaired. Candidate Chat explains a conditional 0.208 XAG dry-run long, <=10 USDT notional / <=0.25 USDT modeled risk, requiring fresh checks and separate approval. Native engine remains STOPPED/empty, all new delivery denied. MT5 BUY observation still blocked by complete cost evidence. 148 focused tests passed. D: desktop release next authorized; independent model assets required; updater queued after release acceptance. No native orders, installed release or original positions changed. Report: C:\Users\Riyaad\Documents\Codex\2026-11-07\referenced-chatgpt-conversation-this-is-an-2\outputs\NIBLIT_OPERATIONAL_DEMO_PREPARATION.md
+
+
+## 2026-11-15 — First authorized isolated XAG test: abstained
+Actual XAGUSDT market availability and exact mapping verified; fresh six-strategy consensus WAIT. Conditional authorization expired; pending XAG scope explicitly stopped, zero active trading scopes. Native isolated ledger0 trades/0 orders; actual candidate Chat retrieved persisted abstention. No order, position, engine activation or other task started. Report: C:\Users\Riyaad\Documents\Codex\2026-11-07\referenced-chatgpt-conversation-this-is-an-2\outputs\NIBLIT_SINGLE_XAG_DRY_RUN_ACCEPTANCE.md

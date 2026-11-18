@@ -24,6 +24,36 @@ FORBIDDEN_EXECUTION_NAMES = (
     "disable_risk", "send_freqtrade_command", "run_lean_backtest_execution",
 )
 
+
+def read_trading_readiness(platform='all'):
+    """Exact scoped operational evidence. Never initialize a broker or tool.
+
+    These are timestamped recorded observations, not a live account feed.
+    Source evidence and execution eligibility remain separate.
+    """
+    import os,json
+    from modules.memory_laboratory.context import runtime_gateway
+    if platform not in ('all','mt5','freqtrade'):raise ValueError('Unsupported platform')
+    gateway=runtime_gateway()
+    if gateway is None:return {'error':'canonical_memory_unavailable'}
+    scope={'namespace':os.getenv('NIBLIT_MEMORY_LAB_NAMESPACE','desktop'),
+           'principal':os.getenv('NIBLIT_MEMORY_LAB_PRINCIPAL','desktop_operator')}
+    gateway.require('read',**scope)
+    reports=[]
+    with gateway.db() as db:
+        for selected in (('mt5','freqtrade') if platform=='all' else (platform,)):
+            row=db.execute("SELECT record_id,timestamp,metadata FROM audit WHERE action='trading.preflight' "
+                "AND json_extract(metadata,'$.namespace')=? AND json_extract(metadata,'$.principal')=? "
+                "AND json_extract(metadata,'$.platform')=? ORDER BY seq DESC LIMIT 1",
+                (scope['namespace'],scope['principal'],selected)).fetchone()
+            if row:
+                payload=json.loads(row['metadata'])
+                reports.append({'platform':selected,'record_id':row['record_id'],
+                    'recorded_at':row['timestamp'],'citation':'trading-preflight://'+row['record_id'],
+                    'observation':payload['observation'],'execution_state':'DENIED'})
+    return {'status':'recorded_evidence' if reports else 'UNKNOWN','reports':reports,
+            'execution_state':'DENIED','limitation':'Recorded evidence, not a live monitoring feed or execution authorization.'}
+
 TRADING_STATUS_SCHEMA = {
     "type": "object",
     "name": "trading_runtime_status",

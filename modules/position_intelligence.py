@@ -4,6 +4,26 @@ from pathlib import Path
 from modules.strategy_manager import assess_observation
 
 def digest(value):return hashlib.sha256(json.dumps(value,sort_keys=True,allow_nan=False).encode()).hexdigest()
+
+
+def strategy_ownership(position,verification,active_strategy,engine_state=None):
+    """Historical native attribution cannot mint a Core execution claim."""
+    name=position.get('strategy');tag=position.get('enter_tag') or ''
+    result={'historical_strategy':name,'historical_entry_tag':tag,'active_strategy':active_strategy,
+        'execution_authorized':False,'core_entry_decision':'UNKNOWN; no matching scoped Core receipt established',
+        'core_may_adopt_position':False,'duplicate_authority_allowed':False}
+    if verification.get('state')!='matched_engine_record':
+        return {**result,'owner':'UNKNOWN','status':'UNRECONCILED'}
+    if name=='NiblitLabManager' and tag.startswith('niblit_lab:'):
+        return {**result,'owner':'native_niblit_lab','status':'HISTORICAL_NATIVE_OWNER_VERIFIED',
+            'entry_rule':tag.split(':')[1] if len(tag.split(':'))==3 else 'UNKNOWN',
+            'native_exit_responsibility':'Original native strategy callbacks, stop/ROI when engine runs; observed state '+str(engine_state or 'UNKNOWN'),
+            'core_responsibility':'Read-only observation and advisory reevaluation; no entry/exit lease',
+            'compatibility':'Shared analysis/protections; independent entry authority. Not an alias of NiblitCoreManaged'}
+    if name=='NiblitCoreManaged' and tag.startswith('niblit_core:'):
+        return {**result,'owner':'core_claim_candidate','status':'CORE_RECEIPT_VERIFICATION_REQUIRED',
+            'compatibility':'Native entry suppression plus exact scoped claim required; tag alone is not proof'}
+    return {**result,'owner':'other_or_unknown','status':'NO_CORE_OWNERSHIP_INFERRED'}
 def number(v):
     if isinstance(v,bool):raise ValueError('Boolean numeric evidence')
     v=float(v)
@@ -126,8 +146,11 @@ def assess_entry_thesis(position, market, observation, strategies, reconciliatio
 
 class PositionIntelligence:
     """One Core-scheduler job; existing Desk reads and Core memory contracts only."""
-    def __init__(self,desk,core_analysis,gateway=None,scope=None):
+    def __init__(self,desk,core_analysis,gateway=None,scope=None,*,ledger_path=None,profile_path=None):
         self.desk=desk;self.core_analysis=core_analysis;self.gateway=gateway;self.scope=scope or {'namespace':'desktop','principal':'desktop_operator'}
+        # Deployment-owned read-only resources are independent of writable runtime state.
+        self.ledger_path=Path(ledger_path) if ledger_path is not None else desk.root.parent/'freqtrade/user_data/tradesv3.sqlite'
+        self.profile_path=Path(profile_path) if profile_path is not None else desk.root.parent/'freqtrade/user_data/config.json'
         self.lock=threading.Lock();self.tick_lock=threading.Lock();self.cursor=0;self.stop_event=threading.Event();self.scheduler=None;self.task_id=None;self.owner_file=None;self.scan_count=0;self.latest={'state':'not_observed','positions':[],'execution_authorized':False}
         if gateway:
             with gateway.db() as db:db.execute('CREATE TABLE IF NOT EXISTS position_monitor_cache(id TEXT PRIMARY KEY,payload TEXT NOT NULL)')
@@ -155,7 +178,7 @@ class PositionIntelligence:
             if closed.get('is_open') is not False or ident not in previous or ident in open_ids:continue
             key,old=previous[ident]
             if closed.get('pair')!=old['recorded'].get('pair') or closed.get('open_timestamp')!=old['recorded'].get('open_timestamp'):continue
-            proof=reconcile_position(closed,self.desk.root.parent/'freqtrade/user_data/tradesv3.sqlite')
+            proof=reconcile_position(closed,self.ledger_path)
             opposite='buy' if closed.get('is_short') else 'sell'
             filled=any(o.get('status') in ('closed','filled') and o.get('side')==opposite and float(o.get('filled') or 0)>0 for o in proof.get('recorded_orders',[]))
             event={'trade_id':ident,'pair':closed['pair'],'recorded':{k:closed.get(k) for k in ('strategy','enter_tag','open_rate','amount','stake_amount','leverage','open_timestamp','close_timestamp','close_date','close_rate','profit_abs','close_profit_abs','realized_profit','fee_open_cost','fee_close_cost','funding_fees','exit_reason')},'verification':'engine_confirmed_simulated_close' if proof['state']=='matched_engine_record' and filled else 'unreconciled_close','live_broker_result_verified':False,'execution_authorized':False}
@@ -175,7 +198,7 @@ class PositionIntelligence:
             config=self.desk.configuration()
             if config.get('dry_run') is not True:
                 self.latest={'state':'unsupported_execution_mode','positions':[],'execution_authorized':False};return self.latest
-            profile_path=self.desk.root.parent/'freqtrade/user_data/config.json'
+            profile_path=self.profile_path
             profile=digest([str(self.desk.root.resolve()),config.get('exchange'),'dry-run',hashlib.sha256(profile_path.read_bytes()).hexdigest() if profile_path.exists() else 'missing_profile'])
             raw=self.desk.api('status');unique={};duplicates=set()
             for p in raw:
@@ -194,7 +217,7 @@ class PositionIntelligence:
                     pair=position['pair'];market=self.desk.market(pair,config)
                     observation={'symbol':pair,'venue':config['exchange'],'timeframe':config['timeframe'],'mode':'dry-run','account_scope':'freqtrade-profile-'+profile,
                         'source':market.get('source','unavailable'),'received_at':time.time(),'fresh':market.get('fresh') is True,'candles':market.get('candles',[])}
-                    verification=reconcile_position(position,self.desk.root.parent/'freqtrade/user_data/tradesv3.sqlite')
+                    verification=reconcile_position(position,self.ledger_path)
                     report=assess_position(position,market,observation,reconciliation=verification)
                     report['scope']={'account_scope':observation['account_scope'],'mode':'dry-run','venue':config['exchange'],'symbol':pair,'principal':self.scope['principal'],'namespace':self.scope['namespace']}
                     report['strategy_inventory']={'core_m5_rules':{'invoked':len(report['strategies'].get('candidates',[])),'policy_version':report['strategies'].get('policy_version'),'abstain_reason':report['strategies'].get('abstain_reason')},'freqtrade_native_wrapper':'Shared audited kernel; native execution callbacks not invoked','lean_1h':'Not eligible for this M5 evaluation','confidence':'Not provided by rule strategies'}

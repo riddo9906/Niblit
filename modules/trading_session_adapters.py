@@ -23,6 +23,30 @@ def account_exposure(api,info,symbol,volume,price,currency):
     return max(up,down)*1.01  # conservative conversion/spread reserve
 
 
+def bound_cost_schedule(snapshot, volume, schedule, *, side, now):
+    """Validate operator/broker evidence for this account and proposed size.
+
+    Historical charges are not prospective bounds. The caller supplies trusted
+    configuration; a valid schedule remains an estimate, never authority.
+    """
+    if not isinstance(schedule,dict):return None
+    binding={k:snapshot.get(k) for k in ('account','environment','symbol')}
+    if not all(binding.values()) or not snapshot.get('currency'):return None
+    if schedule.get('binding')!=binding or schedule.get('currency')!=snapshot.get('currency'):return None
+    if schedule.get('provenance') not in ('broker_documented_schedule','operator_approved_bound'):return None
+    if not schedule.get('version') or not schedule.get('source'):return None
+    if not isinstance(schedule.get('sides'),list) or side not in ('buy','sell') or side not in schedule['sides']:return None
+    if not isinstance(schedule.get('account_binding'),dict):return None
+    account=snapshot.get('account_binding') or {}
+    if any(not account.get(k) or schedule.get('account_binding',{}).get(k)!=account[k]
+           for k in ('broker','server','terminal_id')):return None
+    try:
+        if not number(schedule.get('verified_at'),'cost verified at')<=now<number(schedule.get('expires'),'cost expiry'):return None
+        if not 0<volume<=number(schedule.get('max_volume'),'cost size bound',positive=True):return None
+    except (ValueError,TypeError):return None
+    return schedule
+
+
 def mt5_trade_costs(api, account, symbol, side, volume, review, quote, *, schedule=None, now=None):
     """Value protective levels on executable prices; spread is already embedded."""
     order_type = api.ORDER_TYPE_BUY if side == 'buy' else api.ORDER_TYPE_SELL
@@ -50,7 +74,23 @@ def mt5_trade_costs(api, account, symbol, side, volume, review, quote, *, schedu
 
 
 class MT5SessionAdapter:
-    def __init__(self,bridge,orders):self.bridge=bridge;self.orders=orders
+    def __init__(self,bridge,orders,*,cost_model=None,cost_schedule=None):
+        self.bridge=bridge;self.orders=orders;self.cost_model=cost_model;self.cost_schedule=cost_schedule
+
+    def bind_demo_delivery(self,snapshot):
+        # Called only after Core validates a human-approved bounded scope.
+        if self.orders.execution_transport is not None:return
+        import os
+        if os.getenv('NIBLIT_DESKTOP_OBSERVATION_ONLY')=='1' or os.getenv('NIBLIT_MT5_DEMO_DELIVERY_ENABLED')!='1':
+            raise PermissionError('Local MT5 demo delivery is not explicitly enabled')
+        from modules.mt5_bridge import LOCK
+        with LOCK:
+            api,account,terminal=self.bridge.connect()
+            binding=self.bridge.account_record(api,account,terminal)
+            if snapshot.get('environment')!='demo' or binding.get('environment')!='demo' or binding!=snapshot.get('account_binding'):
+                raise PermissionError('Verified demo binding changed before transport preparation')
+            self.orders.expected_binding=dict(binding)
+            self.orders.execution_transport=api.order_send
 
     def reconciliation_identity(self):
         api,account,_=self.bridge.connect()
@@ -87,13 +127,16 @@ class MT5SessionAdapter:
             raise ValueError('MT5 account changed while reading risk state')
         return dict(account=s['account']['identity'],environment=binding['environment'],account_binding=binding,
             symbol=symbol,instrument=info.currency_base+'/'+info.currency_profit,
-            equity=s['account']['equity'],available=s['account']['free_margin'],margin=s['account']['margin'],
+            equity=s['account']['equity'],currency=account.currency,available=s['account']['free_margin'],margin=s['account']['margin'],
             exposure=exposure,open_risk=open_risk,realized_today=loss,
             daily_loss_basis='conservative losing deal cash over wider broker-clock window',
             demo_volume_ceiling=self.orders.autonomous_max_volume,observed_at=s['checked_at'],quote=s['quote'],candles=s['candles'],positions=positions,
             pending_count=s['pending_order_count'],market_context=s['market_context'])
 
-    def prepare(self,s,side,limits,position=None):
+    def draft_entry(self,s,side,limits):
+        return self.prepare(s,side,limits,_draft=True)
+
+    def prepare(self,s,side,limits,position=None,*,_draft=False):
         api,account,_=self.bridge.connect();info=api.symbol_info(s['symbol'])
         if position:
             body=dict(action='close',symbol=s['symbol'],side=side,volume=position['quantity'],
@@ -111,13 +154,28 @@ class MT5SessionAdapter:
             if info.volume_step<=0 or ceiling<info.volume_min:raise ValueError('Broker minimum volume exceeds risk budget')
             volume=round(info.volume_min+math.floor((ceiling-info.volume_min+1e-12)/info.volume_step)*info.volume_step,8)
             body=sample|dict(volume=volume,max_stop_risk=budget)
-        ticket=self.orders.preview(body,core_owned=True);r=ticket['review']
+        ticket=({'review':self.orders.inspect(body,core_owned=True)} if _draft else self.orders.preview(body,core_owned=True));r=ticket['review']
         if not position and not (r['stop_loss']<r['price']<r['take_profit'] if side=='buy' else r['take_profit']<r['price']<r['stop_loss']):raise ValueError('Invalid broker protective levels')
-        return dict(ticket=ticket['ticket'],intent=body,risk=r['estimated_stop_risk'] if not position else 0.,
+        prepared=dict(ticket=ticket.get('ticket'),intent=body,risk=r['estimated_stop_risk'] if not position else 0.,
             margin=max(0,number(r['margin_after'],'broker margin')-s['margin']),
             exposure=account_exposure(api,info,s['symbol'],body['volume'],r['price'],account.currency),stop_loss=r['stop_loss'],take_profit=r['take_profit'],
             protection=r.get('protection'),
             costs=None if position else mt5_trade_costs(api,account,s['symbol'],side,body['volume'],r,s['quote']))
+        if not position:
+            now=time.time()
+            schedule=bound_cost_schedule(s,body['volume'],self.cost_schedule,side=side,now=now)
+            costs=mt5_trade_costs(api,account,s['symbol'],side,body['volume'],r,s['quote'],schedule=schedule,now=now)
+            net=costs['net_evaluation']
+            if net.get('costs_complete') is True:
+                costs.update(costs_complete=True,commission=net['commission'],financing=net['financing'],
+                    slippage=net['slippage'],net_at_target=net['net_target'],
+                    modeled_loss=-float(net['net_stop']),
+                    binding={k:s[k] for k in ('account','environment','symbol')},
+                    observed_at=now,expires=schedule['expires'],
+                    provenance=schedule['provenance'],schedule_version=schedule['version'],
+                    source=schedule['source'],execution_authorized=False)
+            prepared['costs']=self.cost_model(s,prepared) if self.cost_model else costs
+        return prepared
 
     def submit(self,prepared,guard):
         if not callable(guard):raise PermissionError('Core delivery guard required')
@@ -195,15 +253,52 @@ class MT5SessionAdapter:
                           for key in ('commission', 'swap', 'fee')}}
 
 
+def freqtrade_entry_costs(snapshot,prepared,schedule,*,side,now):
+    """Explicit dry-run fee plus approved funding/slippage bounds, not account-tier fees."""
+    unknown={'costs_complete':False,'source':'UNKNOWN','execution_authorized':False}
+    if not isinstance(schedule,dict) or snapshot.get('environment')!='dry-run':return unknown
+    binding={k:snapshot.get(k) for k in ('account','environment','symbol')}
+    if (schedule.get('binding')!=binding or schedule.get('currency')!=snapshot.get('currency')
+            or schedule.get('provenance') not in ('operator_approved_bound','simulation_assumption')
+            or not schedule.get('source') or not schedule.get('version')
+            or not isinstance(schedule.get('sides'),list) or side not in schedule['sides']):return unknown
+    try:
+        if not number(schedule.get('verified_at'),'verified at')<=now<number(schedule.get('expires'),'expiry'):return unknown
+        notional=number(prepared['exposure'],'notional',positive=True)
+        if notional>number(schedule.get('max_notional'),'notional bound',positive=True):return unknown
+        fee=number(prepared.get('native_fee'),'native simulation fee')
+        if fee!=number(schedule.get('fee'),'approved fee') or not 0<=fee<=.01:return unknown
+        funding=number(schedule.get('funding_upper_bound'),'funding bound')
+        slippage=number(schedule.get('slippage_upper_bound'),'slippage bound')
+        if min(funding,slippage)<0:return unknown
+        # Existing risk already contains the gross stop and two entry-notional fees.
+        uplift=notional*(abs(prepared['native_stoploss'])+max(map(float,prepared['native_roi'].values())))*fee
+        loss=number(prepared['risk'],'stop plus base fees',positive=True)+uplift+funding+slippage
+    except (KeyError,TypeError,ValueError):return unknown
+    return {'costs_complete':True,'binding':binding,'currency':snapshot['currency'],
+        'observed_at':now,'expires':schedule['expires'],'modeled_loss':loss,
+        'native_fee_rate':fee,'fees_upper_estimate':2*notional*fee+uplift,
+        'funding_upper_bound':funding,'slippage_upper_bound':slippage,
+        'source':schedule['source'],'version':schedule['version'],'provenance':schedule['provenance'],
+        'execution_authorized':False,'limitation':'Simulation assumptions; not verified live account costs or guaranteed loss'}
+
+
 class FreqtradeSessionAdapter:
-    def __init__(self,desk):self.desk=desk
+    def __init__(self,desk,*,cost_model=None,cost_schedule=None):
+        self.desk=desk;self.cost_model=cost_model;self.cost_schedule=cost_schedule
 
     def identity(self):
         private,_=self.desk.connection()
-        material=[str((self.desk.root.parent/'freqtrade/user_data/config.json').resolve()),
+        material=[str(self.desk.config_path.resolve()),
             private.get('exchange',{}).get('name'),private.get('dry_run'),private.get('stake_currency'),private.get('trading_mode'),private.get('db_url')]
         # No password/key/token enters an identity or telemetry record.
         return hashlib.sha256(json.dumps(material,sort_keys=True).encode()).hexdigest()[:24]
+
+    def bind_demo_delivery(self,snapshot):
+        if self.desk.transport is not None:return # Intercepted fixtures only.
+        config=self.desk.configuration()
+        if not self.desk.native_demo_delivery or snapshot.get('environment')!='dry-run' or config.get('dry_run') is not True or config.get('strategy')!='NiblitCoreManaged' or config.get('state')!='running':
+            raise PermissionError('Isolated CoreManaged dry-run delivery is not enabled and running')
 
     def reconciliation_identity(self):
         if self.desk.configuration().get('dry_run') is not True:raise PermissionError('Freqtrade dry-run identity required for readback')
@@ -220,7 +315,9 @@ class FreqtradeSessionAdapter:
         total=number(balance.get('total'),'account value',positive=True)
         free=number(wallet.get('free'),'free stake currency')
         floating=sum(number(p.get('profit_abs'),'unrealized profit') for p in positions)
-        equity=min(total,total+floating)
+        # Freqtrade balance.total already includes open-position valuation.
+        # Subtracting a negative floating P&L again double-counts the loss.
+        equity=total
         daily=self.desk.api('daily?timescale=1');today=datetime.now(timezone.utc).date().isoformat()
         day=next((d for d in daily.get('data',[]) if str(d.get('date',''))[:10]==today),None)
         if day is None:raise ValueError('Verified daily account P&L unavailable')
@@ -239,9 +336,10 @@ class FreqtradeSessionAdapter:
             'fresh':quote.get('fresh') is True and market.get('fresh') is True,
             'age_seconds':max(0,time.time()-quote['received_at']) if quote.get('received_at') else None}
         return dict(account=account,environment='dry-run' if config.get('dry_run') is True and raw_config.get('dry_run') is True else 'live',
-            symbol=symbol,instrument=symbol.split(':')[0],equity=equity,available=free,margin=exposure,
+            symbol=symbol,instrument=symbol.split(':')[0],equity=equity,currency=currency,available=free,margin=exposure,
             exposure=exposure,open_risk=risk,realized_today=realized,observed_at=time.time(),quote=quote,
             candles=market['candles'],positions=normalized,pending_count=sum(bool(p.get('has_open_orders')) for p in positions),
+            equity_basis='Freqtrade balance.total marked equity; floating profit shown separately',unrealized=floating,
             configuration=config,protections={'stoploss':raw_config.get('stoploss'),'minimal_roi':raw_config.get('minimal_roi'),
                 'fee':raw_config.get('fee'),'trading_mode':raw_config.get('trading_mode'),
                 'position_adjustment_enable':raw_config.get('position_adjustment_enable',False)})
@@ -254,13 +352,31 @@ class FreqtradeSessionAdapter:
             return dict(ticket=ticket['ticket'],expected={k:ticket[k] for k in ('intent','identity','core_owned','entry_tag')},
                 risk=0.,margin=0.,exposure=0.,stop_loss=position['stop_loss'],take_profit=position['take_profit'])
         if s['configuration']['state']!='running':raise PermissionError('Stopped Freqtrade engine; no automatic activation')
+        prepared=self.draft_entry(s,side,limits)
+        intent=Intent(action='enter_long' if side=='buy' else 'enter_short',pair=s['symbol'],stake=prepared['exposure'])
+        ticket=self.desk.preview(intent,core_owned=True)
+        prepared.update(ticket=ticket['ticket'],expected={k:ticket[k] for k in ('intent','identity','core_owned','entry_tag')})
+        return prepared
+
+    def draft_entry(self,s,side,limits):
+        """Same sizing/protections, without a ticket, session activation or delivery.
+
+        A stopped engine may be described in a conditional human proposal. The
+        existing prepare() gate still requires RUNNING before any ticket exists.
+        """
+        if side not in ('buy','sell'):raise ValueError('Explicit entry direction required')
+        if s['environment']!='dry-run' or s['quote'].get('fresh') is not True:
+            raise PermissionError('Fresh isolated dry-run observation required')
         if s['configuration'].get('strategy')!='NiblitCoreManaged':raise PermissionError('Select the Core-managed native strategy before bounded execution')
         if s['protections'].get('position_adjustment_enable'):raise PermissionError('Unscoped native position adjustments must be disabled')
         protection=s['protections'];stop=number(protection.get('stoploss'),'native stoploss')
         rois=protection.get('minimal_roi')
         if not -.1<=stop<0 or not isinstance(rois,dict) or not rois:raise ValueError('Verified native stop/ROI protection required')
         targets=[number(float(v),'native ROI',positive=True) for v in rois.values()]
-        target=min(targets);fee=number(protection.get('fee'),'verified fee')
+        target=min(targets)
+        if protection.get('fee') is None:
+            raise ValueError('New-entry fee evidence unavailable; historical position fees cannot authorize a new entry')
+        fee=number(protection.get('fee'),'verified fee')
         if not 0<=fee<=.01:raise ValueError('Unbounded fee')
         price=s['quote']['ask'] if side=='buy' else s['quote']['bid']
         budget=min(limits['risk_cash'],s['equity']*limits['risk_fraction'])
@@ -272,13 +388,13 @@ class FreqtradeSessionAdapter:
         if step<=0:raise ValueError('Broker quantity step unavailable')
         quantity=math.floor(stake/price/step)*step;stake=quantity*price
         if stake<minimum or stake<=0:raise ValueError('Minimum broker size exceeds account budget')
-        intent=Intent(action='enter_long' if side=='buy' else 'enter_short',pair=s['symbol'],stake=stake)
-        ticket=self.desk.preview(intent,core_owned=True)
-        return dict(ticket=ticket['ticket'],expected={k:ticket[k] for k in ('intent','identity','core_owned','entry_tag')},
-            risk=stake*(abs(stop)+2*fee),margin=stake,exposure=stake,
+        prepared=dict(risk=stake*(abs(stop)+2*fee),margin=stake,exposure=stake,
+            quantity=quantity,quantity_step=step,minimum_stake=minimum,
             reference_price=price,native_account_binding=__import__('modules.freqtrade_core_claim',fromlist=['account_binding']).account_binding(self.desk.connection()[0]),
             stop_loss=price*(1-abs(stop) if side=='buy' else 1+abs(stop)),
             take_profit=price*(1+target if side=='buy' else 1-target),native_stoploss=stop,native_roi=rois,native_fee=fee)
+        prepared['costs']=self.cost_model(s,prepared) if self.cost_model else freqtrade_entry_costs(s,prepared,self.cost_schedule,side=side,now=time.time())
+        return prepared
 
     def submit(self,prepared,guard):
         if not callable(guard):raise PermissionError('Core delivery guard required')

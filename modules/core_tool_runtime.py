@@ -25,6 +25,11 @@ from __future__ import annotations
 import json
 import logging
 import threading
+import contextvars
+import hashlib
+import secrets
+import time
+from contextlib import contextmanager
 from typing import Any, Callable, Dict, Optional
 
 from modules.event_bus import get_event_bus
@@ -78,6 +83,191 @@ RUN_RESEARCH_FUNCTION_SCHEMA = {
 HARD_CAP_SEARCHES = 4
 HARD_CAP_FETCHES = 6
 HARD_CAP_ROUNDS = 3
+
+RUN_LEARNING_SCHEMA = {'type':'function','function':{
+    'name':'run_learning','description':'Bounded existing phased learning: scalar workspace declarations or explicitly approved public-source excerpts. No automatic truth promotion or training.',
+    'parameters':{'type':'object','additionalProperties':False,'properties':{
+        'objective':{'type':'string','minLength':3,'maxLength':500},
+        'subject':{'type':'string','minLength':3,'maxLength':120},
+        'profile':{'type':'string','enum':['public_sources']},
+        'permitted_actions':{'type':'array','items':{'type':'string','enum':['recall','read_workspace','fetch_public','store_observations']},'maxItems':3},
+        'sources':{'type':'array','minItems':1,'maxItems':4,'items':{'type':'object','additionalProperties':False,'properties':{
+            'kind':{'type':'string','enum':['workspace_json','public_web','public_search']},'path':{'type':'string','maxLength':300},
+            'url':{'type':'string','maxLength':1500},
+            'fields':{'type':'array','minItems':1,'maxItems':8,'items':{'type':'string','maxLength':61}}},'required':['kind']}},
+        'max_seconds':{'type':'integer','minimum':1,'maximum':30},
+        'max_research_calls':{'type':'integer','minimum':0,'maximum':4},
+        'max_accepted_records':{'type':'integer','minimum':1,'maximum':8}},
+        'required':['objective','subject','permitted_actions','sources','max_seconds','max_research_calls','max_accepted_records']}}}
+
+
+_LEARNING_JOB = contextvars.ContextVar('niblit_learning_job', default=None)
+_LEARNING_JOBS = {}
+_LEARNING_JOBS_LOCK = threading.RLock()
+
+
+class LearningRequestJob:
+    """Request lifecycle for the existing single-flight learner; not a worker."""
+    def __init__(self, job_id, owner, gateway, scope):
+        import os, psutil
+        self.job_id, self.owner, self.gateway, self.scope = job_id, owner, gateway, scope
+        self.cancelled=threading.Event(); self.done=threading.Event(); self.gate=threading.RLock()
+        self.state='running';self.phase='admitted';self.started=time.time();self.reason=None
+        self.cancel_requested_at=None;self.finished_at=None
+        self.executor_pid=os.getpid();self.process_started=psutil.Process().create_time()
+        self.calls=[];self.result=None
+        self.record()
+
+    def public(self):
+        return {'job_id':self.job_id,'status':self.state,'phase':self.phase,'started_at':self.started,
+                'accepted_records':len((self.result or {}).get('accepted',[])),
+                'cancel_requested_at':self.cancel_requested_at,'finished_at':self.finished_at,
+                'executor_pid':self.executor_pid,'process_started':self.process_started,
+                'reason':self.reason,'tool_calls':list(self.calls),'terminal':self.done.is_set(),
+                'commit_policy':'Valid observations committed before cancellation are retained; no new stage or commit after cancellation acknowledgment.'}
+
+    def record(self):
+        with self.gateway.db() as db:
+            self.gateway.audit(db,'research.job',self.job_id,**self.scope,
+                owner=self.owner,job={**self.public(),'terminal':self.state not in {'running','cancellation_requested'}})
+
+    def request_cancel(self, reason):
+        # A commit already holding this gate completes before cancellation is
+        # received. In-flight I/O may drain, but cannot admit another stage.
+        with self.gate:
+            if not self.done.is_set() and not self.cancelled.is_set():
+                self.cancel_requested_at=time.time()
+                self.cancelled.set();self.state='cancellation_requested';self.reason=reason
+                self.record()
+        return self.public()
+
+    def stage(self, name):
+        if (name.startswith('tool:') or name=='commit_validated_observation') and not _permission_manager().check('command.run_learning'):
+            self.request_cancel('learning_permission_revoked')
+            return False
+        self.phase=name
+        if name.startswith('tool:'):self.calls.append({'tool':name[5:],'started_at':time.time()})
+        self.record()
+        return True
+
+    def finish(self, result=None, error=None):
+        with self.gate:
+            self.result=result
+            status=(result or {}).get('status','failed')
+            self.state='cancelled' if self.cancelled.is_set() else status
+            self.phase='released';self.reason=self.reason or error
+            self.finished_at=time.time()
+            # Persist terminal state before callers can acknowledge completion.
+            try:self.record()
+            finally:self.done.set()
+
+
+def _learning_scope():
+    import os
+    return {'namespace':os.getenv('NIBLIT_MEMORY_LAB_NAMESPACE','desktop'),
+            'principal':os.getenv('NIBLIT_MEMORY_LAB_PRINCIPAL','desktop_operator')}
+
+
+def _learning_owner(session, scope):
+    if not isinstance(session,str) or not 32<=len(session)<=128:
+        raise PermissionError('research session required')
+    return hashlib.sha256(json.dumps([scope,session],sort_keys=True).encode()).hexdigest()
+
+
+def begin_learning_job(job_id, session):
+    from modules.memory_laboratory.context import runtime_gateway
+    import re
+    if not re.fullmatch(r'[A-Za-z0-9-]{16,80}',job_id or ''):raise ValueError('invalid job identity')
+    gateway=runtime_gateway();scope=_learning_scope();owner=_learning_owner(session,scope)
+    if gateway is None:raise ValueError('canonical memory unavailable')
+    if not _permission_manager().check('command.run_learning'):raise PermissionError('learning permission denied')
+    gateway.require('read',**scope);gateway.require('ingest',**scope)
+    with _LEARNING_JOBS_LOCK:
+        with gateway.db() as db:
+            old=db.execute("SELECT 1 FROM audit WHERE action='research.job' AND record_id=? LIMIT 1",(job_id,)).fetchone()
+        if job_id in _LEARNING_JOBS or old:raise ValueError('research job identity already used')
+        # Retain only bounded terminal state in RAM; durable receipts use audit.
+        for key in list(_LEARNING_JOBS):
+            if len(_LEARNING_JOBS)<32:break
+            if _LEARNING_JOBS[key].done.is_set():_LEARNING_JOBS.pop(key)
+        if len(_LEARNING_JOBS)>=32:raise ValueError('research job capacity reached')
+        job=LearningRequestJob(job_id,owner,gateway,scope);_LEARNING_JOBS[job_id]=job
+    return job
+
+
+def learning_job_status(job_id, session, *, cancel=False):
+    from modules.memory_laboratory.context import runtime_gateway
+    scope=_learning_scope();owner=_learning_owner(session,scope)
+    with _LEARNING_JOBS_LOCK:job=_LEARNING_JOBS.get(job_id)
+    if job:
+        if not secrets.compare_digest(owner,job.owner):raise PermissionError('research session denied')
+        if not cancel:job.gateway.require('read',**scope)
+        if cancel:
+            # An owner may stop its admitted work even after start permission
+            # is revoked. This grants no new execution or memory access.
+            job.request_cancel('operator_stop')
+        return job,job.public()
+    gateway=runtime_gateway()
+    if gateway is None:raise ValueError('canonical memory unavailable')
+    gateway.require('read',**scope)
+    with gateway.db() as db:
+        row=db.execute("""SELECT metadata FROM audit WHERE action='research.job' AND record_id=?
+            AND json_extract(metadata,'$.namespace')=? AND json_extract(metadata,'$.principal')=?
+            ORDER BY seq DESC LIMIT 1""",(job_id,scope['namespace'],scope['principal'])).fetchone()
+    if not row:raise LookupError('research job unavailable')
+    stored=json.loads(row['metadata'])
+    if not secrets.compare_digest(owner,stored['owner']):raise PermissionError('research session denied')
+    receipt=stored['job']
+    if not receipt.get('terminal'):
+        import psutil
+        try:
+            alive=abs(psutil.Process(receipt['executor_pid']).create_time()-receipt['process_started'])<.01
+        except psutil.NoSuchProcess:alive=False
+        except (psutil.Error,KeyError):alive=True
+        receipt={**receipt,'status':'owner_unavailable' if alive else 'interrupted',
+                 'phase':'owner_not_local' if alive else 'process_restarted','terminal':not alive}
+    return None,receipt
+
+
+@contextmanager
+def learning_job_context(job):
+    token=_LEARNING_JOB.set(job)
+    try:yield
+    finally:_LEARNING_JOB.reset(token)
+
+
+def run_learning_capability(loop, core_getter, **request):
+    import os
+    from modules.memory_laboratory.context import runtime_gateway
+    from modules.phased_research_engine import get_phased_research_engine
+    gateway = runtime_gateway()
+    if gateway is None:
+        return {'error':'canonical_memory_unavailable; no learning executed'}
+    scope = {'namespace':os.getenv('NIBLIT_MEMORY_LAB_NAMESPACE','desktop'),
+             'principal':os.getenv('NIBLIT_MEMORY_LAB_PRINCIPAL','desktop_operator')}
+    core = core_getter()
+    engine = get_phased_research_engine(knowledge_db=getattr(core,'db',None))
+    if not _RESEARCH_LOCK.acquire(blocking=False):
+        return {'error':'existing_research_run_in_progress'}
+    try:
+        return engine.research_governed(request,loop=loop,gateway=gateway,scope=scope,control=_LEARNING_JOB.get())
+    except PermissionError as exc:
+        from modules.llm_tool_loop import ToolAuthorizationError
+        raise ToolAuthorizationError('Learning memory permission denied') from exc
+    except ValueError as exc:
+        from modules.llm_tool_loop import ToolCallError
+        raise ToolCallError('Invalid bounded learning request') from exc
+    finally:
+        _RESEARCH_LOCK.release()
+
+
+def recall_learning_capability(subject):
+    import os
+    from modules.memory_laboratory.context import runtime_gateway
+    gateway=runtime_gateway()
+    if gateway is None:return {'error':'canonical_memory_unavailable'}
+    return gateway.learning_facts(subject,namespace=os.getenv('NIBLIT_MEMORY_LAB_NAMESPACE','desktop'),
+        principal=os.getenv('NIBLIT_MEMORY_LAB_PRINCIPAL','desktop_operator'))
 
 _RESEARCH_LOCK = threading.Lock()
 _loop_singleton: Optional[LlmToolLoop] = None
@@ -988,6 +1178,41 @@ def build_governed_tool_loop(core_getter: Callable) -> LlmToolLoop:
     register_workspace_tools(loop)
     # Phase 5F: restored original knowledge commands (niblit_core.py).
     register_knowledge_tools(loop, core_getter)
+    from modules.paper_trading import get_paper_trading_controller
+    if __import__('os').getenv('NIBLIT_PAPER_REPLAY_MANIFEST'):
+        from modules.trading_read_tools import read_trading_readiness
+        if __import__('os').getenv('NIBLIT_OBSERVATION_PROFILE'):
+            from modules.trading_execution_rehearsal import run_rehearsal,recall_rehearsal,recall_environment_preparation
+            for rehearsal_name,rehearsal_fn in (('run_execution_rehearsal',run_rehearsal),('recall_execution_rehearsal',recall_rehearsal),('recall_environment_preparation',recall_environment_preparation)):
+                loop.register_capability(rehearsal_name,rehearsal_fn,{'type':'function','function':{
+                    'name':rehearsal_name,'description':'Existing Core/adapters with intercepted delivery in private fixture ledgers; never external execution.',
+                    'parameters':{'type':'object','properties':{},'additionalProperties':False}}})
+            from modules.trading_observation import observe_trading, recall_observations
+            for observer_name,observer_fn in (('observe_trading',observe_trading),('recall_trading_observations',recall_observations)):
+                loop.register_capability(observer_name,observer_fn,{'type':'function','function':{
+                    'name':observer_name,'description':'Bounded approved read-only observation or scoped historical observation retrieval. No order delivery.',
+                    'parameters':{'type':'object','properties':({'review':{'type':'boolean'},'platform':{'type':'string','enum':['all','mt5','freqtrade']}}
+                        if observer_name=='observe_trading' else {'review':{'type':'boolean'}}),'additionalProperties':False}}})
+        loop.register_capability('read_trading_readiness',read_trading_readiness,{'type':'function','function':{
+            'name':'read_trading_readiness','description':'Read scoped timestamped trading reconciliation evidence; never contacts or activates brokers.',
+            'parameters':{'type':'object','properties':{'platform':{'type':'string','enum':['all','mt5','freqtrade']}},'additionalProperties':False}}})
+    paper_args = {'run_id':{'type':'string','pattern':'^paper-[a-z0-9-]{8,48}$'}}
+    for name, function, properties in (
+        ('run_paper_replay', lambda run_id,dataset='governed_paper_v1':
+            get_paper_trading_controller().evaluate_replay(run_id,dataset),
+            {**paper_args,'dataset':{'type':'string','enum':['governed_paper_v1']}}),
+        ('read_paper_episode', lambda run_id: get_paper_trading_controller().replay_episode(run_id),paper_args),
+        ('cancel_paper_replay', lambda run_id: get_paper_trading_controller().replay_episode(run_id,cancel=True),paper_args)):
+        if __import__('os').getenv('NIBLIT_PAPER_REPLAY_MANIFEST'):
+            loop.register_capability(name,function,{'type':'function','function':{'name':name,
+                'description':'Scoped isolated synthetic paper replay; no broker execution. Read terminal receipts for actual outcomes.',
+                'parameters':{'type':'object','properties':properties,'required':['run_id'],'additionalProperties':False}}})
+    loop.register_capability('run_learning',
+        lambda **request: run_learning_capability(loop,core_getter,**request), RUN_LEARNING_SCHEMA)
+    loop.register_capability('recall_learning',recall_learning_capability,{'type':'function','function':{
+        'name':'recall_learning','description':'Read scoped canonical source observations for an exact learned subject.',
+        'parameters':{'type':'object','properties':{'subject':{'type':'string','minLength':3,'maxLength':120}},
+                      'required':['subject'],'additionalProperties':False}}})
     # Phase 5G-F: evidence-traced ORIGINAL read-only commands. Registered on the
     # SAME loop through the SAME register_capability path - no second executor.
     register_original_readonly_tools(loop, core_getter)
@@ -1031,6 +1256,9 @@ def reset_governed_tool_loop() -> None:
 # side_effect_level) - no duplicate metadata system is introduced.
 
 COMMAND_PERMISSION_ACTIONS: Dict[str, str] = {
+    'run_paper_replay':'command.run_paper_replay',
+    'cancel_paper_replay':'command.run_paper_replay',
+    'run_learning': 'command.run_learning',
     "workspace_write": "command.workspace_write",
     "workspace_edit": "command.workspace_edit",
     "run_tests": "command.run_tests",
@@ -1040,6 +1268,27 @@ COMMAND_PERMISSION_ACTIONS: Dict[str, str] = {
 # runtime dependency is currently missing (state UNAVAILABLE); the command
 # stays listed but is never dispatched while unavailable.
 GOVERNED_COMMAND_METADATA: Dict[str, Dict[str, Any]] = {
+    'run_execution_rehearsal':{'category':'Trading','risk_class':'low','side_effect_level':'mutation',
+        'requires_authorization':True,'availability':lambda core: bool(__import__('os').getenv('NIBLIT_OBSERVATION_PROFILE'))},
+    'recall_environment_preparation':{'category':'Trading','risk_class':'none','side_effect_level':'read_only', 'requires_authorization':False,'availability':lambda core: bool(__import__('os').getenv('NIBLIT_OBSERVATION_PROFILE'))},
+    'recall_execution_rehearsal':{'category':'Trading','risk_class':'none','side_effect_level':'read_only',
+        'requires_authorization':False,'availability':lambda core: bool(__import__('os').getenv('NIBLIT_OBSERVATION_PROFILE'))},
+    'observe_trading':{'category':'Trading','risk_class':'low','side_effect_level':'mutation',
+        'requires_authorization':True,'availability':lambda core: bool(__import__('os').getenv('NIBLIT_OBSERVATION_PROFILE'))},
+    'recall_trading_observations':{'category':'Trading','risk_class':'none','side_effect_level':'read_only',
+        'requires_authorization':False,'availability':lambda core: bool(__import__('os').getenv('NIBLIT_OBSERVATION_PROFILE'))},
+    'read_trading_readiness':{'category':'Trading','risk_class':'none','side_effect_level':'read_only',
+        'requires_authorization':False,'availability':lambda core: bool(getattr(core,'db',None))},
+    'run_paper_replay':{'category':'Trading','risk_class':'medium','side_effect_level':'mutation',
+        'requires_authorization':True,'availability':lambda core: bool(__import__('os').getenv('NIBLIT_PAPER_REPLAY_MANIFEST'))},
+    'cancel_paper_replay':{'category':'Trading','risk_class':'low','side_effect_level':'mutation',
+        'requires_authorization':True,'availability':lambda core: bool(__import__('os').getenv('NIBLIT_PAPER_REPLAY_MANIFEST'))},
+    'read_paper_episode':{'category':'Trading','risk_class':'none','side_effect_level':'read_only',
+        'requires_authorization':False,'availability':lambda core: bool(getattr(core,'db',None))},
+    'recall_learning': {'category':'Knowledge','risk_class':'none','side_effect_level':'read_only',
+        'requires_authorization':False,'availability':lambda core: bool(getattr(core,'db',None))},
+    'run_learning': {'category':'Research','risk_class':'medium','side_effect_level':'mutation',
+        'requires_authorization':True,'availability':lambda core: bool(getattr(core,'db',None))},
     "navigate_and_describe_environment": {
         "category": "Environment", "risk_class": "low",
         "side_effect_level": "read_only", "requires_authorization": False,

@@ -49,6 +49,25 @@ def configured_limits():
         max_positions=int(limit('NIBLIT_MAX_OPEN_POSITIONS',3,5)),max_entries=3)
 
 
+def scoped_limits(adapter,snap,limits=None):
+    ceiling=configured_limits()
+    if adapter in ('mt5','exness_demo'):
+        ceiling['max_volume']=min(.10,number(float(os.getenv('NIBLIT_AUTO_MAX_LOTS','.10')),'demo lot ceiling',positive=True),snap.get('demo_volume_ceiling',.01))
+    selected=dict(ceiling)
+    selected['max_volume']=min(.01,ceiling['max_volume'])
+    for name,value in (limits or {}).items():
+        if name not in ceiling:raise ValueError('Unknown risk limit')
+        value=number(value,name,positive=True)
+        if value>ceiling[name]:raise ValueError('Risk limit exceeds configured ceiling')
+        if name in ('max_entries','max_positions'):
+            if int(value)!=value:raise ValueError('Whole-number entry/position limit required')
+            value=int(value)
+        selected[name]=value
+    if adapter in ('mt5','exness_demo') and selected['max_volume']>snap.get('demo_volume_ceiling',.01):
+        raise ValueError('Reviewed lot cap exceeds verified demo adapter ceiling')
+    return selected
+
+
 class CoreTradingSessions:
     """Registration/API/risk integration; DemoAutotrader remains the worker."""
     def __init__(self,runtime,adapters,*,journal,permission=None,clock=time.time,notify=None):
@@ -57,7 +76,7 @@ class CoreTradingSessions:
         self.remote_gateway = configured_gateway()
         self.remote_stop_event = threading.Event()
         self.remote_worker = None
-        self.pm=permission or PermissionManager();self.adapters=adapters
+        self.pm=permission or PermissionManager(trading_scope=runtime.scope);self.adapters=adapters
         self.clock=clock;self.runtime_id=uuid.uuid4().hex
         self.nonce=__import__('secrets').token_urlsafe(32)
         self._mt5_registry_lock = threading.Lock()
@@ -213,21 +232,7 @@ class CoreTradingSessions:
         snap=self.adapters[adapter].snapshot(symbol)
         self.validate_snapshot(snap,symbol)
         if snap['environment'] not in ('demo','dry-run','simulation'):raise PermissionError('Real-money execution disabled')
-        ceiling=configured_limits()
-        if adapter in ('mt5','exness_demo'):
-            ceiling['max_volume']=min(.10,number(float(os.getenv('NIBLIT_AUTO_MAX_LOTS','.10')),'demo lot ceiling',positive=True),snap.get('demo_volume_ceiling',.01))
-        selected=dict(ceiling)
-        selected['max_volume']=min(.01,ceiling['max_volume'])
-        for name,value in (limits or {}).items():
-            if name not in ceiling:raise ValueError('Unknown risk limit')
-            value=number(value,name,positive=True)
-            if value>ceiling[name]:raise ValueError('Risk limit exceeds configured ceiling')
-            if name in ('max_entries','max_positions'):
-                if int(value)!=value:raise ValueError('Whole-number entry/position limit required')
-                value=int(value)
-            selected[name]=value
-        if adapter in ('mt5','exness_demo') and selected['max_volume']>snap.get('demo_volume_ceiling',.01):
-            raise ValueError('Reviewed lot cap exceeds verified demo adapter ceiling')
+        selected=scoped_limits(adapter,snap,limits)
         spec=dict(adapter=adapter,symbol=symbol,account=snap['account'],environment=snap['environment'],
             instrument=snap['instrument'],seconds=seconds,limits=selected,strategies=list(STRATEGIES),
             timeframe='5m',position_actions=['open','close'],live_money=False)
@@ -281,6 +286,12 @@ class CoreTradingSessions:
             if abs(snap['equity']-row['initial_equity'])>max(.01,row['initial_equity']*.001):
                 raise PermissionError('Account equity changed; review a fresh proposal')
             self.pm.activate_trading(self.gateway,ident,fingerprint,self.runtime_id,clear_stop=clear_stop)
+            try:
+                binder=getattr(self.adapters[spec['adapter']],'bind_demo_delivery',None)
+                if callable(binder):binder(snap)
+            except Exception:
+                self.stop(ident)
+                raise
             self.emit('session_activated',{'session':ident,**spec},alert=True)
             bot=self.observe(spec['adapter'],spec['symbol'],threaded=False)
             bot.session.update(id=ident,state='running')
@@ -446,7 +457,7 @@ class CoreTradingSessions:
             values=[number(bar.get(k),k,positive=True) for k in ('open','high','low','close')]
             if values[2]>min(values[0],values[3]) or values[1]<max(values[0],values[3]):raise ValueError('Inconsistent candle')
 
-    def risk(self,row,s,prepared=None,*,action='open'):
+    def risk(self,row,s,prepared=None,*,action='open',record=True):
         spec=row['spec'];limits=spec['limits'];initial=row['initial_equity'];peak=max(row['peak_equity'],s['equity'])
         halt=(s['equity']<=initial*(1-limits['max_session_loss']) or
               s['equity']<=peak*(1-limits['max_drawdown']) or
@@ -455,17 +466,29 @@ class CoreTradingSessions:
               s['exposure']>s['equity']*limits['max_exposure_fraction'] or
               len(s['positions'])>limits['max_positions'] or
               (s.get('open_risk') is not None and number(s['open_risk'],'open risk')>s['equity']*limits['max_open_risk_fraction']))
-        with self.gateway.db() as db:
-            db.execute('UPDATE trading_sessions SET peak_equity=? WHERE id=?',(peak,row['id']))
-            if halt:db.execute("UPDATE trading_sessions SET state='risk_halted',reason='Account loss, drawdown, exposure or protection limit' WHERE id=? AND state='active'",(row['id'],))
+        if record:
+            with self.gateway.db() as db:
+                db.execute('UPDATE trading_sessions SET peak_equity=? WHERE id=?',(peak,row['id']))
+                if halt:db.execute("UPDATE trading_sessions SET state='risk_halted',reason='Account loss, drawdown, exposure or protection limit' WHERE id=? AND state='active'",(row['id'],))
         if halt:
-            self.emit('risk_limit',{'session':row['id'],'symbol':spec['symbol'],'environment':spec['environment'],'reason':'Account loss, drawdown, exposure or protection limit'},alert=True)
+            if record:self.emit('risk_limit',{'session':row['id'],'symbol':spec['symbol'],'environment':spec['environment'],'reason':'Account loss, drawdown, exposure or protection limit'},alert=True)
             if action=='open':raise PermissionError('Account loss/drawdown limit reached')
         if action=='open':
             if len(s['positions'])>=limits['max_positions'] or s.get('pending_count',0):raise PermissionError('Account exposure or pending-order capacity reached')
             if any(p['symbol']==spec['symbol'] for p in s['positions']):raise PermissionError('Existing symbol exposure is not adopted')
             if prepared:
                 cash=number(prepared.get('risk'),'stop risk',positive=True)
+                costs=prepared.get('costs') or {}
+                if costs.get('costs_complete') is not True or not costs.get('source'):
+                    raise PermissionError('Complete attributed entry cost estimate required')
+                if costs.get('binding')!={k:s[k] for k in ('account','environment','symbol')} or costs.get('currency')!=s.get('currency'):
+                    raise PermissionError('Entry cost estimate account/instrument/currency mismatch')
+                now=self.clock()
+                if not number(costs.get('observed_at'),'cost observation')<=now<number(costs.get('expires'),'cost expiry'):
+                    raise PermissionError('Entry cost estimate is stale')
+                modeled=number(costs.get('modeled_loss'),'modeled stop loss including costs',positive=True)
+                if modeled<cash:raise PermissionError('Cost estimate understates gross stop risk')
+                cash=modeled
                 margin=number(prepared.get('margin'),'proposed margin')
                 exposure=number(prepared.get('exposure'),'proposed exposure',positive=True)
                 if margin<0:raise ValueError('Invalid margin')
@@ -707,7 +730,7 @@ class CoreTradingSessions:
                             payload['admission_hash']=hashlib.sha256(lease.encode()).hexdigest()
                             changed=db.execute("UPDATE trading_orders SET state='sending',payload=? WHERE id=? AND state='prepared'",(json.dumps(payload,allow_nan=False),claim)).rowcount
                             if changed!=1:raise PermissionError('Execution claim already consumed')
-                        return {'environment':spec['environment'],'expires':self.session(ident)['expires']}
+                        return {'environment':spec['environment'],'expires':self.session(ident)['expires'],'adapter':spec['adapter'],'account':spec['account'],'symbol':symbol,'action':action,'ticket':prepared.get('ticket')}
                     try:
                         result=adapter.submit(prepared,guard)
                         with self.gateway.db() as db:
@@ -732,6 +755,16 @@ class CoreTradingSessions:
 
 _install_lock=threading.RLock()
 
+def load_execution_cost_profile(variable):
+    profile=os.getenv(variable,'').strip()
+    if not profile:return None
+    path=Path(profile)
+    if not path.is_absolute() or path.is_symlink() or path.stat().st_size>65536:raise ValueError('Invalid cost evidence profile')
+    raw=path.read_bytes()
+    if hashlib.sha256(raw).hexdigest()!=os.getenv(variable+'_SHA256',''):raise PermissionError('Cost evidence integrity mismatch')
+    return json.loads(raw)
+
+
 def install_core_trading(core):
     """Register the existing worker with Core; boot never activates execution."""
     with _install_lock:
@@ -747,10 +780,22 @@ def install_core_trading(core):
         # The packaged launcher already selects an explicit source environment.
         # Credentials remain in that authority, never in the release folder.
         selected=os.getenv('NIBLIT_ENV_FILE','')
-        root=Path(selected).resolve().parent if selected else ROOT
-        desk=Desk(root)
+        root=(Path(os.environ['NIBLIT_DATA_DIR'])/'execution-control') if os.environ.get('NIBLIT_INSTALLATION_MANIFEST') else (Path(selected).resolve().parent if selected else ROOT)
+        # Explicit platform bindings do not redirect the original read-only observer.
+        ft_config=os.getenv('NIBLIT_FREQTRADE_EXECUTION_CONFIG','').strip()
+        ft_api=os.getenv('NIBLIT_FREQTRADE_EXECUTION_API','').strip()
+        if bool(ft_config)!=bool(ft_api):raise ValueError('Both isolated Freqtrade execution bindings required')
+        if ft_config:
+            config_path=Path(ft_config)
+            if not config_path.is_absolute() or config_path.is_symlink():raise ValueError('Explicit absolute Freqtrade profile required')
+            configuration=json.loads(config_path.read_text(encoding='utf-8'))
+            if configuration.get('dry_run') is not True or configuration.get('strategy')!='NiblitCoreManaged':
+                raise PermissionError('Only independently scoped CoreManaged dry-run binding supported')
+        desk=Desk(root,config_path=ft_config or None,api_base=ft_api or None,native_demo_delivery=(os.getenv('NIBLIT_FREQTRADE_DEMO_DELIVERY_ENABLED')=='1' and os.getenv('NIBLIT_DESKTOP_OBSERVATION_ONLY')!='1'))
+        schedule=load_execution_cost_profile('NIBLIT_MT5_COST_PROFILE')
+        ft_schedule=load_execution_cost_profile('NIBLIT_FREQTRADE_COST_PROFILE')
         bridge=MT5Bridge();orders=DemoOrders(bridge,desk.path.parent/'mt5-orders.sqlite3',autonomous_max_volume=.10)
-        adapters={'mt5':MT5SessionAdapter(bridge,orders),'freqtrade':FreqtradeSessionAdapter(desk)}
+        adapters={'mt5':MT5SessionAdapter(bridge,orders,cost_schedule=schedule),'freqtrade':FreqtradeSessionAdapter(desk,cost_schedule=ft_schedule)}
         demo_profile=os.getenv('NIBLIT_MT5_DEMO_PROFILE',os.getenv('NIBLIT_EXNESS_DEMO_PROFILE','')).strip()
         if demo_profile:
             from modules.remote_demo_adapter import RemoteDemoAdapter

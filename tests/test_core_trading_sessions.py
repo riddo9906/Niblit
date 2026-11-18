@@ -610,6 +610,9 @@ def test_local_demo_volume_editor_for_xm_and_mt5(f,monkeypatch,broker,server):
     monkeypatch.delenv('NIBLIT_AUTO_MAX_LOTS',raising=False)
     f.api.account.company=broker;f.api.account.server=server
     f.bridge.snapshot('EURUSD');f.bridge.snapshot('EURUSD')
+    # Each parametrized offline scenario explicitly pins its intended account
+    # before creating/activating a fresh scope; a changed binding never rearms.
+    f.orders.expected_binding={k:v for k,v in f.bridge.account_record(f.api,f.api.account_info(),f.api.terminal_info()).items() if k!='login'}
     f.orders.autonomous_max_volume=.10
     p=f.service.propose('mt5','EURUSD',60,{'max_volume':.03,'max_positions':1})
     assert p['spec']['limits']['max_volume']==.03

@@ -43,7 +43,9 @@ class MemoryGateway:
     def __init__(self, config, ledger, *, authorize=permission, setup=None, event_bus=None):
         self.config = config
         self.path = Path(ledger)
-        self.path.parent.mkdir(parents=True, exist_ok=True)
+        from niblit_core.config.paths import guard_persistent_resource
+        if not guard_persistent_resource("ledger", self.path):
+            self.path.parent.mkdir(parents=True, exist_ok=True)
         self.authorize = authorize
         self.backend = setup or QdrantSetup(config)
         self.event_bus = event_bus
@@ -74,7 +76,9 @@ class MemoryGateway:
         from contextlib import contextmanager
         @contextmanager
         def connection():
-            db = sqlite3.connect(self.path, timeout=15)
+            from niblit_core.config.paths import guard_persistent_resource
+            bound = guard_persistent_resource("ledger", self.path)
+            db = sqlite3.connect(self.path.resolve().as_uri() + "?mode=rw", uri=True, timeout=15) if bound else sqlite3.connect(self.path, timeout=15)
             db.row_factory = sqlite3.Row
             try:
                 self._keep_wal_open(db)
@@ -596,6 +600,95 @@ class MemoryGateway:
         if db.execute("SELECT 1 FROM sqlite_temp_master WHERE name='lexical_rowids'").fetchone():
             db.execute('INSERT INTO lexical_rowids VALUES(?,?)',(key,cursor.lastrowid))
 
+    def observe_learning(self, *, namespace, principal, subject, selector, value, citation, source_hash, event_id, cancelled=None, evidence_metadata=None):
+        """Unique source observations in records; repetitions/conflicts in audit.
+
+        No generated summary is a source. Conflicting values are held for review,
+        never used to overwrite the prior observation or promoted to truth.
+        """
+        self.require('read', namespace, principal)
+        self.require('ingest', namespace, principal)
+        if cancelled and cancelled():raise TimeoutError('learning deadline reached')
+        content = json.dumps({'subject':subject, 'field':selector, 'value':value}, sort_keys=True, ensure_ascii=False)
+        source = 'learning://' + digest(json.dumps([subject, selector]))
+        with self.lock:
+            with self.db() as db:
+                rows = db.execute("SELECT id,payload FROM records WHERE namespace=? AND principal=? AND source=? AND active=1 AND projection='verified'",
+                                  (namespace, principal, source)).fetchall()
+                existing = [(row['id'],json.loads(row['payload'])) for row in rows]
+                if evidence_metadata and not existing:
+                    # Search can return locale aliases or another publisher's
+                    # identical quotation. Preserve its new evidence in audit,
+                    # without making a second canonical knowledge record.
+                    same = db.execute("""SELECT id,payload FROM records WHERE namespace=? AND principal=?
+                        AND active=1 AND projection='verified'
+                        AND json_extract(payload,'$.source_type')='external_source_observation'
+                        AND CASE WHEN json_valid(json_extract(payload,'$.content')) THEN
+                          json_extract(json_extract(payload,'$.content'),'$.subject') END=?
+                        AND CASE WHEN json_valid(json_extract(payload,'$.content')) THEN
+                          json_extract(json_extract(payload,'$.content'),'$.value') END=? LIMIT 1""",
+                        (namespace,principal,subject,value)).fetchone()
+                    if same:
+                        existing = [(same['id'], {**json.loads(same['payload']), 'content':content})]
+                status = 'repeated' if any(p['content']==content for _,p in existing) else 'conflict' if existing else 'new'
+                record_id = next((key for key,p in existing if p['content']==content), None)
+                if status == 'conflict':
+                    self.audit(db,'learning.conflict',existing[0][0], namespace=namespace, principal=principal,
+                               event_id=event_id, proposed=content, citation=citation, source_hash=source_hash)
+                    return {'status':'conflict','prior_id':existing[0][0], 'accepted':False,
+                            'reason':'different value for the same subject/field; revision requires review'}
+            if status == 'new':
+                result = self.ingest([(content,citation)],source=source,namespace=namespace,principal=principal,
+                    category='semantic',cancelled=cancelled,metadata={'source_type':'external_source_observation' if evidence_metadata else 'workspace_source_observation',
+                        'confidence':.5,'provenance':{'source_hash':source_hash,'source_kind':'workspace',
+                        'event_id':event_id, **(evidence_metadata or {}), 'truth_verified':False,'generated':False}})
+                record_id = result['ids'][0]
+            with self.db() as db:
+                self.audit(db,'learning.observation',record_id, namespace=namespace,principal=principal,
+                           event_id=event_id,subject=subject,selector=selector, status=status,
+                           citation=citation,source_hash=source_hash,revision=1,
+                           evidence_metadata=evidence_metadata or {},excerpt=value)
+                count = db.execute("SELECT count(*) FROM audit WHERE action='learning.observation' AND record_id=? AND json_extract(metadata,'$.namespace')=? AND json_extract(metadata,'$.principal')=?",
+                                   (record_id,namespace,principal)).fetchone()[0]
+            return {'status':status,'id':record_id,'accepted':True,'occurrences':count,
+                    'revision':1,'citation':citation,'verification':'source_observation_not_independent_truth'}
+
+    def learning_facts(self, subject, *, namespace, principal):
+        """Exact scoped recall of accepted source declarations, not summaries."""
+        self.require('read', namespace, principal)
+        if not isinstance(subject,str) or not 3<=len(subject)<=120:
+            raise ValueError('invalid learning subject')
+        with self.db() as db:
+            rows=db.execute("""SELECT id,payload FROM records WHERE namespace=? AND principal=?
+                AND source LIKE 'learning://%' AND active=1 AND projection='verified'
+                AND CASE WHEN json_valid(json_extract(payload,'$.content'))
+                    THEN json_extract(json_extract(payload,'$.content'),'$.subject') END=? LIMIT 8""",
+                (namespace,principal,subject)).fetchall()
+        facts=[]
+        for row in rows:
+            payload=json.loads(row['payload'])
+            if principal not in payload['access_principals'] or payload['verification']=='rejected':continue
+            value=json.loads(payload['content'])
+            facts.append({**value,'id':row['id'],'citation':payload['source_location'],
+                          'verification':payload['verification'],'provenance':payload['provenance']})
+            from modules.research_contracts import source_identity
+            bindings=[]
+            with self.db() as db:
+                observations=db.execute("""SELECT timestamp,metadata FROM audit WHERE action='learning.observation'
+                    AND record_id=? AND json_extract(metadata,'$.namespace')=?
+                    AND json_extract(metadata,'$.principal')=? ORDER BY seq DESC LIMIT 32""",
+                    (row['id'],namespace,principal)).fetchall()
+            for observation in observations:
+                meta=json.loads(observation['metadata']); detail=meta.get('evidence_metadata',{})
+                identity=source_identity(meta.get('citation') or payload['source_location'])
+                binding={**identity,'source_hash':meta.get('source_hash'),
+                         'retrieved_at':detail.get('retrieved_at') or payload['provenance'].get('retrieved_at'),
+                         'observed_at':observation['timestamp'],'excerpt':value['value'],
+                         'verification':payload['verification'],'claim_id':row['id']}
+                if not any(b['source_id']==binding['source_id'] for b in bindings) and len(bindings)<4:bindings.append(binding)
+            facts[-1]['evidence_bindings']=bindings
+        return {'subject':subject,'status':'found' if facts else 'UNKNOWN','facts':facts}
+
     def retrieve(self, query, *, namespace, principal, limit=5, category=None):
         self.require("read", namespace, principal)
         if category is not None and category not in CATEGORIES:
@@ -611,6 +704,22 @@ class MemoryGateway:
             eligible = {key: p for key, p in eligible.items()
                         if p["lifecycle"] == "active" and p["verification"] != "rejected" and (not category or p["category"] == category)
                         and principal in p["access_principals"]}
+            identifiers = re.findall(r'\b[0-9a-fA-F]{8}-(?:[0-9a-fA-F]{4}-){3}[0-9a-fA-F]{12}\b', query)
+            exact = {key for key, payload in eligible.items() if identifiers and all(
+                identifier.casefold() in payload['content'].casefold() for identifier in identifiers)}
+            if identifiers:
+                # Historical fixed-size chunks may split the identifier itself.
+                # Check contiguous offsets only, without modifying canonical data.
+                chunks = {}
+                for key, payload in eligible.items():
+                    root, separator, offset = payload['source_location'].rpartition('#offset=')
+                    if separator and offset.isdigit():
+                        chunks[(root, int(offset))] = (key, payload['content'])
+                for (root, offset), (key, content) in chunks.items():
+                    following = chunks.get((root, offset + len(content)))
+                    if following and all(identifier.casefold() in
+                            (content[-36:] + following[1][:36]).casefold() for identifier in identifiers):
+                        exact.update((key, following[0]))
             if tokens:
                 lexical = db.execute("""SELECT lexical.id FROM lexical JOIN records ON lexical.id=records.id
                     WHERE lexical MATCH ? AND records.namespace=? AND records.principal=?
@@ -620,7 +729,13 @@ class MemoryGateway:
                 lexical = [r[0] for r in lexical if r[0] in eligible]
                 for rank, key in enumerate(lexical):
                     ranks[key] = 1 / (60 + rank + 1)
+            # Identifiers are references, not semantic topics. Always return
+            # authorized exact anchors before approximate/related memories.
+            for key in exact:
+                ranks[key] = 100.0
         try:
+            if os.getenv('NIBLIT_MEMORY_DENSE_ENABLED', '1') == '0':
+                raise ConnectionError('Dense retrieval explicitly disabled')
             vector = validate_vector(self.backend.embedder.embed(query, query=True))
             collections = {r["collection"] for r in rows if r["id"] in eligible}
             # Old model revisions require a separate migration; never query with
@@ -652,6 +767,8 @@ class MemoryGateway:
                 "citation": payload["source_location"], "score": score * weight,
                 "confidence": payload["confidence"], "verification": payload["verification"],
                 "content_hash": payload["content_hash"], "provenance": payload["provenance"]})
+            if key in exact:
+                results[-1]['matched_identifiers'] = identifiers
         selected = []
         for hit in sorted(results, key=lambda h: h["score"], reverse=True):
             if hit["content_hash"] not in seen:

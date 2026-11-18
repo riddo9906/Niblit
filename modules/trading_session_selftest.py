@@ -32,42 +32,56 @@ class FixtureMT5:
     ORDER_FILLING_FOK=0;ORDER_FILLING_IOC=1;ORDER_FILLING_RETURN=2;ORDER_TIME_GTC=0;TIMEFRAME_M5=5
     def __init__(self):
         self.account=Obj(server='OFFLINE_FIXTURE',login=1,trade_mode=0,equity=1000000.,balance=1000000.,
-            currency='USD',profit=0.,margin=0.,margin_free=1000000.,leverage=1,trade_allowed=True)
+            currency='USD',profit=0.,margin=0.,margin_free=1000000.,leverage=1,trade_allowed=True,trade_expert=True)
         self.info=Obj(visible=True,name='EURUSD',currency_profit='USD',currency_base='EUR',volume_min=.01,
             volume_max=10.,volume_step=.01,point=.00001,digits=5,trade_stops_level=10,filling_mode=1,
             trade_contract_size=100000.,trade_mode=4)
         self.price=160.;self.ticks=0;self.positions=[];self.deals=[];self.sent=[];self.behavior='filled'
+        self.symbol='EURUSD';self.fill_pnl=None;self.quote_time=None
         self.bar=int(time.time()//300)*300-300
         self.rates=[dict(time=self.bar-(59-i)*300,open=100.+i,high=101.+i,low=99.+i,close=100.5+i,tick_volume=10) for i in range(60)]
     def initialize(self,*args,**kwargs):return True
     def account_info(self):return self.account
     def terminal_info(self):return Obj(connected=True,trade_allowed=True,tradeapi_disabled=False,build=1)
     def symbols_get(self):return [self.info]
-    def symbol_info(self,symbol):return self.info if symbol=='EURUSD' else None
+    def symbol_info(self,symbol):return self.info if symbol==self.symbol else None
     def symbol_info_tick(self,symbol):
         self.ticks+=1
-        return Obj(time=self.bar+310,time_msc=(self.bar+310)*1000+self.ticks,bid=self.price,ask=self.price+.00002)
+        clock=self.quote_time if self.quote_time is not None else self.bar+310
+        return Obj(time=clock,time_msc=clock*1000+self.ticks,bid=self.price,ask=self.price+.00002)
     def copy_rates_from_pos(self,*args):return self.rates
     def positions_get(self):return tuple(self.positions)
     def orders_get(self):return ()
     def history_deals_get(self,*args):return tuple(self.deals)
-    def order_calc_profit(self,side,symbol,volume,entry,exit):return (exit-entry)*volume*100000*(1 if side==0 else -1)
+    def order_calc_profit(self,side,symbol,volume,entry,exit):return (exit-entry)*volume*self.info.trade_contract_size*(1 if side==0 else -1)
+    def order_calc_margin(self,*args):return 10.
     def order_check(self,request):return Obj(retcode=0,margin=10.,margin_free=self.account.margin_free,comment='Fixture preflight')
     def order_send(self,request):
         self.sent.append(dict(request))
         if self.behavior=='timeout':raise TimeoutError('Fixture ambiguous delivery')
         if self.behavior=='reject':return Obj(retcode=10006,deal=0,order=0,volume=0.,price=request['price'],comment='Fixture reject')
         ident=100+len(self.sent);position=request.get('position',ident)
+        original=next((p for p in self.positions if p.ticket==position),None)
         closing='position' in request
+        filled=request['volume']*(.5 if self.behavior=='partial' else 1)
         if closing:self.positions=[p for p in self.positions if p.ticket!=position]
         else:
-            self.positions.append(Obj(ticket=ident,symbol=request['symbol'],type=request['type'],volume=request['volume'],
+            self.positions.append(Obj(ticket=ident,symbol=request['symbol'],type=request['type'],volume=filled,
                 price_open=request['price'],price_current=self.price,profit=0.,sl=request['sl'],tp=request['tp'],time=self.bar+310,magic=request['magic']))
         self.deals.append(Obj(ticket=1000+ident,order=ident,position_id=position,symbol=request['symbol'],
             type=request['type'],magic=request['magic'],comment=request['comment'],entry=1 if closing else 0,
-            profit=5. if closing else 0.,commission=-.1,swap=0.,fee=0.))
+            price=request['price'],volume=filled,reason=0,
+            profit=(self.fill_pnl(original,request) if self.fill_pnl and closing else 5. if closing else 0.),commission=-.1,swap=0.,fee=0.))
         return Obj(retcode=10010 if self.behavior=='partial' else 10009,deal=1000+ident,order=ident,
-            volume=request['volume'],price=request['price'],comment='Fixture fill')
+            volume=filled,price=request['price'],comment='Fixture fill')
+
+
+def fixture_costs(snapshot,prepared):
+    """Explicit simulation-only bounds; never a broker cost schedule."""
+    return {'costs_complete':True,'source':'SIMULATED_FIXED_COSTS_NOT_BROKER_VERIFIED',
+        'binding':{k:snapshot[k] for k in ('account','environment','symbol')},'currency':snapshot['currency'],
+        'observed_at':time.time()-1,'expires':time.time()+1200,'modeled_loss':prepared['risk']+.2,
+        'assumption':'Known intercepted fixture fee/reserve, not a guaranteed loss bound or real account cost approval'}
 
 
 def fixture(folder):
@@ -78,9 +92,10 @@ def fixture(folder):
     from modules.trading_session_adapters import MT5SessionAdapter
     folder=Path(folder);folder.mkdir(parents=True,exist_ok=True)
     api=FixtureMT5();bridge=MT5Bridge(api);bridge.snapshot('EURUSD');bridge.snapshot('EURUSD')
-    orders=DemoOrders(bridge,folder/'mt5-orders.sqlite')
+    binding={k:v for k,v in bridge.account_record(api,api.account_info(),api.terminal_info()).items() if k!='login'}
+    orders=DemoOrders(bridge,folder/'mt5-orders.sqlite',expected_binding=binding,execution_transport=api.order_send)
     gateway=FixtureGateway(folder/'canonical.sqlite');runtime=MemoryRuntime(gateway)
-    service=CoreTradingSessions(runtime,{'mt5':MT5SessionAdapter(bridge,orders)},journal=folder/'demo-learning.sqlite',notify=lambda _:None)
+    service=CoreTradingSessions(runtime,{'mt5':MT5SessionAdapter(bridge,orders,cost_model=fixture_costs)},journal=folder/'demo-learning.sqlite',notify=lambda _:None)
     return Obj(api=api,bridge=bridge,orders=orders,gateway=gateway,runtime=runtime,service=service,
         bot=service.observe('mt5','EURUSD',threaded=False))
 
@@ -113,7 +128,8 @@ def exercise(folder):
 
 class FixtureFreqtrade:
     def __init__(self):
-        self.price=160.;self.sent=[];self.trades=[];self.behavior='filled'
+        self.price=160.;self.sent=[];self.trades=[];self.behavior='filled';self.fill_pnl=None
+        self.balance_total=10000.;self.available_override=None
         self.bar=int(time.time()//300)*300-300
         self.config=dict(dry_run=True,state='running',exchange='binance',trading_mode='futures',
             strategy='NiblitCoreManaged',timeframe='5m',stake_currency='USDT',max_open_trades=3,
@@ -121,18 +137,24 @@ class FixtureFreqtrade:
         self.candles=[dict(timestamp=self.bar-(59-i)*300,open=100.+i,high=101.+i,low=99.+i,close=100.5+i,volume=10) for i in range(60)]
     def rpc(self,path,payload=None):
         if path=='show_config':return dict(self.config)
-        if path=='status':return [dict(p) for p in self.trades if p['is_open']]
-        if path=='balance':return {'total':10000.,'currencies':[{'currency':'USDT','free':10000.-sum(p['stake_amount'] for p in self.trades if p['is_open'])}]}
+        if path=='status':return [dict(p,profit_abs=self.fill_pnl(p,self.price) if self.fill_pnl else p['profit_abs']) for p in self.trades if p['is_open']]
+        if path=='balance':
+            closed=sum(p.get('close_profit_abs',0) for p in self.trades if not p['is_open']) if self.fill_pnl else 0
+            floating=sum(self.fill_pnl(p,self.price) for p in self.trades if p['is_open']) if self.fill_pnl else 0
+            return {'total':self.balance_total+closed+floating,'currencies':[{'currency':'USDT','free':self.available_override if self.available_override is not None else self.balance_total+closed-sum(p['stake_amount'] for p in self.trades if p['is_open'])}]}
         if path.startswith('daily'):return {'data':[{'date':datetime_utc_day(),'abs_profit':'0.0'}]}
         if path=='whitelist':return {'whitelist':['BTC/USDT:USDT']}
         if path.startswith('trades'):return {'trades':[dict(p) for p in self.trades]}
         if path in ('forceenter','forceexit'):
             self.sent.append((path,dict(payload)))
             if self.behavior=='timeout':raise TimeoutError('Fixture provider ambiguity')
+            if self.behavior=='reject':
+                from modules.trading_desk import FreqtradeRejection
+                raise FreqtradeRejection('Explicit intercepted platform rejection')
             if path=='forceenter':
                 from modules.freqtrade_core_claim import confirm_core_entry
                 from modules.trading_desk import FreqtradeRejection
-                native=dict(self.config,exchange={'name':'binance'},db_url='sqlite:///fixture.sqlite')
+                native=dict(self.config,exchange={'name':'binance'},db_url=getattr(self,'private_db_url','sqlite:///fixture.sqlite'))
                 allowed=confirm_core_entry(native,self.config['stoploss'],self.config['minimal_roi'],
                     pair=payload['pair'],side=payload['side'],amount=payload['stakeamount']/self.price,
                     rate=self.price,entry_tag=payload['entry_tag'],verify=self.verify_core)
@@ -143,9 +165,12 @@ class FixtureFreqtrade:
                     open_rate=self.price,profit_abs=0.,leverage=1.,stop_loss_ratio=-.01,
                     stop_loss_abs=self.price*(1.01 if short else .99),enter_tag=payload['entry_tag'],
                     has_open_orders=self.behavior=='partial')
+                if self.behavior=='partial':
+                    trade['amount']*=.5;trade['stake_amount']*=.5
                 self.trades.append(trade);return dict(trade)
             trade=next(p for p in self.trades if str(p['trade_id'])==payload['tradeid'])
-            trade.update(is_open=False,close_profit_abs=1.5,profit_abs=1.5);return dict(trade)
+            net=self.fill_pnl(trade,self.price) if self.fill_pnl else 1.5
+            trade.update(is_open=False,close_rate=self.price,close_profit_abs=net,profit_abs=net);return dict(trade)
         raise ValueError('Unexpected fixture RPC '+path)
 
 
@@ -171,7 +196,7 @@ def freq_fixture(folder):
         return 5.
     desk.minimum_stake=minimum
     gateway=FixtureGateway(folder/'canonical.sqlite');runtime=MemoryRuntime(gateway)
-    service=CoreTradingSessions(runtime,{'freqtrade':FreqtradeSessionAdapter(desk)},journal=folder/'demo-learning.sqlite',notify=lambda _:None)
+    service=CoreTradingSessions(runtime,{'freqtrade':FreqtradeSessionAdapter(desk,cost_model=fixture_costs)},journal=folder/'demo-learning.sqlite',notify=lambda _:None)
     rpc.verify_core=service.native_entry_receipt
     return Obj(api=rpc,desk=desk,gateway=gateway,runtime=runtime,service=service,
                bot=service.observe('freqtrade','BTC/USDT:USDT',threaded=False))

@@ -42,16 +42,13 @@ const fs = require("fs");
 
 const tauriMode = process.argv.includes("--tauri");
 const repoRoot = path.resolve(__dirname, "..");
-const paths = require('./build-paths').buildPaths(repoRoot);
+const { buildPaths, buildEnvironment, tauriExecutable } = require('./build-paths');
+const paths = buildPaths(repoRoot);
 const stagedDir = paths.staged;
 const distDir = paths.dist;
 const buildWorkDir = paths.work;
 // The Core spec reads this same staging path; never let it consume old sidecars.
-Object.assign(process.env, {
-  NIBLIT_BUILD_STAGING_DIR: stagedDir,
-  NIBLIT_BUILD_DIST_DIR: distDir,
-  NIBLIT_BUILD_WORK_DIR: buildWorkDir,
-});
+Object.assign(process.env, buildEnvironment(paths));
 if (process.argv.includes('--plan')) {
   console.log(JSON.stringify({ ...paths, servicesStarted: false, filesWritten: false }, null, 2));
   process.exit(0);
@@ -61,6 +58,9 @@ const skipUiBuild = process.env.NIBLIT_SKIP_UI_BUILD === "1";
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
 function run(cmd, opts = {}) {
+  if (process.env.NIBLIT_BUILD_NO_INSTALL === '1' && /(?:\bpip\s+install\b|\bnpm(?:\.cmd)?\s+install\b)/i.test(cmd.replace(/["']/g, ''))) {
+    throw new Error('Scoped builds reuse dependencies; installation requires a separately reviewed action.');
+  }
   console.log(`[niblit-build] $ ${cmd}`);
   const result = spawnSync(cmd, {
     shell: true,
@@ -98,6 +98,9 @@ function repositoryPython(repoRoot, overrideName) {
   for (const envName of ["venv", ".venv"]) {
     const existingPython = path.join(repoRoot, envName, pythonRelativePath);
     if (fs.existsSync(existingPython)) return existingPython;
+  }
+  if (process.env.NIBLIT_BUILD_NO_INSTALL === '1') {
+    throw new Error('Required existing service interpreter unavailable; configure its explicit Python override.');
   }
   const venvRoot = path.join(repoRoot, ".venv");
   const venvPython = path.join(venvRoot, pythonRelativePath);
@@ -200,11 +203,8 @@ function findLeanAlgosRoot() {
  * This function returns that path, or null if not found.
  */
 function findTauriExe(uiRoot) {
-  const releaseDir = path.join(uiRoot, "src-tauri", "target", "release");
-  if (!fs.existsSync(releaseDir)) return null;
-
   // Cargo.toml names this binary niblit-ui. Never pick a stale unrelated exe.
-  const executable = path.join(releaseDir, 'niblit-ui.exe');
+  const executable = tauriExecutable(uiRoot);
   return fs.existsSync(executable) && fs.statSync(executable).isFile() ? executable : null;
 }
 
@@ -316,7 +316,15 @@ if (skipUiBuild) {
   const buildEnv = applyLeanEnv({ ...process.env, NIBLIT_CLOUD_AUTOSTART: "1", VITE_NIBLIT_USE_DEMO: "0" }, leanRoot);
   // A developer .env may point at the old 8080 bridge. The packaged launcher
   // starts the authoritative Core on 5000; never bake that stale URL into it.
-  if (tauriMode) buildEnv.VITE_NIBLIT_API_URL = "http://127.0.0.1:5000";
+  if (tauriMode) {
+    const address = process.env.NIBLIT_PACKAGED_API_URL || "http://127.0.0.1:5000";
+    const parsed = new URL(address);
+    if (parsed.protocol !== 'http:' || parsed.hostname !== '127.0.0.1' || !parsed.port ||
+        parsed.username || parsed.password || parsed.search || parsed.hash || parsed.pathname !== '/') {
+      throw new Error('Packaged Core address must be an explicit loopback HTTP endpoint');
+    }
+    buildEnv.VITE_NIBLIT_API_URL = parsed.origin;
+  }
   const buildCmd = tauriMode ? `${npmBin} run tauri:build` : `${npmBin} run build`;
   run(buildCmd, { cwd: uiRoot, env: buildEnv });
   console.log(`[niblit-build] ✅ niblit-ui ${label} complete.`);
@@ -343,7 +351,7 @@ const cloudRoot = findCloudServerRoot(); // already validated above
 const stagedCloudDir = path.join(stagedDir, "cloud");
 const cloudVenvPython = repositoryPython(cloudRoot, "NIBLIT_CLOUD_PYTHON");
 const cloudRequirements = path.join(cloudRoot, "requirements.txt");
-if (fs.existsSync(cloudRequirements)) {
+if (fs.existsSync(cloudRequirements) && process.env.NIBLIT_BUILD_NO_INSTALL !== '1') {
   run([cloudVenvPython, "-m", "pip", "install", "-r", cloudRequirements].map(quoteArg).join(" "), { cwd: cloudRoot });
 }
 if (!hasPythonModule(cloudVenvPython, "PyInstaller")) {
@@ -397,7 +405,7 @@ const leanPython = repositoryPython(leanRootFinal, "NIBLIT_LEAN_PYTHON");
 
 // Install the Lean runtime dependencies and build its repository-owned spec.
 const leanReqsFile = path.join(leanRootFinal, "requirements.txt");
-if (fs.existsSync(leanReqsFile)) {
+if (fs.existsSync(leanReqsFile) && process.env.NIBLIT_BUILD_NO_INSTALL !== '1') {
   run([leanPython, "-m", "pip", "install", "-r", leanReqsFile].map(quoteArg).join(" "), { cwd: leanRootFinal });
 }
 if (!hasPythonModule(leanPython, "PyInstaller")) {
@@ -443,7 +451,7 @@ console.log("\n[niblit-build] Step 6 — Staging Tauri UI executable…");
 
 const tauriExeSrc = findTauriExe(uiRoot);
 if (!tauriExeSrc) {
-  console.error("[niblit-build] ❌ Tauri .exe not found in src-tauri/target/release/.");
+  console.error("[niblit-build] ❌ Expected Tauri executable not found: " + tauriExecutable(uiRoot));
   console.error("[niblit-build]    Ensure the niblit-ui tauri:build step completed successfully.");
   process.exit(1);
 }

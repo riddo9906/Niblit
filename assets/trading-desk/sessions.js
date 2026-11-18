@@ -1,9 +1,10 @@
 /* Core-governed trading controls. Notifications never submit an order. */
 (()=>{'use strict';
 const el=id=>document.getElementById(id),deskToken=document.querySelector('meta[name="desk-token"]').content;
-let nonce='',proposal=null,loading=false,reviewGeneration=0;const seen=new Set();
+let rehearsalBusy=false;
+let nonce='',proposal=null,loading=false,reviewGeneration=0,controls=null,readiness=null,readinessBusy=false;const seen=new Set();
 async function call(action,body){const hosted=(document.querySelector('meta[name="desk-base"]')?.content||'').startsWith('/');const response=await fetch(hosted?'/api/trading/sessions'+(action==='status'?'':'/'+action):'/api/core-trading/'+action,{method:body?'POST':'GET',headers:body?{'Content-Type':'application/json','x-desk-token':deskToken,'x-niblit-trading-nonce':nonce}:{},body:body?JSON.stringify(hosted?body:{...body,operator_nonce:nonce}):undefined,signal:AbortSignal.timeout(action==='status'?5000:120000)});const data=await response.json();if(!response.ok)throw Error(typeof data.detail==='string'?data.detail:'Core trading is unavailable');return data;}
-function selection(){const adapter=el('environment').value;return {adapter,symbol:el(adapter==='mt5'?'mt5-symbol':'pair').value,seconds:Number(el('auto-minutes').value||30)*60,limits:{max_entries:Number(el('auto-entries').value||3),risk_cash:Number(el('core-risk-cash').value),risk_fraction:Number(el('core-risk-percent').value)/100,max_margin_fraction:Number(el('core-margin-percent').value)/100,max_positions:Number(el('core-positions').value),...(adapter==='mt5'?{max_volume:Number(el('core-demo-volume').value)}:{})}};}
+function selection(){const adapter=el('environment').value;return {adapter,symbol:el('core-execution-symbol').value.trim()||el(adapter==='mt5'?'mt5-symbol':'pair').value,seconds:Number(el('auto-minutes').value||30)*60,limits:{max_entries:Number(el('auto-entries').value||3),risk_cash:Number(el('core-risk-cash').value),risk_fraction:Number(el('core-risk-percent').value)/100,max_margin_fraction:Number(el('core-margin-percent').value)/100,max_positions:Number(el('core-positions').value),...(adapter==='mt5'?{max_volume:Number(el('core-demo-volume').value)}:{})}};}
 function quiet(){const start=el('core-quiet-from').value,end=el('core-quiet-to').value;if(!start||!end||start===end)return false;const now=new Date(),current=now.toTimeString().slice(0,5);return start<end?current>=start&&current<end:current>=start||current<end;}
 function alertTitle(event){if(event.kind==='execution_result')return (event.payload.action==='open'?'Entry':'Exit')+' '+(event.payload.result?.state||'unconfirmed');if(event.kind==='reconciliation')return 'Position '+(event.payload.evidence?.state||'unconfirmed');return ({signal:'Strategy signal',mt5_connection_changed:'MT5 connection changed',strategy_disagreement:'Strategies disagree',risk_limit:'Risk limit reached',session_activated:'Demo session activated',session_stopped:'Session stopped',emergency_stop:'Emergency stop',session_expired:'Session expired',trading_error:'Trading error'})[event.kind]||event.kind;}
 function alertDetail(body){const evidence=body.evidence||{};const net=typeof evidence.realized_net==='number'?` · realized ${evidence.realized_net} ${evidence.currency||''}`:'';return (body.assessment?.selection_reason||body.reason||body.error||body.notice||body.result?.state||evidence.state||'Inspect the recorded evidence in Market Desk.')+net;}
@@ -45,13 +46,24 @@ async function refresh(){if(loading)return;loading=true;try{const data=await cal
    }
  }
 
-lastAccountStatus=data;renderAccountRecords(data);el('core-session-state').textContent=remote?.configured?'REAL-MONEY EXECUTION DISABLED · Remote observation only':data.emergency_stopped?'Emergency stop is latched. Observation and reconciliation continue.':'REAL-MONEY EXECUTION DISABLED — r9.1 VERIFICATION MODE · Explicit demo activation required';
- el('core-session-list').textContent=data.sessions.map(s=>`${s.spec.adapter} ${s.spec.symbol} · ${s.spec.environment} · ${s.spec.account_binding?.login||s.spec.account} · ${s.state} · ${s.entries}/${s.spec.limits.max_entries} entries · expires ${new Date(s.expires*1000).toLocaleTimeString()}${s.reason?' · '+s.reason:''}`).join('\n')||'No session approved.';
+controls=data.execution_controls||{activation_available:false,review_available:false,blocker:'Core policy unavailable'};
+ window.niblitDemoActivationAvailable=controls.activation_available===true;
+ el('core-deployment-policy').textContent=`${controls.mode||'UNKNOWN'} · ${controls.blocker||''} · emergency stop ${data.emergency_stopped?'LATCHED':'not latched'}. Review and simulation do not reset it.`;
+ el('core-readiness').disabled=readinessBusy||!controls.review_available;
+ el('core-rehearse').disabled=!(document.querySelector('meta[name="desk-base"]')?.content||'').startsWith('/')||rehearsalBusy;
+ el('core-observe').disabled=Boolean(remote?.configured&&el('environment').value==='mt5');
+ el('core-propose').disabled=!controls.review_available;
+ el('core-propose-close').disabled=!controls.review_available;
+ el('core-activate').disabled=!proposal||!controls.activation_available||!readiness?.activation_eligible||(data.emergency_stopped&&!el('core-clear-stop').checked);
+ lastAccountStatus=data;renderAccountRecords(data);el('core-session-state').textContent=remote?.configured?'REAL-MONEY EXECUTION DISABLED · Remote observation only':data.emergency_stopped?'Emergency stop is latched. Observation and reconciliation continue.':'REAL-MONEY EXECUTION DISABLED — r9.1 VERIFICATION MODE · Explicit demo activation required';
+ el('core-session-list').textContent=data.sessions.map(s=>`${s.spec.adapter} ${s.spec.symbol} · ${s.spec.environment} · ${s.spec.account_binding?.login||s.spec.account} · ${s.state} · ${s.entries}/${s.spec.limits.max_entries} entries · ${s.expires?'expires '+new Date(s.expires*1000).toLocaleTimeString():'not activated; '+s.spec.seconds+'s begins on activation'}${s.reason?' · '+s.reason:''}`).join('\n')||'No session approved.';
  el('core-owned-orders').textContent=(data.orders||[]).filter(o=>o.adapter==='mt5'&&o.action==='open'&&o.state==='open').map(o=>o.symbol+' · Core order '+o.id).join('\n');
  el('core-observer-list').textContent=data.observers.map(o=>`${o.adapter} ${o.symbol} · ${o.running?'observing':'stopped'} · ${o.error||o.assessment?.selection_reason||'Awaiting first observation'} ${(o.assessment?.candidates||[]).map(c=>c.strategy+':'+c.side+(c.context?(' ['+Object.entries(c.context).map(([frame,data])=>frame+' '+(data.trend||data.status)).join(', ')+']'):'')).join(' · ')}`).join('\n');
  el('core-alerts').replaceChildren(...data.events.filter(e=>e.alert).slice(0,20).map(e=>{const row=document.createElement('p');row.textContent=`${new Date(e.created*1000).toLocaleTimeString()} · ${alertTitle(e)} · ${e.payload.symbol||''} · ${alertDetail(e.payload)} · ${e.delivered?'popup reported shown':'saved; popup not confirmed'}`;return row;}));data.events.slice().reverse().forEach(showAlert);
  if(window.renderBrokerView)window.renderBrokerView(data);
-  }catch(e){el('core-session-state').textContent=e.message;
+  }catch(e){el('core-session-state').textContent=e.message;controls=null;window.niblitDemoActivationAvailable=false;
+ for(const id of ['core-readiness','core-rehearse','core-propose','core-propose-close','core-observe','core-activate'])el(id).disabled=true;
+ el('core-deployment-policy').textContent='Core unavailable; no activation or scope review is available.';
  const remotePanel=el('remote-gateway-status');
  if(remotePanel){
  const previous=lastAccountStatus?.remote_gateway?.broker_observation;
@@ -63,7 +75,7 @@ lastAccountStatus=data;renderAccountRecords(data);el('core-session-state').textC
  remotePanel.textContent='CORE UNAVAILABLE · remote observations unavailable · REAL-MONEY EXECUTION DISABLED';
  }
  }finally{loading=false;}}
-async function propose(closeOrderId=null){try{await refresh();const scope=selection();if(closeOrderId)scope.close_order_id=closeOrderId;const generation=reviewGeneration;const reviewed=await call('propose',scope);if(generation!==reviewGeneration)return;proposal=reviewed;el('core-proposal').textContent=JSON.stringify({account:proposal.spec.account,environment:proposal.spec.environment,adapter:proposal.spec.adapter,symbol:proposal.spec.symbol,strategies:proposal.spec.strategies,duration_seconds:proposal.spec.seconds,limits:proposal.spec.limits,position_actions:proposal.spec.position_actions,account_binding:proposal.spec.account_binding,position_identifier:proposal.spec.position_identifier,close_order_id:proposal.spec.close_order_id,notice:'Broker stops remain after expiry. No live money. No session is active until you activate this exact scope.'},null,2);el('core-activate').disabled=false;}catch(e){el('core-session-state').textContent=e.message;}}
+async function propose(closeOrderId=null){try{await refresh();await reviewReadiness();const scope=selection();if(closeOrderId)scope.close_order_id=closeOrderId;const generation=reviewGeneration;const reviewed=await call('propose',scope);if(generation!==reviewGeneration)return;proposal=reviewed;el('core-proposal').textContent=JSON.stringify({account:proposal.spec.account,environment:proposal.spec.environment,adapter:proposal.spec.adapter,symbol:proposal.spec.symbol,strategies:proposal.spec.strategies,duration_seconds:proposal.spec.seconds,limits:proposal.spec.limits,position_actions:proposal.spec.position_actions,account_binding:proposal.spec.account_binding,position_identifier:proposal.spec.position_identifier,close_order_id:proposal.spec.close_order_id,notice:'Broker stops remain after expiry. No live money. No session is active until you activate this exact scope.'},null,2);el('core-activate').disabled=!controls?.activation_available||!readiness?.activation_eligible||(lastAccountStatus?.emergency_stopped&&!el('core-clear-stop').checked);}catch(e){el('core-session-state').textContent=e.message;}}
 el('core-propose').onclick=()=>propose();
 el('core-propose-close').onclick=()=>{
  const id=el('core-close-order').value.trim();
@@ -76,11 +88,29 @@ el('core-stop').onclick=async()=>{try{await call('stop',{emergency:false});await
 el('core-emergency').onclick=async()=>{try{await call('stop',{emergency:true});await refresh();}catch(e){el('core-session-state').textContent=e.message;}};
 el('core-notifications').onclick=async()=>{if(!('Notification'in window)){el('core-session-state').textContent='Popup notifications unavailable here; durable alerts remain in Market Desk.';return;}const permission=await Notification.requestPermission();el('core-session-state').textContent='Desktop notification permission: '+permission;};
 for(const id of ['core-quiet-from','core-quiet-to']){el(id).value=localStorage.getItem('niblit-'+id)||'';el(id).onchange=()=>localStorage.setItem('niblit-'+id,el(id).value);}
-for(const id of ['core-demo-volume','auto-entries','auto-minutes','mt5-symbol','environment','pair','core-risk-cash','core-risk-percent','core-margin-percent','core-positions']){for(const event of ['input','change'])el(id).addEventListener(event,()=>{reviewGeneration++;proposal=null;el('core-activate').disabled=true;el('core-proposal').textContent='Settings changed. Review a fresh scope.';});}
+for(const id of ['core-execution-symbol','core-demo-volume','auto-entries','auto-minutes','mt5-symbol','environment','pair','core-risk-cash','core-risk-percent','core-margin-percent','core-positions']){for(const event of ['input','change'])el(id).addEventListener(event,()=>{reviewGeneration++;proposal=null;readiness=null;el('core-activate').disabled=true;el('core-proposal').textContent='Settings changed. Review a fresh scope.';});}
 el('core-wave-15').onclick=()=>{el('auto-minutes').value='15';el('auto-minutes').dispatchEvent(new Event('input'));};
 // Preserve the familiar bounded-start control, now routed through Core review.
 el('auto-start').onclick=()=>propose();
 const stopLegacyResearch=el('auto-stop').onclick;
 el('auto-stop').onclick=async()=>{await el('core-stop').onclick();if(stopLegacyResearch)await stopLegacyResearch();};
+async function reviewReadiness(){
+ const generation=reviewGeneration;const result=await call('readiness',selection());
+ if(generation!==reviewGeneration)return;
+ readiness=result;el('core-readiness-result').textContent=JSON.stringify(result,null,2);return result;
+}
+el('core-readiness').onclick=async()=>{const b=el('core-readiness');readinessBusy=true;b.disabled=true;try{await refresh();await reviewReadiness();await refresh();}catch(e){readiness=null;el('core-readiness-result').textContent=e.message;}finally{readinessBusy=false;b.disabled=!controls?.review_available;}};
+el('core-clear-stop').onchange=()=>void refresh();
+el('core-rehearse').disabled=!(document.querySelector('meta[name="desk-base"]')?.content||'').startsWith('/');
+el('core-rehearse').onclick=async()=>{
+ const b=el('core-rehearse');rehearsalBusy=true;b.disabled=true;
+ try{
+  if(!(document.querySelector('meta[name="desk-base"]')?.content||'').startsWith('/'))throw Error('Use the installed Core-hosted Trading page for this rehearsal.');
+  el('core-rehearsal-result').textContent='Running the existing Core/adapters with intercepted delivery. No external order authority is granted.';
+  const r=await fetch('/chat',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({text:'Run the governed execution rehearsal',model:'niblit'}),signal:AbortSignal.timeout(180000)});
+  const value=await r.json();if(!r.ok)throw Error(value.detail||value.error||'Rehearsal unavailable');
+  el('core-rehearsal-result').textContent=value.reply||'UNKNOWN';await refresh();
+ }catch(e){el('core-rehearsal-result').textContent=e.message;}finally{rehearsalBusy=false;b.disabled=!controls;}
+};
 setInterval(()=>{if(!document.hidden)void refresh();},5000);void refresh();
 })();

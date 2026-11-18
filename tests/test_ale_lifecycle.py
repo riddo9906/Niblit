@@ -12,6 +12,7 @@ def engine():
     e.running=False;e.learning_thread=None;e._lifecycle_lock=threading.RLock()
     e._step_futures={};e._max_cycles=None;e._worker_error=None
     e._stop_event=threading.Event();e.kernel=None;e.step_timeout=.02
+    e.learning_history={'research_completed':0,'last_research_topic':None}
     return e
 
 

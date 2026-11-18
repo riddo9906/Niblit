@@ -65,6 +65,21 @@ class DemoAutotrader:
             s = self.bridge.snapshot(symbol)
             if s['account']['mode'] != 'demo' or (not observe_only and not s['capabilities']['order_submission']):
                 raise ValueError('Connect an execution-enabled MT5 demo account')
+            # Bind the governed MT5 demo delivery transport for this session.
+            # Reuses the existing MT5SessionAdapter binding contract: requires
+            # explicit demo delivery enablement and a verified demo account binding.
+            if self.orders.execution_transport is None and not observe_only:
+                import os
+                if os.getenv('NIBLIT_MT5_DEMO_DELIVERY_ENABLED') != '1':
+                    raise PermissionError('Local MT5 demo delivery is not explicitly enabled')
+                from modules.mt5_bridge import LOCK
+                with LOCK:
+                    api, account, terminal = self.bridge.connect()
+                    binding = self.bridge.account_record(api, account, terminal)
+                    if binding.get('environment') != 'demo':
+                        raise PermissionError('MT5 account is not a demo account')
+                    self.orders.expected_binding = dict(binding)
+                    self.orders.execution_transport = api.order_send
             if not observe_only and (s['positions'] or s['pending_order_count']):
                 raise ValueError('Start with no positions or pending orders')
             equity = s['account']['equity']

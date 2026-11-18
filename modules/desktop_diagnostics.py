@@ -46,6 +46,10 @@ def desktop_snapshot(core, section, *, query="", limit=20, unified_runtime=None)
     if section in {"overview", "architecture", "cognitive"}:
         result["core"] = _call(manager, "get_runtime_health", {"status": "unavailable"})
         result["readiness"] = _call(core, "readiness_status", {})
+        if manager is None and not getattr(getattr(core,'config',None),'enable_optional_bootstrap',True):
+            result['core']={'status':'ready' if result['readiness'].get('essential_ready') else 'degraded',
+                            'scope':'essential_core_only','optional_services':'disabled_by_configuration',
+                            'runtime_manager_present':False}
         result["startup_stages"] = getattr(core, "_staged_bootstrap_report", {})
         result["startup_stages_are_historical"] = True
         services=result["core"].get("services",{})
