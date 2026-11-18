@@ -46,12 +46,17 @@ def demo_control_policy(status):
     locked=os.getenv('NIBLIT_DESKTOP_OBSERVATION_ONLY')=='1'
     mt5_enabled=os.getenv('NIBLIT_MT5_DEMO_DELIVERY_ENABLED')=='1'
     ft_enabled=os.getenv('NIBLIT_FREQTRADE_DEMO_DELIVERY_ENABLED')=='1'
-    delivery_authorized=(not locked) and (mt5_enabled or ft_enabled)
+    # The remote MT5 demo uses a separately pinned and verified gateway, not
+    # the local MT5 delivery flag. Verification is only eligibility to review:
+    # it never creates a session or bypasses the gateway's final broker checks.
+    remote=status.get('remote_demo') or {}
+    remote_enabled=remote.get('configured') is True and remote.get('verified') is True
+    delivery_authorized=(not locked) and (mt5_enabled or ft_enabled or remote_enabled)
     return {'mode':'observation_and_intercepted_rehearsal' if locked else 'scoped_demo_only',
         'review_available':True,'activation_available':not locked,
         'delivery_authorized':delivery_authorized,'funded_execution_available':False,
         'emergency_stopped':bool(status.get('emergency_stopped')),
-        'platform_delivery_enabled':{'mt5':mt5_enabled,'freqtrade':ft_enabled},
+        'platform_delivery_enabled':{'mt5':mt5_enabled,'freqtrade':ft_enabled,'exness_demo':remote_enabled},
         'blocker':None if not locked else 'Deployment observation-only lock; no scope activation permitted',
         'stop_notice':'Review and simulation do not clear the emergency stop.'}
 
@@ -104,8 +109,15 @@ def demo_readiness(control,adapter,symbol,limits=None):
         if decision.get('side') not in ('buy','sell'):
             block('consensus_abstention',decision.get('selection_reason') or 'No eligible entry signal')
             block('entry_preflight_pending','No qualifying direction; a complete entry risk/cost preflight has not been established')
-        if not getattr(a,'cost_schedule',None):block('missing_cost_bounds','No approved complete prospective cost profile is configured')
-        if decision.get('side') in ('buy','sell') and snap['environment'] in ('demo','dry-run','simulation'):
+        if adapter=='exness_demo':
+            # Remote demo prepares a broker-bound ticket only after activation.
+            # Never call prepare() from a read-only readiness review, and never
+            # claim a completed cost/risk preflight before that gateway check.
+            result['remote_order_preflight']='PENDING_AT_EXECUTION'
+            result['risk_approval']='NOT_GRANTED_REMOTE_PREFLIGHT_PENDING'
+        elif not getattr(a,'cost_schedule',None):
+            block('missing_cost_bounds','No approved complete prospective cost profile is configured')
+        if adapter!='exness_demo' and decision.get('side') in ('buy','sell') and snap['environment'] in ('demo','dry-run','simulation'):
             try:
                 draft=a.draft_entry(snap,decision['side'],result['limits'])
                 result['draft']={k:v for k,v in draft.items() if k not in ('ticket','expected')}
