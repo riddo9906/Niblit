@@ -54,7 +54,7 @@ controls=data.execution_controls||{activation_available:false,review_available:f
  el('core-observe').disabled=Boolean(remote?.configured&&el('environment').value==='mt5');
  el('core-propose').disabled=!controls.review_available;
  el('core-propose-close').disabled=!controls.review_available;
- el('core-activate').disabled=!proposal||!controls.activation_available||!readiness?.activation_eligible||(data.emergency_stopped&&!el('core-clear-stop').checked);
+ el('core-activate').disabled=!proposal||!controls.activation_available||!readiness?.activation_eligible;
  lastAccountStatus=data;renderAccountRecords(data);el('core-session-state').textContent=remote?.configured?'REAL-MONEY EXECUTION DISABLED · Remote observation only':data.emergency_stopped?'Emergency stop is latched. Observation and reconciliation continue.':'REAL-MONEY EXECUTION DISABLED — r9.1 VERIFICATION MODE · Explicit demo activation required';
  el('core-session-list').textContent=data.sessions.map(s=>`${s.spec.adapter} ${s.spec.symbol} · ${s.spec.environment} · ${s.spec.account_binding?.login||s.spec.account} · ${s.state} · ${s.entries}/${s.spec.limits.max_entries} entries · ${s.expires?'expires '+new Date(s.expires*1000).toLocaleTimeString():'not activated; '+s.spec.seconds+'s begins on activation'}${s.reason?' · '+s.reason:''}`).join('\n')||'No session approved.';
  el('core-owned-orders').textContent=(data.orders||[]).filter(o=>o.adapter==='mt5'&&o.action==='open'&&o.state==='open').map(o=>o.symbol+' · Core order '+o.id).join('\n');
@@ -75,7 +75,7 @@ controls=data.execution_controls||{activation_available:false,review_available:f
  remotePanel.textContent='CORE UNAVAILABLE · remote observations unavailable · REAL-MONEY EXECUTION DISABLED';
  }
  }finally{loading=false;}}
-async function propose(closeOrderId=null){try{await refresh();await reviewReadiness();const scope=selection();if(closeOrderId)scope.close_order_id=closeOrderId;const generation=reviewGeneration;const reviewed=await call('propose',scope);if(generation!==reviewGeneration)return;proposal=reviewed;el('core-proposal').textContent=JSON.stringify({account:proposal.spec.account,environment:proposal.spec.environment,adapter:proposal.spec.adapter,symbol:proposal.spec.symbol,strategies:proposal.spec.strategies,duration_seconds:proposal.spec.seconds,limits:proposal.spec.limits,position_actions:proposal.spec.position_actions,account_binding:proposal.spec.account_binding,position_identifier:proposal.spec.position_identifier,close_order_id:proposal.spec.close_order_id,notice:'Broker stops remain after expiry. No live money. No session is active until you activate this exact scope.'},null,2);el('core-activate').disabled=!controls?.activation_available||!readiness?.activation_eligible||(lastAccountStatus?.emergency_stopped&&!el('core-clear-stop').checked);}catch(e){el('core-session-state').textContent=e.message;}}
+async function propose(closeOrderId=null){try{await refresh();await reviewReadiness();const scope=selection();if(closeOrderId)scope.close_order_id=closeOrderId;const generation=reviewGeneration;const reviewed=await call('propose',scope);if(generation!==reviewGeneration)return;proposal=reviewed;el('core-proposal').textContent=JSON.stringify({account:proposal.spec.account,environment:proposal.spec.environment,adapter:proposal.spec.adapter,symbol:proposal.spec.symbol,strategies:proposal.spec.strategies,duration_seconds:proposal.spec.seconds,limits:proposal.spec.limits,position_actions:proposal.spec.position_actions,account_binding:proposal.spec.account_binding,position_identifier:proposal.spec.position_identifier,close_order_id:proposal.spec.close_order_id,notice:'Broker stops remain after expiry. No live money. No session is active until you activate this exact scope.'},null,2);el('core-activate').disabled=!controls?.activation_available||!readiness?.activation_eligible;}catch(e){el('core-session-state').textContent=e.message;}}
 el('core-propose').onclick=()=>propose();
 el('core-propose-close').onclick=()=>{
  const id=el('core-close-order').value.trim();
@@ -83,7 +83,7 @@ el('core-propose-close').onclick=()=>{
  return propose(id);
 };
 el('core-observe').onclick=async()=>{try{await refresh();await call('observe',selection());await refresh();}catch(e){el('core-session-state').textContent=e.message;}};
-el('core-activate').onclick=async()=>{if(!proposal||!window.confirm('Activate this exact bounded demo scope? Orders and owned-position exits may run until its expiry.'))return;try{await call('activate',{id:proposal.id,spec_hash:proposal.spec_hash,acknowledgement:'ACTIVATE_BOUNDED_DEMO_SESSION',clear_emergency_stop:el('core-clear-stop').checked});proposal=null;el('core-activate').disabled=true;await refresh();}catch(e){el('core-session-state').textContent=e.message;}};
+el('core-activate').onclick=async()=>{if(!proposal)return;const reset=lastAccountStatus?.emergency_stopped===true;const message=reset?'Activate this exact demo scope and clear the previous emergency stop? Eligible demo orders and owned-position exits may run until expiry.':'Activate this exact bounded demo scope? Eligible demo orders and owned-position exits may run until expiry.';if(!window.confirm(message))return;try{await call('activate',{id:proposal.id,spec_hash:proposal.spec_hash,acknowledgement:'ACTIVATE_BOUNDED_DEMO_SESSION',clear_emergency_stop:reset});proposal=null;el('core-activate').disabled=true;await refresh();}catch(e){el('core-session-state').textContent=e.message;}};
 el('core-stop').onclick=async()=>{try{await call('stop',{emergency:false});await refresh();}catch(e){el('core-session-state').textContent=e.message;}};
 el('core-emergency').onclick=async()=>{try{await call('stop',{emergency:true});await refresh();}catch(e){el('core-session-state').textContent=e.message;}};
 el('core-notifications').onclick=async()=>{if(!('Notification'in window)){el('core-session-state').textContent='Popup notifications unavailable here; durable alerts remain in Market Desk.';return;}const permission=await Notification.requestPermission();el('core-session-state').textContent='Desktop notification permission: '+permission;};
@@ -100,7 +100,7 @@ async function reviewReadiness(){
  readiness=result;el('core-readiness-result').textContent=JSON.stringify(result,null,2);return result;
 }
 el('core-readiness').onclick=async()=>{const b=el('core-readiness');readinessBusy=true;b.disabled=true;try{await refresh();await reviewReadiness();await refresh();}catch(e){readiness=null;el('core-readiness-result').textContent=e.message;}finally{readinessBusy=false;b.disabled=!controls?.review_available;}};
-el('core-clear-stop').onchange=()=>void refresh();
+
 el('core-rehearse').disabled=!(document.querySelector('meta[name="desk-base"]')?.content||'').startsWith('/');
 el('core-rehearse').onclick=async()=>{
  const b=el('core-rehearse');rehearsalBusy=true;b.disabled=true;
