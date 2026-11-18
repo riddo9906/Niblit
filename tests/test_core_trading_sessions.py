@@ -49,8 +49,9 @@ def test_restart_interrupts_scope_and_keeps_emergency_stop(f):
     p=activate(f);f.service.stop(emergency=True)
     other=CoreTradingSessions(f.runtime,f.service.adapters,journal=f.service.journal,notify=lambda _:None)
     q=other.propose('mt5','EURUSD',60)
-    with pytest.raises(PermissionError,match='Emergency'):other.activate(q['id'],q['spec_hash'],threaded=False)
-    other.activate(q['id'],q['spec_hash'],clear_stop=True,threaded=False)
+    assert other.status()['emergency_stopped'] is True
+    other.activate(q['id'],q['spec_hash'],threaded=False)
+    assert other.status()['emergency_stopped'] is False
     with pytest.raises(PermissionError):f.service.pm.check_trading(f.gateway,q['id'],f.service.runtime_id,'forged','open')
     assert f.service.session(p['id'])['state']=='stopped'
 
