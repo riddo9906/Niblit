@@ -899,7 +899,10 @@ def launch_primary_ui(
                     env={**_build_child_env(str(bundled_ui.parent)), 'NIBLIT_DESKTOP_BINDING':json.dumps({
                         'core_url':api_url,'cloud_url':c_url,'core_pid':os.getpid(),
                         'instance':os.environ.get('NIBLIT_DESKTOP_INSTANCE',''),
-                        'release':os.environ.get('NIBLIT_INSTALLATION_MANIFEST','')})},
+                        # Uninstalled, versioned builds have no installation manifest.
+                        # Bind to their actual executable directory instead of
+                        # sending an empty identity that the Tauri frontend rejects.
+                        'release':os.environ.get('NIBLIT_INSTALLATION_MANIFEST') or str(bundled_ui.parent.resolve())})},
                 )
                 if not _wait_for_process_stabilisation(ui_process, emit):
                     ui_process.kill()

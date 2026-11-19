@@ -11,6 +11,7 @@ Covers:
 """
 from __future__ import annotations
 
+import json
 import os
 import subprocess
 import threading
@@ -118,6 +119,11 @@ def test_frozen_launcher_requires_and_starts_bundled_ui(tmp_path, present):
         assert result._ui_process is process
         assert result._launch_mode == "attached"
         assert spawn.call_args.args[0] == [str(tmp_path / "niblit-ui.exe")]
+        desktop = json.loads(spawn.call_args.kwargs['env']['NIBLIT_DESKTOP_BINDING'])
+        # Running a versioned build without an installed manifest must still
+        # give Tauri a non-empty, exact owning-release identity.
+        assert desktop['release'] == str(tmp_path.resolve())
+        assert desktop['core_pid'] == os.getpid()
     else:
         spawn.assert_not_called()
         assert "missing" in result.message
