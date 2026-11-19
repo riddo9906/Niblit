@@ -52,9 +52,13 @@ def demo_control_policy(status):
     remote=status.get('remote_demo') or {}
     remote_enabled=remote.get('configured') is True and remote.get('verified') is True
     delivery_authorized=(not locked) and (mt5_enabled or ft_enabled or remote_enabled)
+    delivery_blocker=(None if delivery_authorized else
+        'Installed desktop is observation-only' if locked else
+        'No verified demo delivery transport configured; local MT5/Freqtrade delivery is off and the remote demo gateway is absent or unverified')
     return {'mode':'observation_and_intercepted_rehearsal' if locked else 'scoped_demo_only',
         'review_available':True,'activation_available':not locked,
-        'delivery_authorized':delivery_authorized,'funded_execution_available':False,
+        'delivery_authorized':delivery_authorized,'delivery_blocker':delivery_blocker,
+        'funded_execution_available':False,
         'emergency_stopped':bool(status.get('emergency_stopped')),
         'platform_delivery_enabled':{'mt5':mt5_enabled,'freqtrade':ft_enabled,'exness_demo':remote_enabled},
         'blocker':None if not locked else 'Deployment observation-only lock; no scope activation permitted',

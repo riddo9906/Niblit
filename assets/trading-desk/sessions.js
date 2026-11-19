@@ -48,7 +48,7 @@ async function refresh(){if(loading)return;loading=true;try{const data=await cal
 
 controls=data.execution_controls||{activation_available:false,review_available:false,blocker:'Core policy unavailable'};
  window.niblitDemoActivationAvailable=controls.activation_available===true;
- el('core-deployment-policy').textContent=`${controls.mode||'UNKNOWN'} · ${controls.blocker||''} · emergency stop ${data.emergency_stopped?'LATCHED':'not latched'}. Review and simulation do not reset it.`;
+ el('core-deployment-policy').textContent=`${controls.mode||'UNKNOWN'} · ${controls.blocker||controls.delivery_blocker||'Verified demo transport required'} · emergency stop ${data.emergency_stopped?'LATCHED':'not latched'}. Review and simulation do not reset it.`;
  el('core-readiness').disabled=readinessBusy||!controls.review_available;
  el('core-rehearse').disabled=!(document.querySelector('meta[name="desk-base"]')?.content||'').startsWith('/')||rehearsalBusy;
  el('core-observe').disabled=Boolean(remote?.configured&&el('environment').value==='mt5');

@@ -30,3 +30,15 @@ def test_research_switches_do_not_grant_demo_or_funded_authority(monkeypatch):
     assert policy["activation_available"] is False
     assert policy["delivery_authorized"] is False
     assert policy["funded_execution_available"] is False
+    assert policy["delivery_blocker"] == "Installed desktop is observation-only"
+
+
+def test_missing_demo_profile_is_reported_as_configuration_blocker(monkeypatch):
+    from modules.trading_session_api import demo_control_policy
+    monkeypatch.setenv("NIBLIT_DESKTOP_OBSERVATION_ONLY", "0")
+    monkeypatch.delenv("NIBLIT_MT5_DEMO_DELIVERY_ENABLED", raising=False)
+    monkeypatch.delenv("NIBLIT_FREQTRADE_DEMO_DELIVERY_ENABLED", raising=False)
+    policy = demo_control_policy({"remote_demo": {"configured": False}})
+    assert policy["activation_available"] is True
+    assert policy["delivery_authorized"] is False
+    assert "No verified demo delivery transport" in policy["delivery_blocker"]
