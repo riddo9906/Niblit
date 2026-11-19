@@ -26,7 +26,10 @@ async function refresh(){if(busy)return;busy=true;try{
  const canReview=identityReady&&d.execution_controls?.activation_available===true;
  const active=(d.sessions||[]).find(x=>x.spec.adapter==='exness_demo'&&x.state==='active'&&x.expires>Date.now()/1000);
  el('exness-execution-state').textContent=active?`CORE DEMO EXECUTION ENABLED · ${active.spec.symbol} · ${active.entries}/${active.spec.limits.max_entries} entries used · expires ${new Date(active.expires*1000).toLocaleString()}`:
-  executionReady?'CORE DEMO EXECUTION OFF · Review and enable a bounded session below.':'CORE DEMO EXECUTION BLOCKED · Verify Algo Trading, API permissions, emergency stop and delivery reconciliation.';
+  executionReady?'CORE DEMO EXECUTION OFF · Review and enable a bounded session below.':
+  canReview&&s.emergency_stopped?'GATEWAY DEMO STOP LATCHED · A fresh reviewed session may request an explicit audited reset.':
+  !d.execution_controls?.activation_available?'CORE DEMO EXECUTION LOCKED · '+(d.execution_controls?.blocker||'Installed observation-only policy'):
+  'CORE DEMO EXECUTION BLOCKED · Verify Algo Trading, API permissions and delivery reconciliation.';
  el('exness-observe').disabled=false;el('exness-propose').disabled=!canReview;
  if(!canReview||(!executionReady&&!proposal))el('exness-activate').disabled=true;
  el('exness-sessions').textContent=d.sessions.filter(x=>x.spec.adapter==='exness_demo').map(x=>`${x.spec.symbol} · ${x.state} · ${x.entries}/${x.spec.limits.max_entries} entries · expires ${new Date(x.expires*1000).toLocaleString()}${x.reason?' · '+x.reason:''}`).join('\n')||'No Exness demo session approved.';
