@@ -55,10 +55,20 @@ def demo_control_policy(status):
     delivery_blocker=(None if delivery_authorized else
         'Installed desktop is observation-only' if locked else
         'No verified demo delivery transport configured; local MT5/Freqtrade delivery is off and the remote demo gateway is absent or unverified')
+    unresolved_states={'sending','unknown','partial'}
+    unresolved=[o for o in status.get('orders',[]) if o.get('state') in unresolved_states]
+    # Read-only recovery facts. Never clear the stop or infer safe broker outcomes
+    # from this limited status projection (which is capped at recent orders).
+    recovery={'stop_latched':bool(status.get('emergency_stopped')),
+              'requires_reviewed_scope':bool(status.get('emergency_stopped')),
+              'unresolved_orders_visible':len(unresolved),
+              'broker_reconciliation_required':bool(unresolved),
+              'transport_configured':delivery_authorized,
+              'automatic_rearm_allowed':False}
     return {'mode':'observation_and_intercepted_rehearsal' if locked else 'scoped_demo_only',
         'review_available':True,'activation_available':not locked,
         'delivery_authorized':delivery_authorized,'delivery_blocker':delivery_blocker,
-        'funded_execution_available':False,
+        'recovery':recovery,'funded_execution_available':False,
         'emergency_stopped':bool(status.get('emergency_stopped')),
         'platform_delivery_enabled':{'mt5':mt5_enabled,'freqtrade':ft_enabled,'exness_demo':remote_enabled},
         'blocker':None if not locked else 'Deployment observation-only lock; no scope activation permitted',

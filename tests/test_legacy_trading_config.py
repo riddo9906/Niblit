@@ -42,3 +42,20 @@ def test_missing_demo_profile_is_reported_as_configuration_blocker(monkeypatch):
     assert policy["activation_available"] is True
     assert policy["delivery_authorized"] is False
     assert "No verified demo delivery transport" in policy["delivery_blocker"]
+
+
+def test_latched_stop_and_uncertain_order_are_visible_without_rearming(monkeypatch):
+    from modules.trading_session_api import demo_control_policy
+    monkeypatch.setenv("NIBLIT_DESKTOP_OBSERVATION_ONLY", "0")
+    monkeypatch.delenv("NIBLIT_MT5_DEMO_DELIVERY_ENABLED", raising=False)
+    monkeypatch.delenv("NIBLIT_FREQTRADE_DEMO_DELIVERY_ENABLED", raising=False)
+    policy = demo_control_policy({"emergency_stopped": True,
+        "orders": [{"adapter": "mt5", "state": "unknown"},
+                   {"adapter": "mt5", "state": "closed"}],
+        "remote_demo": {"configured": False}})
+    assert policy["recovery"] == {
+        "stop_latched": True, "requires_reviewed_scope": True,
+        "unresolved_orders_visible": 1, "broker_reconciliation_required": True,
+        "transport_configured": False, "automatic_rearm_allowed": False}
+    assert policy["delivery_authorized"] is False
+    assert policy["funded_execution_available"] is False
