@@ -1,5 +1,18 @@
 """Compatibility tests: legacy research flags do not create execution authority."""
 from modules.tft_forecast import _configured_value
+from modules.core_trading_sessions import configured_demo_profile
+
+
+def test_empty_mt5_alias_falls_back_to_exness_demo_profile(monkeypatch):
+    monkeypatch.setenv('NIBLIT_MT5_DEMO_PROFILE', '')
+    monkeypatch.setenv('NIBLIT_EXNESS_DEMO_PROFILE', r'C:\fixture\exness-demo-profile.json')
+    assert configured_demo_profile() == r'C:\fixture\exness-demo-profile.json'
+
+
+def test_explicit_mt5_demo_profile_takes_precedence(monkeypatch):
+    monkeypatch.setenv('NIBLIT_MT5_DEMO_PROFILE', '  mt5-demo-profile.json  ')
+    monkeypatch.setenv('NIBLIT_EXNESS_DEMO_PROFILE', 'exness-demo-profile.json')
+    assert configured_demo_profile() == 'mt5-demo-profile.json'
 
 
 def test_old_tft_flag_is_honored_when_new_flag_is_absent(monkeypatch):

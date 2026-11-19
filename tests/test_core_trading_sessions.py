@@ -24,6 +24,31 @@ def test_observation_and_proposal_never_authorize(f):
     assert len(f.bot.manager['candidates'])==6
 
 
+def test_uncertain_other_account_does_not_block_verified_demo_account(f):
+    # A prior delivery remains unknown and auditable on another broker account.
+    # It must not silently become a grant or position on this account.
+    activate(f)
+    with f.gateway.db() as db:
+        db.execute("INSERT INTO trading_orders VALUES('other-account-unknown','old-session','mt5','unrelated-account','GBP/USD','GBPUSD','open','unknown','{}',NULL,0)")
+    f.bot.step()
+    assert len(f.api.sent)==1
+    with f.gateway.db() as db:
+        assert db.execute("SELECT state FROM trading_orders WHERE id='other-account-unknown'").fetchone()[0]=='unknown'
+
+
+def test_uncertain_same_account_blocks_even_across_adapters(f):
+    # Local and VPS demo adapters may share a broker account. Quarantine is
+    # account-wide, never bypassed merely by selecting another transport.
+    scope=activate(f)
+    with f.gateway.db() as db:
+        db.execute("INSERT INTO trading_orders VALUES('same-account-unknown',?,'exness_demo',?,'GBP/USD','GBPUSD','open','unknown','{}',NULL,0)",
+                   (scope['id'],scope['spec']['account']))
+    f.bot.step()
+    assert not f.api.sent
+    with f.gateway.db() as db:
+        assert db.execute("SELECT state FROM trading_orders WHERE id='same-account-unknown'").fetchone()[0]=='unknown'
+
+
 def test_scope_tamper_and_replayed_activation(f):
     p=f.service.propose('mt5','EURUSD',60)
     with pytest.raises(PermissionError):f.service.activate(p['id'],'0'*64,threaded=False)

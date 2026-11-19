@@ -569,7 +569,7 @@ class CoreTradingSessions:
                 db.execute('UPDATE trading_orders SET state=?,result=?,updated=? WHERE id=?',(report['state'],encoded,self.clock(),order['id']))
         if getattr(bot,'quarantined_lease',None):
             with self.gateway.db() as db:
-                uncertain=db.execute("SELECT 1 FROM trading_orders WHERE state IN ('sending','unknown','partial') LIMIT 1").fetchone()
+                uncertain=db.execute("SELECT 1 FROM trading_orders WHERE account=? AND state IN ('sending','unknown','partial') LIMIT 1",(s['account'],)).fetchone()
             if not uncertain:
                 self.admission.finish(bot.quarantined_lease);bot.quarantined_lease=None
 
@@ -662,7 +662,7 @@ class CoreTradingSessions:
                         (ident,)).fetchone()
                     if attempted:
                         return
-                unresolved=db.execute("SELECT 1 FROM trading_orders WHERE state IN ('sending','unknown','partial') LIMIT 1").fetchone()
+                unresolved=db.execute("SELECT 1 FROM trading_orders WHERE account=? AND state IN ('sending','unknown','partial') LIMIT 1",(s['account'],)).fetchone()
             if unresolved:
                 self.emit('execution_blocked', {'session':ident,'symbol':symbol,'environment':s['environment'],
                           'bar':decision.get('bar'),'reason':'Broker delivery awaiting reconciliation'})
@@ -780,6 +780,11 @@ def load_execution_cost_profile(variable):
     return json.loads(raw)
 
 
+def configured_demo_profile():
+    """Select the explicit MT5 demo profile, falling back past empty aliases."""
+    return (os.getenv('NIBLIT_MT5_DEMO_PROFILE') or os.getenv('NIBLIT_EXNESS_DEMO_PROFILE') or '').strip()
+
+
 def install_core_trading(core):
     """Register the existing worker with Core; boot never activates execution."""
     with _install_lock:
@@ -811,7 +816,7 @@ def install_core_trading(core):
         ft_schedule=load_execution_cost_profile('NIBLIT_FREQTRADE_COST_PROFILE')
         bridge=MT5Bridge();orders=DemoOrders(bridge,desk.path.parent/'mt5-orders.sqlite3',autonomous_max_volume=.10)
         adapters={'mt5':MT5SessionAdapter(bridge,orders,cost_schedule=schedule),'freqtrade':FreqtradeSessionAdapter(desk,cost_schedule=ft_schedule)}
-        demo_profile=os.getenv('NIBLIT_MT5_DEMO_PROFILE',os.getenv('NIBLIT_EXNESS_DEMO_PROFILE','')).strip()
+        demo_profile=configured_demo_profile()
         if demo_profile:
             from modules.remote_demo_adapter import RemoteDemoAdapter
             adapters['exness_demo']=RemoteDemoAdapter(demo_profile)
