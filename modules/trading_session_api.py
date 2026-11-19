@@ -46,12 +46,41 @@ def demo_control_policy(status):
     locked=os.getenv('NIBLIT_DESKTOP_OBSERVATION_ONLY')=='1'
     mt5_enabled=os.getenv('NIBLIT_MT5_DEMO_DELIVERY_ENABLED')=='1'
     ft_enabled=os.getenv('NIBLIT_FREQTRADE_DEMO_DELIVERY_ENABLED')=='1'
-    delivery_authorized=(not locked) and (mt5_enabled or ft_enabled)
+    # The remote MT5 demo uses a separately pinned and verified gateway, not
+    # the local MT5 delivery flag. Verification is only eligibility to review:
+    # it never creates a session or bypasses the gateway's final broker checks.
+    remote=status.get('remote_demo') or {}
+    remote_enabled=remote.get('configured') is True and remote.get('verified') is True
+    delivery_authorized=(not locked) and (mt5_enabled or ft_enabled or remote_enabled)
+    delivery_blocker=(None if delivery_authorized else
+        'Installed desktop is observation-only' if locked else
+        'No verified demo delivery transport configured; local MT5/Freqtrade delivery is off and the remote demo gateway is absent or unverified')
+    unresolved_states={'sending','unknown','partial'}
+    unresolved=[o for o in status.get('orders',[]) if o.get('state') in unresolved_states]
+    # Read-only recovery facts. Never clear the stop or infer safe broker outcomes
+    # from this limited status projection (which is capped at recent orders).
+    recovery={'stop_latched':bool(status.get('emergency_stopped')),
+              'requires_reviewed_scope':bool(status.get('emergency_stopped')),
+              'unresolved_orders_visible':len(unresolved),
+              'broker_reconciliation_required':bool(unresolved),
+              'transport_configured':delivery_authorized,
+              'automatic_rearm_allowed':False}
+    activation_blockers=[]
+    if locked:activation_blockers.append('Installed Core is observation-only')
+    if not delivery_authorized:activation_blockers.append('No verified demo delivery transport')
+    if unresolved:activation_blockers.append('Unresolved broker delivery requires reconciliation')
+    # A latched stop is NOT an automatic rearm and is not cleared by checking
+    # readiness. It can be reviewed only during a fresh bounded demo activation.
+    if recovery['stop_latched']:
+        activation_blockers.append('Emergency stop requires explicit reviewed demo rearm')
+    recovery['activation_blockers']=activation_blockers
+    recovery['activation_ready']=not locked and delivery_authorized and not unresolved and not recovery['stop_latched']
     return {'mode':'observation_and_intercepted_rehearsal' if locked else 'scoped_demo_only',
         'review_available':True,'activation_available':not locked,
-        'delivery_authorized':delivery_authorized,'funded_execution_available':False,
+        'delivery_authorized':delivery_authorized,'delivery_blocker':delivery_blocker,
+        'recovery':recovery,'funded_execution_available':False,
         'emergency_stopped':bool(status.get('emergency_stopped')),
-        'platform_delivery_enabled':{'mt5':mt5_enabled,'freqtrade':ft_enabled},
+        'platform_delivery_enabled':{'mt5':mt5_enabled,'freqtrade':ft_enabled,'exness_demo':remote_enabled},
         'blocker':None if not locked else 'Deployment observation-only lock; no scope activation permitted',
         'stop_notice':'Review and simulation do not clear the emergency stop.'}
 
@@ -104,8 +133,15 @@ def demo_readiness(control,adapter,symbol,limits=None):
         if decision.get('side') not in ('buy','sell'):
             block('consensus_abstention',decision.get('selection_reason') or 'No eligible entry signal')
             block('entry_preflight_pending','No qualifying direction; a complete entry risk/cost preflight has not been established')
-        if not getattr(a,'cost_schedule',None):block('missing_cost_bounds','No approved complete prospective cost profile is configured')
-        if decision.get('side') in ('buy','sell') and snap['environment'] in ('demo','dry-run','simulation'):
+        if adapter=='exness_demo':
+            # Remote demo prepares a broker-bound ticket only after activation.
+            # Never call prepare() from a read-only readiness review, and never
+            # claim a completed cost/risk preflight before that gateway check.
+            result['remote_order_preflight']='PENDING_AT_EXECUTION'
+            result['risk_approval']='NOT_GRANTED_REMOTE_PREFLIGHT_PENDING'
+        elif not getattr(a,'cost_schedule',None):
+            block('missing_cost_bounds','No approved complete prospective cost profile is configured')
+        if adapter!='exness_demo' and decision.get('side') in ('buy','sell') and snap['environment'] in ('demo','dry-run','simulation'):
             try:
                 draft=a.draft_entry(snap,decision['side'],result['limits'])
                 result['draft']={k:v for k,v in draft.items() if k not in ('ticket','expected')}

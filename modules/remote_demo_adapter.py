@@ -101,6 +101,24 @@ class RemoteDemoAdapter:
         # Once sent, a timeout is UNKNOWN in Core. This call has no retry loop.
         return self.call('submit',{'ticket':prepared['ticket'],'expires':scope['expires']})
 
+    def resume(self,session,snapshot):
+        # The call is only made by Core after an explicit reviewed activation.
+        # Validate the same remote identity again, never use a local MT5 fallback.
+        self.checked(snapshot)
+        if snapshot.get('account_binding')!=self.profile['account']:
+            raise PermissionError('Demo account changed during rearm')
+        result=self.call('resume',{'session_id':session['id'],
+            'spec_hash':session['spec_hash'],'expires':session['expires'],
+            'gateway_id':self.profile['gateway_id'],
+            'account_identity':self.profile['account']['identity'],
+            'acknowledgement':'REARM_REVIEWED_DEMO_SCOPE'})
+        if (result.get('rearmed') is not True
+                or result.get('account_identity')!=self.profile['account']['identity']
+                or result.get('session_id')!=session['id']
+                or result.get('funded_execution_enabled') is not False):
+            raise PermissionError('Remote demo recovery was not verified')
+        return result
+
     def reconcile(self,order):return self.call('reconcile',{'order':order})
     def cancel_prepared(self,order):return self.call('cancel-prepared',{'order':order})
     def emergency_stop(self):return self.call('emergency-stop',{})

@@ -49,11 +49,11 @@ jobs:
       - name: Check required env variables documented
         run: |
           python - <<'EOF'
-          with open('.env.example') as f:
+          with open('.env.example', 'rb') as f:
               content = f.read()
           # Both variables must be documented in .env.example.
           # HF_TOKEN is required for LLM; NIBLIT_API_KEY gates the API endpoints.
-          required = ['HF_TOKEN', 'NIBLIT_API_KEY']
+          required = [b'HF_TOKEN', b'NIBLIT_API_KEY']
           missing = [v for v in required if v not in content]
           if missing:
               print(f"Missing from .env.example: {missing}")

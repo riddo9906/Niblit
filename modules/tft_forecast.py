@@ -56,9 +56,17 @@ from typing import Deque, List, Optional
 log = logging.getLogger(__name__)
 
 # ── Configuration ─────────────────────────────────────────────────────────────
-_ENABLED: bool = os.getenv("NIBLIT_TFT_ENABLED", "1").strip() not in ("0", "false", "no")
+def _configured_value(primary: str, legacy: str, default: str) -> str:
+    """Honor older read-only research settings unless a newer setting overrides them.
+
+    This controls forecasting only; it cannot grant broker or trading authority.
+    """
+    return os.getenv(primary, os.getenv(legacy, default))
+
+
+_ENABLED: bool = _configured_value("NIBLIT_TFT_ENABLED", "TRADING_TFT_ENABLED", "1").strip().lower() not in ("0", "false", "no")
 _HISTORY_LEN: int = int(os.getenv("NIBLIT_TFT_HISTORY_LEN", "64"))
-_FORECAST_HORIZON: int = int(os.getenv("NIBLIT_TFT_FORECAST_HORIZON", "3"))
+_FORECAST_HORIZON: int = int(_configured_value("NIBLIT_TFT_FORECAST_HORIZON", "TRADING_TFT_HORIZON", "3"))
 _BUY_THRESHOLD: float = float(os.getenv("NIBLIT_TFT_BUY_THRESHOLD", "0.002"))
 _SELL_THRESHOLD: float = float(os.getenv("NIBLIT_TFT_SELL_THRESHOLD", "-0.002"))
 

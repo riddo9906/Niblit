@@ -206,10 +206,10 @@ class PermissionManager:
             if db.execute("SELECT 1 FROM trading_sessions WHERE state IN ('active','risk_halted') AND json_extract(spec,'$.adapter')=? AND json_extract(spec,'$.account')=? AND expires>?",(spec['adapter'],spec['account'],time.time())).fetchone():
                 raise PermissionError('An account session is already active')
             stopped=db.execute('SELECT stopped FROM trading_control WHERE singleton=1').fetchone()[0]
-            # An authenticated, exact-scope activation is the operator's explicit
-            # decision to resume demo trading. Do not require a second checkbox
-            # just to clear a stop left latched by an earlier test/release.
-            # The stop still blocks every delivery until this verified activation.
+            # A previous emergency stop requires an affirmative, scope-bound
+            # operator acknowledgement; an ordinary activation cannot rearm it.
+            if stopped and not clear_stop:
+                raise PermissionError('Emergency stop latched; explicitly approve reset with this reviewed demo scope')
             if stopped:
                 db.execute('UPDATE trading_control SET stopped=0 WHERE singleton=1')
                 gateway.audit(db,'trading.emergency_stop_cleared_on_activation',ident,

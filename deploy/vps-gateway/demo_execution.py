@@ -102,7 +102,8 @@ class DemoService:
         self.cfg, self.state = cfg, Path(state)
         self.state.mkdir(exist_ok=True)
         self.bridge = BoundBridge(api,cfg,max_volume)
-        self.orders = DemoOrders(self.bridge,self.state/'demo-orders.sqlite3',price_drift_fraction=.0001,crypto_stops=True,autonomous_max_volume=max_volume)
+        self.orders = DemoOrders(self.bridge,self.state/'demo-orders.sqlite3',price_drift_fraction=.0001,crypto_stops=True,autonomous_max_volume=max_volume,
+                                 expected_binding=self.cfg['account'], execution_transport=self.bridge._api.order_send)
         self.adapter = MT5SessionAdapter(self.bridge,self.orders)
         self.identity = hashlib.sha256(json.dumps(cfg,sort_keys=True).encode()).hexdigest()
         with self.orders.db() as db:
@@ -111,6 +112,9 @@ class DemoService:
             if db.execute('SELECT binding FROM remote_demo_meta').fetchone()[0] != self.identity:
                 raise PermissionError('Demo database belongs to another binding')
             db.execute('CREATE TABLE IF NOT EXISTS remote_demo_prepared(ticket TEXT PRIMARY KEY, payload TEXT)')
+            db.execute('''CREATE TABLE IF NOT EXISTS remote_demo_resumptions(
+                session_id TEXT PRIMARY KEY, spec_hash TEXT NOT NULL,
+                account_identity TEXT NOT NULL, created_at REAL NOT NULL)''')
             # Restart never turns a previously prepared ticket into authority.
             db.execute("UPDATE mt5_tickets SET state='rejected',result=? WHERE state='preview'",
                        (json.dumps({'message':'Gateway restarted before delivery; fresh Core review required'}),))
@@ -153,6 +157,46 @@ class DemoService:
                         'max_volume':self.bridge.max_volume,'review_price_drift_fraction':.0001,
                         'protection_policy':crypto_policy(),
                         'funded_execution_enabled':False,'execution_at_startup':False}
+            if action == 'resume':
+                # A fresh, human-reviewed Core activation must own the request.
+                # The separate pinned demo bearer is required by demo_dispatch;
+                # this never resets the independent funded/XM observation breaker.
+                import re
+                session_id=body.get('session_id')
+                spec_hash=body.get('spec_hash')
+                expiry=body.get('expires')
+                if (body.get('acknowledgement')!='REARM_REVIEWED_DEMO_SCOPE'
+                        or body.get('gateway_id')!=self.identity
+                        or body.get('account_identity')!=self.cfg['account']['identity']
+                        or not isinstance(session_id,str) or not re.fullmatch('[a-f0-9]{32}',session_id)
+                        or not isinstance(spec_hash,str) or not re.fullmatch('[a-f0-9]{64}',spec_hash)
+                        or type(expiry) not in (int,float) or not math.isfinite(expiry)
+                        or not time.time()<expiry<=time.time()+3600):
+                    raise PermissionError('Exact current demo Core authorization required')
+                a,t=self.bridge.verify()
+                if not a.trade_allowed or not t.trade_allowed or t.tradeapi_disabled:
+                    raise PermissionError('Verified demo terminal trading is disabled')
+                # A broker inventory must be readable before any reset. Never
+                # dismiss ambiguous delivery or partial fills as an empty book.
+                positions=self.bridge.raw.positions_get()
+                pending=self.bridge.raw.orders_get()
+                if positions is None or pending is None:
+                    raise PermissionError('Demo broker inventory unavailable')
+                with self.orders.db() as db:
+                    db.execute('BEGIN IMMEDIATE')
+                    existing=db.execute('SELECT spec_hash,account_identity FROM remote_demo_resumptions WHERE session_id=?',(session_id,)).fetchone()
+                    if existing is not None:
+                        if tuple(existing)!=(spec_hash,self.cfg['account']['identity']):
+                            raise PermissionError('Replayed demo scope with changed binding')
+                        raise PermissionError('Demo resume already consumed; review a new scope')
+                    uncertain=db.execute("SELECT COUNT(*) FROM mt5_tickets WHERE state IN ('sending','unknown','placed','partial')").fetchone()[0]
+                    if uncertain:
+                        raise PermissionError('Unresolved demo delivery must be reconciled before reset')
+                    db.execute('INSERT INTO remote_demo_resumptions VALUES(?,?,?,?)',
+                               (session_id,spec_hash,self.cfg['account']['identity'],time.time()))
+                    db.execute('UPDATE remote_demo_meta SET stopped=0 WHERE id=1 AND binding=?',(self.identity,))
+                return {'rearmed':True,'account_identity':self.cfg['account']['identity'],
+                        'session_id':session_id,'funded_execution_enabled':False}
             if action == 'market':
                 symbol=self.symbol(body['symbol'])
                 market=self.bridge.snapshot(symbol,include_context=True)

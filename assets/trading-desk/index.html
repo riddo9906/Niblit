@@ -28,7 +28,7 @@
 <button id="exness-observe" disabled>Observe strategies</button><button id="exness-propose" disabled>Review demo execution</button><button id="exness-activate" disabled>Enable reviewed demo execution</button><button id="exness-stop">Stop demo execution</button>
 <pre id="exness-review"></pre><pre id="exness-sessions"></pre><pre id="exness-strategies"></pre><pre id="exness-orders"></pre><pre id="exness-inventory">Broker inventory unavailable</pre><pre id="exness-protection">Crypto protection preview unavailable</pre><pre id="exness-market">Broker data unavailable</pre></section>
 <section aria-label="Demo execution readiness"><h3>Demo controls · Core governed</h3>
-<p id="core-deployment-policy" role="status">Checking Core deployment policy. Activation unavailable until verified.</p>
+<p id="core-deployment-policy" role="status">Checking Core deployment policy. Activation unavailable until verified.</p><p id="core-activation-readiness" role="status">Checking the selected demo transport and recovery requirements.</p>
 <label>Execution-controller instrument <input id="core-execution-symbol" placeholder="Exact symbol; empty uses selected observation" autocomplete="off"></label>
 <p>Freqtrade execution uses the isolated CoreManaged controller. The original Lab positions below remain observation-only.</p>
 <button id="core-readiness" disabled>Review selected demo readiness</button><button id="core-rehearse" disabled>Run governed intercepted lifecycle</button>
@@ -39,7 +39,7 @@
 <label>View account record <select id="core-mt5-record"></select></label>
 <small>Viewing a record does not change the MT5 login. Switch accounts manually in MT5.</small>
 <pre id="core-mt5-history"></pre></section><pre id="core-session-list"></pre><pre id="core-observer-list"></pre><button id="core-notifications">Enable desktop notifications</button><label>Quiet hours from <input id="core-quiet-from" type="time"></label><label>to <input id="core-quiet-to" type="time"></label><div id="core-alerts" aria-live="polite"></div><small>Alerts open this workspace; they never place orders. Undelivered alerts remain recorded when the desktop is closed.</small></section>
-<label>Trading environment <select id="environment" aria-label="Trading environment"><option value="mt5">MT5 desktop · demo connection</option><option value="freqtrade">Freqtrade · exchange dry-run</option></select></label>
+<label>Trading environment <select id="environment" aria-label="Trading environment"><option value="mt5">MT5 desktop · demo connection</option><option value="freqtrade">Freqtrade · exchange dry-run</option><option value="exness_demo">Remote Exness MT5 demo (verified VPS only)</option></select></label>
 <p id="health" role="status">Connecting to the selected trading environment…</p><p id="error" role="alert"></p>
 <section id="metrics" class="metrics"></section>
 <main id="mt5-workspace"><section class="panel"><div class="toolbar"><h2>MT5 broker prices</h2><select id="mt5-symbol" aria-label="MT5 symbol"></select></div><p id="mt5-quote"></p><p id="mt5-source"></p><svg id="mt5-chart" viewBox="0 0 900 240" role="img" aria-label="MT5 completed five-minute candles and strategy annotations"></svg><p>Live broker quotes · demo account · completed 5-minute candles. This bridge does not generate trading advice.</p></section>

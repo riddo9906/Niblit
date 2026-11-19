@@ -14,7 +14,7 @@ from modules.mt5_bridge import MT5Bridge
 from modules.mt5_orders import MAGIC
 from modules.core_trading_sessions import configured_limits,CoreTradingSessions
 from modules.remote_demo_adapter import RemoteDemoAdapter
-from modules.trading_session_selftest import FixtureMT5,FixtureGateway
+from modules.trading_session_selftest import FixtureMT5,FixtureGateway,fixture_costs
 from modules.memory_laboratory.runtime import MemoryRuntime
 
 
@@ -35,6 +35,8 @@ def service(tmp_path,monkeypatch):
     cfg={'terminal':str(exe),'account':MT5Bridge().account_record(api,api.account,terminal),'symbols':['BTCUSDm']}
     monkeypatch.setattr(demo,'existing_terminal',lambda _:100)
     s=demo.DemoService(cfg,tmp_path/'state',api)
+    # Controlled broker-double cost evidence, never a real gateway schedule.
+    s.adapter.cost_model=fixture_costs
     s.bridge.snapshot('BTCUSDm');s.bridge.snapshot('BTCUSDm')
     return s,api,terminal
 
@@ -89,6 +91,42 @@ def test_persistent_emergency_stop(service):
     assert not api.sent
 
 
+def test_persistent_remote_stop_rearms_once_for_exact_reviewed_demo_scope(service):
+    s,api,t=service
+    s.dispatch('emergency-stop',{})
+    body={'session_id':'a'*32,'spec_hash':'b'*64,'expires':time.time()+60,
+          'gateway_id':s.identity,'account_identity':s.cfg['account']['identity'],
+          'acknowledgement':'REARM_REVIEWED_DEMO_SCOPE'}
+    with pytest.raises(PermissionError):
+        prepare(s)
+    with pytest.raises(PermissionError):
+        s.dispatch('resume',{**body,'account_identity':'wrong'})
+    assert s.dispatch('status',{})['emergency_stopped']
+    result=s.dispatch('resume',body)
+    assert result['rearmed'] and not s.dispatch('status',{})['emergency_stopped']
+    with pytest.raises(PermissionError,match='already consumed'):
+        s.dispatch('resume',body)
+    assert not api.sent
+
+
+def test_remote_rearm_rejects_wrong_demo_identity_and_unresolved_tickets(service):
+    s,api,t=service
+    body={'session_id':'c'*32,'spec_hash':'d'*64,'expires':time.time()+60,
+          'gateway_id':s.identity,'account_identity':s.cfg['account']['identity'],
+          'acknowledgement':'REARM_REVIEWED_DEMO_SCOPE'}
+    p=prepare(s)
+    s.dispatch('emergency-stop',{})
+    t.connected=False
+    with pytest.raises(PermissionError):s.dispatch('resume',body)
+    t.connected=True
+    with s.orders.db() as db:
+        db.execute("UPDATE mt5_tickets SET state='unknown' WHERE id=?",(p['ticket'],))
+    with pytest.raises(PermissionError,match='Unresolved'):
+        s.dispatch('resume',body)
+    assert s.dispatch('status',{})['emergency_stopped']
+    assert not api.sent
+
+
 @pytest.mark.parametrize('expires',[0,float('nan'),float('inf'),True])
 def test_expired_or_invalid_scope(service,expires):
     s,api,t=service;p=prepare(s)
@@ -115,7 +153,7 @@ def test_final_boundary_rejects_unsupported_mutation(service,change):
 def test_existing_six_strategy_core_to_remote_ticket_pipeline(service,tmp_path,monkeypatch):
     s,api,t=service
     # In-process transport double only; real Core/permission/admission/ticket logic.
-    adapter=object.__new__(RemoteDemoAdapter);adapter.profile={'account':s.cfg['account']}
+    adapter=object.__new__(RemoteDemoAdapter);adapter.profile={'account':s.cfg['account'],'gateway_id':s.identity}
     adapter.last_status=None;adapter.call=lambda action,body=None:s.dispatch(action,body or {})
     runtime=MemoryRuntime(FixtureGateway(tmp_path/'canonical.sqlite'))
     monkeypatch.delenv('NIBLIT_VPS_GATEWAY_PROFILE',raising=False)
@@ -129,6 +167,34 @@ def test_existing_six_strategy_core_to_remote_ticket_pipeline(service,tmp_path,m
     assert api.sent[0]['volume']==.01 and api.sent[0]['sl'] and api.sent[0]['tp']
     bot.step();assert len(api.sent)==1
     core.stop(emergency=True);assert s.dispatch('status',{})['emergency_stopped']
+
+
+def test_core_and_gateway_stops_recover_only_with_reviewed_demo_ack(service,tmp_path,monkeypatch):
+    s,api,t=service
+    adapter=object.__new__(RemoteDemoAdapter)
+    adapter.profile={'account':s.cfg['account'],'gateway_id':s.identity}
+    adapter.last_status=None
+    adapter.call=lambda action,body=None:s.dispatch(action,body or {})
+    monkeypatch.delenv('NIBLIT_VPS_GATEWAY_PROFILE',raising=False)
+    core=CoreTradingSessions(
+        MemoryRuntime(FixtureGateway(tmp_path/'rearm-canonical.sqlite')),
+        {'exness_demo':adapter},journal=tmp_path/'rearm-decisions.sqlite',
+        notify=lambda _:None)
+    core.stop(emergency=True)
+    assert s.dispatch('status',{})['emergency_stopped']
+    assert core.status()['emergency_stopped']
+    scope=core.propose('exness_demo','BTCUSDm',60)
+    with pytest.raises(PermissionError,match='reset'):
+        core.activate(scope['id'],scope['spec_hash'],threaded=False)
+    assert core.status()['emergency_stopped'] and s.dispatch('status',{})['emergency_stopped']
+    assert core.session(scope['id'])['state']=='pending'
+    result=core.activate(scope['id'],scope['spec_hash'],clear_stop=True,threaded=False)
+    assert result['state']=='active'
+    assert not core.status()['emergency_stopped']
+    assert not s.dispatch('status',{})['emergency_stopped']
+    assert not api.sent
+    core.stop()
+    assert core.session(scope['id'])['state']=='stopped'
 
 
 def test_remote_client_requires_core_scope_before_network():
@@ -228,7 +294,7 @@ def test_delivery_preserves_reviewed_protection_even_if_later_bars_change(servic
 
 def test_core_scope_rejects_changed_protection_policy(service,tmp_path,monkeypatch):
     s,api,t=service;changed=False
-    adapter=object.__new__(RemoteDemoAdapter);adapter.profile={'account':s.cfg['account']};adapter.last_status=None
+    adapter=object.__new__(RemoteDemoAdapter);adapter.profile={'account':s.cfg['account'],'gateway_id':s.identity};adapter.last_status=None
     def call(action,body=None):
         result=s.dispatch(action,body or {})
         if changed and action=='snapshot':result['protection_policy']['version']='unapproved-policy/2'
@@ -266,7 +332,7 @@ def test_unknown_broker_valuation_is_not_zero_in_protection_preview(service):
 
 def test_three_sequential_demo_entries_and_fourth_denied(service,tmp_path,monkeypatch):
     s,api,t=service
-    adapter=object.__new__(RemoteDemoAdapter);adapter.profile={'account':s.cfg['account']}
+    adapter=object.__new__(RemoteDemoAdapter);adapter.profile={'account':s.cfg['account'],'gateway_id':s.identity}
     adapter.last_status=None;adapter.call=lambda action,body=None:s.dispatch(action,body or {})
     runtime=MemoryRuntime(FixtureGateway(tmp_path/'multi-canonical.sqlite'))
     monkeypatch.delenv('NIBLIT_VPS_GATEWAY_PROFILE',raising=False)
@@ -298,8 +364,9 @@ def test_three_sequential_demo_entries_and_fourth_denied(service,tmp_path,monkey
 def test_reviewed_larger_demo_volume_uses_existing_core_pipeline(service,tmp_path,monkeypatch,lots):
     original,api,t=service
     s=demo.DemoService(original.cfg,tmp_path/'larger-state',api,max_volume=.10)
+    s.adapter.cost_model=fixture_costs  # Broker double only.
     s.bridge.snapshot('BTCUSDm');s.bridge.snapshot('BTCUSDm')
-    adapter=object.__new__(RemoteDemoAdapter);adapter.profile={'account':s.cfg['account']}
+    adapter=object.__new__(RemoteDemoAdapter);adapter.profile={'account':s.cfg['account'],'gateway_id':s.identity}
     adapter.last_status=None;adapter.call=lambda action,body=None:s.dispatch(action,body or {})
     monkeypatch.delenv('NIBLIT_VPS_GATEWAY_PROFILE',raising=False)
     monkeypatch.delenv('NIBLIT_AUTO_MAX_LOTS',raising=False)
