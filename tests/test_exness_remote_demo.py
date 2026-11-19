@@ -151,7 +151,7 @@ def test_final_boundary_rejects_unsupported_mutation(service,change):
 def test_existing_six_strategy_core_to_remote_ticket_pipeline(service,tmp_path,monkeypatch):
     s,api,t=service
     # In-process transport double only; real Core/permission/admission/ticket logic.
-    adapter=object.__new__(RemoteDemoAdapter);adapter.profile={'account':s.cfg['account']}
+    adapter=object.__new__(RemoteDemoAdapter);adapter.profile={'account':s.cfg['account'],'gateway_id':s.identity}
     adapter.last_status=None;adapter.call=lambda action,body=None:s.dispatch(action,body or {})
     runtime=MemoryRuntime(FixtureGateway(tmp_path/'canonical.sqlite'))
     monkeypatch.delenv('NIBLIT_VPS_GATEWAY_PROFILE',raising=False)
@@ -264,7 +264,7 @@ def test_delivery_preserves_reviewed_protection_even_if_later_bars_change(servic
 
 def test_core_scope_rejects_changed_protection_policy(service,tmp_path,monkeypatch):
     s,api,t=service;changed=False
-    adapter=object.__new__(RemoteDemoAdapter);adapter.profile={'account':s.cfg['account']};adapter.last_status=None
+    adapter=object.__new__(RemoteDemoAdapter);adapter.profile={'account':s.cfg['account'],'gateway_id':s.identity};adapter.last_status=None
     def call(action,body=None):
         result=s.dispatch(action,body or {})
         if changed and action=='snapshot':result['protection_policy']['version']='unapproved-policy/2'
@@ -302,7 +302,7 @@ def test_unknown_broker_valuation_is_not_zero_in_protection_preview(service):
 
 def test_three_sequential_demo_entries_and_fourth_denied(service,tmp_path,monkeypatch):
     s,api,t=service
-    adapter=object.__new__(RemoteDemoAdapter);adapter.profile={'account':s.cfg['account']}
+    adapter=object.__new__(RemoteDemoAdapter);adapter.profile={'account':s.cfg['account'],'gateway_id':s.identity}
     adapter.last_status=None;adapter.call=lambda action,body=None:s.dispatch(action,body or {})
     runtime=MemoryRuntime(FixtureGateway(tmp_path/'multi-canonical.sqlite'))
     monkeypatch.delenv('NIBLIT_VPS_GATEWAY_PROFILE',raising=False)
@@ -335,7 +335,7 @@ def test_reviewed_larger_demo_volume_uses_existing_core_pipeline(service,tmp_pat
     original,api,t=service
     s=demo.DemoService(original.cfg,tmp_path/'larger-state',api,max_volume=.10)
     s.bridge.snapshot('BTCUSDm');s.bridge.snapshot('BTCUSDm')
-    adapter=object.__new__(RemoteDemoAdapter);adapter.profile={'account':s.cfg['account']}
+    adapter=object.__new__(RemoteDemoAdapter);adapter.profile={'account':s.cfg['account'],'gateway_id':s.identity}
     adapter.last_status=None;adapter.call=lambda action,body=None:s.dispatch(action,body or {})
     monkeypatch.delenv('NIBLIT_VPS_GATEWAY_PROFILE',raising=False)
     monkeypatch.delenv('NIBLIT_AUTO_MAX_LOTS',raising=False)
