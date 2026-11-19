@@ -65,6 +65,16 @@ def demo_control_policy(status):
               'broker_reconciliation_required':bool(unresolved),
               'transport_configured':delivery_authorized,
               'automatic_rearm_allowed':False}
+    activation_blockers=[]
+    if locked:activation_blockers.append('Installed Core is observation-only')
+    if not delivery_authorized:activation_blockers.append('No verified demo delivery transport')
+    if unresolved:activation_blockers.append('Unresolved broker delivery requires reconciliation')
+    # A latched stop is NOT an automatic rearm and is not cleared by checking
+    # readiness. It can be reviewed only during a fresh bounded demo activation.
+    if recovery['stop_latched']:
+        activation_blockers.append('Emergency stop requires explicit reviewed demo rearm')
+    recovery['activation_blockers']=activation_blockers
+    recovery['activation_ready']=not locked and delivery_authorized and not unresolved and not recovery['stop_latched']
     return {'mode':'observation_and_intercepted_rehearsal' if locked else 'scoped_demo_only',
         'review_available':True,'activation_available':not locked,
         'delivery_authorized':delivery_authorized,'delivery_blocker':delivery_blocker,

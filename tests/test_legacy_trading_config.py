@@ -56,6 +56,29 @@ def test_latched_stop_and_uncertain_order_are_visible_without_rearming(monkeypat
     assert policy["recovery"] == {
         "stop_latched": True, "requires_reviewed_scope": True,
         "unresolved_orders_visible": 1, "broker_reconciliation_required": True,
-        "transport_configured": False, "automatic_rearm_allowed": False}
+        "transport_configured": False, "automatic_rearm_allowed": False,
+        "activation_ready": False,
+        "activation_blockers": ["No verified demo delivery transport",
+                                "Unresolved broker delivery requires reconciliation",
+                                "Emergency stop requires explicit reviewed demo rearm"]}
     assert policy["delivery_authorized"] is False
     assert policy["funded_execution_available"] is False
+
+
+def test_remote_demo_activation_projection_requires_verified_transport_and_no_unresolved_claims(monkeypatch):
+    from modules.trading_session_api import demo_control_policy
+    monkeypatch.setenv('NIBLIT_DESKTOP_OBSERVATION_ONLY', '0')
+    monkeypatch.delenv('NIBLIT_MT5_DEMO_DELIVERY_ENABLED', raising=False)
+    monkeypatch.delenv('NIBLIT_FREQTRADE_DEMO_DELIVERY_ENABLED', raising=False)
+    status={'remote_demo': {'configured': True, 'verified': True},
+            'orders': [], 'emergency_stopped': False}
+    policy=demo_control_policy(status)
+    assert policy['platform_delivery_enabled']['exness_demo'] is True
+    assert policy['recovery']['activation_ready'] is True
+    assert policy['recovery']['activation_blockers'] == []
+    status['emergency_stopped']=True
+    policy=demo_control_policy(status)
+    assert policy['activation_available'] is True  # reviewed rearm is possible
+    assert policy['recovery']['activation_ready'] is False
+    assert 'Emergency stop requires explicit reviewed demo rearm' in policy['recovery']['activation_blockers']
+    assert policy['funded_execution_available'] is False
