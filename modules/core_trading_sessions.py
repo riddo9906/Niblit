@@ -285,12 +285,27 @@ class CoreTradingSessions:
             # Re-review after equity changes: proposal sizing is account-aware.
             if abs(snap['equity']-row['initial_equity'])>max(.01,row['initial_equity']*.001):
                 raise PermissionError('Account equity changed; review a fresh proposal')
+            adapter=self.adapters[spec['adapter']]
+            if spec['adapter']=='exness_demo':
+                remote=adapter.status()
+                if not remote.get('verified'):
+                    raise PermissionError('Pinned remote demo identity unverified')
+                if remote.get('unresolved_deliveries'):
+                    raise PermissionError('Remote demo deliveries must be reconciled before activation')
+                if remote.get('emergency_stopped') and not clear_stop:
+                    raise PermissionError('Remote demo emergency stop needs an explicit reviewed reset')
             self.pm.activate_trading(self.gateway,ident,fingerprint,self.runtime_id,clear_stop=clear_stop)
             try:
-                binder=getattr(self.adapters[spec['adapter']],'bind_demo_delivery',None)
+                if spec['adapter']=='exness_demo':
+                    # No worker starts until both persistent Core and gateway
+                    # authorities agree on this exact reviewed demo session.
+                    adapter.resume(self.session(ident),snap)
+                binder=getattr(adapter,'bind_demo_delivery',None)
                 if callable(binder):binder(snap)
             except Exception:
-                self.stop(ident)
+                # A failed or ambiguous rearm cannot leave an active Core grant.
+                # When resetting a stop, conservatively re-latch both stores.
+                self.stop(ident,emergency=clear_stop)
                 raise
             self.emit('session_activated',{'session':ident,**spec},alert=True)
             bot=self.observe(spec['adapter'],spec['symbol'],threaded=False)
