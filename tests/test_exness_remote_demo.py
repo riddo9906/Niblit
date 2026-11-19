@@ -167,6 +167,34 @@ def test_existing_six_strategy_core_to_remote_ticket_pipeline(service,tmp_path,m
     core.stop(emergency=True);assert s.dispatch('status',{})['emergency_stopped']
 
 
+def test_core_and_gateway_stops_recover_only_with_reviewed_demo_ack(service,tmp_path,monkeypatch):
+    s,api,t=service
+    adapter=object.__new__(RemoteDemoAdapter)
+    adapter.profile={'account':s.cfg['account'],'gateway_id':s.identity}
+    adapter.last_status=None
+    adapter.call=lambda action,body=None:s.dispatch(action,body or {})
+    monkeypatch.delenv('NIBLIT_VPS_GATEWAY_PROFILE',raising=False)
+    core=CoreTradingSessions(
+        MemoryRuntime(FixtureGateway(tmp_path/'rearm-canonical.sqlite')),
+        {'exness_demo':adapter},journal=tmp_path/'rearm-decisions.sqlite',
+        notify=lambda _:None)
+    core.stop(emergency=True)
+    assert s.dispatch('status',{})['emergency_stopped']
+    assert core.status()['emergency_stopped']
+    scope=core.propose('exness_demo','BTCUSDm',60)
+    with pytest.raises(PermissionError,match='reset'):
+        core.activate(scope['id'],scope['spec_hash'],threaded=False)
+    assert core.status()['emergency_stopped'] and s.dispatch('status',{})['emergency_stopped']
+    assert core.session(scope['id'])['state']=='pending'
+    result=core.activate(scope['id'],scope['spec_hash'],clear_stop=True,threaded=False)
+    assert result['state']=='active'
+    assert not core.status()['emergency_stopped']
+    assert not s.dispatch('status',{})['emergency_stopped']
+    assert not api.sent
+    core.stop()
+    assert core.session(scope['id'])['state']=='stopped'
+
+
 def test_remote_client_requires_core_scope_before_network():
     adapter=object.__new__(RemoteDemoAdapter);called=[];adapter.call=lambda *a:called.append(a)
     with pytest.raises(PermissionError):adapter.submit({'ticket':'x'},lambda:None)
