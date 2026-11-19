@@ -102,7 +102,8 @@ class DemoService:
         self.cfg, self.state = cfg, Path(state)
         self.state.mkdir(exist_ok=True)
         self.bridge = BoundBridge(api,cfg,max_volume)
-        self.orders = DemoOrders(self.bridge,self.state/'demo-orders.sqlite3',price_drift_fraction=.0001,crypto_stops=True,autonomous_max_volume=max_volume)
+        self.orders = DemoOrders(self.bridge,self.state/'demo-orders.sqlite3',price_drift_fraction=.0001,crypto_stops=True,autonomous_max_volume=max_volume,
+                                 execution_transport=self.bridge._api.order_send)
         self.adapter = MT5SessionAdapter(self.bridge,self.orders)
         self.identity = hashlib.sha256(json.dumps(cfg,sort_keys=True).encode()).hexdigest()
         with self.orders.db() as db:
