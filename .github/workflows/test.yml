@@ -105,6 +105,17 @@ jobs:
             --cov-report=xml:coverage.xml \
             -v
 
+      - name: Remote demo execution recovery regression suite
+        env:
+          FLASK_ENV: testing
+          HF_TOKEN: test-token
+        run: |
+          pytest -q \
+            tests/test_exness_remote_demo.py \
+            tests/test_core_trading_sessions.py \
+            tests/test_demo_controls.py \
+            tests/test_remote_demo_readiness_policy.py
+
       - name: Upload coverage report
         if: always()
         uses: actions/upload-artifact@v7
