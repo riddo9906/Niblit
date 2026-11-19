@@ -14,7 +14,7 @@ from modules.mt5_bridge import MT5Bridge
 from modules.mt5_orders import MAGIC
 from modules.core_trading_sessions import configured_limits,CoreTradingSessions
 from modules.remote_demo_adapter import RemoteDemoAdapter
-from modules.trading_session_selftest import FixtureMT5,FixtureGateway
+from modules.trading_session_selftest import FixtureMT5,FixtureGateway,fixture_costs
 from modules.memory_laboratory.runtime import MemoryRuntime
 
 
@@ -35,6 +35,8 @@ def service(tmp_path,monkeypatch):
     cfg={'terminal':str(exe),'account':MT5Bridge().account_record(api,api.account,terminal),'symbols':['BTCUSDm']}
     monkeypatch.setattr(demo,'existing_terminal',lambda _:100)
     s=demo.DemoService(cfg,tmp_path/'state',api)
+    # Controlled broker-double cost evidence, never a real gateway schedule.
+    s.adapter.cost_model=fixture_costs
     s.bridge.snapshot('BTCUSDm');s.bridge.snapshot('BTCUSDm')
     return s,api,terminal
 
@@ -362,6 +364,7 @@ def test_three_sequential_demo_entries_and_fourth_denied(service,tmp_path,monkey
 def test_reviewed_larger_demo_volume_uses_existing_core_pipeline(service,tmp_path,monkeypatch,lots):
     original,api,t=service
     s=demo.DemoService(original.cfg,tmp_path/'larger-state',api,max_volume=.10)
+    s.adapter.cost_model=fixture_costs  # Broker double only.
     s.bridge.snapshot('BTCUSDm');s.bridge.snapshot('BTCUSDm')
     adapter=object.__new__(RemoteDemoAdapter);adapter.profile={'account':s.cfg['account'],'gateway_id':s.identity}
     adapter.last_status=None;adapter.call=lambda action,body=None:s.dispatch(action,body or {})
