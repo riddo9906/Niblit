@@ -336,7 +336,7 @@ class Handler(BaseHTTPRequestHandler):
         if not expected or len(auth)!=1 or not hmac.compare_digest(auth[0].encode(),expected):
             return self.reply(401,{'error':'demo_scope_required'})
         action=self.path[len('/demo/'):]
-        if action not in ('status','identity','market','snapshot','prepare','submit','reconcile','cancel-prepared','emergency-stop'):
+        if action not in ('status','identity','market','snapshot','prepare','submit','reconcile','cancel-prepared','emergency-stop','resume'):
             return self.reply(404,{'error':'unsupported_demo_route'})
         if (self.command=='GET') != (action in ('status','identity')):
             return self.reply(405,{'error':'invalid_method'})
