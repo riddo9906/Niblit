@@ -89,6 +89,42 @@ def test_persistent_emergency_stop(service):
     assert not api.sent
 
 
+def test_persistent_remote_stop_rearms_once_for_exact_reviewed_demo_scope(service):
+    s,api,t=service
+    s.dispatch('emergency-stop',{})
+    body={'session_id':'a'*32,'spec_hash':'b'*64,'expires':time.time()+60,
+          'gateway_id':s.identity,'account_identity':s.cfg['account']['identity'],
+          'acknowledgement':'REARM_REVIEWED_DEMO_SCOPE'}
+    with pytest.raises(PermissionError):
+        prepare(s)
+    with pytest.raises(PermissionError):
+        s.dispatch('resume',{**body,'account_identity':'wrong'})
+    assert s.dispatch('status',{})['emergency_stopped']
+    result=s.dispatch('resume',body)
+    assert result['rearmed'] and not s.dispatch('status',{})['emergency_stopped']
+    with pytest.raises(PermissionError,match='already consumed'):
+        s.dispatch('resume',body)
+    assert not api.sent
+
+
+def test_remote_rearm_rejects_wrong_demo_identity_and_unresolved_tickets(service):
+    s,api,t=service
+    body={'session_id':'c'*32,'spec_hash':'d'*64,'expires':time.time()+60,
+          'gateway_id':s.identity,'account_identity':s.cfg['account']['identity'],
+          'acknowledgement':'REARM_REVIEWED_DEMO_SCOPE'}
+    p=prepare(s)
+    s.dispatch('emergency-stop',{})
+    t.connected=False
+    with pytest.raises(PermissionError):s.dispatch('resume',body)
+    t.connected=True
+    with s.orders.db() as db:
+        db.execute("UPDATE mt5_tickets SET state='unknown' WHERE id=?",(p['ticket'],))
+    with pytest.raises(PermissionError,match='Unresolved'):
+        s.dispatch('resume',body)
+    assert s.dispatch('status',{})['emergency_stopped']
+    assert not api.sent
+
+
 @pytest.mark.parametrize('expires',[0,float('nan'),float('inf'),True])
 def test_expired_or_invalid_scope(service,expires):
     s,api,t=service;p=prepare(s)
