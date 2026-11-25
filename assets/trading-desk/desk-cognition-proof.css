@@ -1,0 +1,19 @@
+/* R14 read-only cognition evidence dashboard. */
+.cognition-proof{margin:18px 0 24px;border:1px solid rgba(41,215,197,.25)!important}
+.cognition-header{display:flex;justify-content:space-between;align-items:flex-start;gap:15px;flex-wrap:wrap}
+.cognition-header h2{font-size:23px;margin:5px 0}
+.cognition-header p{max-width:750px;margin:7px 0}
+.cognition-eyebrow{color:#43dfcb;font-weight:800;letter-spacing:.14em;font-size:11px}
+.cognition-metrics{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;margin:16px 0}
+.cognition-metric{background:rgba(6,23,36,.6);border:1px solid rgba(91,176,183,.2);border-radius:12px;padding:14px}
+.cognition-metric small{font-size:11px;color:#9cb9c4;display:block}
+.cognition-metric strong{font-size:26px;color:#f1fcfc;display:block;margin-top:3px}
+.cognition-columns{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;margin-top:12px}
+.cognition-subpanel{background:rgba(9,27,41,.65);border:1px solid rgba(91,176,183,.18);border-radius:13px;padding:15px;min-width:0}
+.cognition-subpanel h3{margin:0 0 12px;font-size:15px;color:#a7f4e8}
+.cognition-evidence-row{display:flex;justify-content:space-between;align-items:start;gap:13px;padding:8px 0;border-bottom:1px solid rgba(99,160,183,.13);font-size:12px}
+.cognition-evidence-row span{color:#90abb6;flex:0 0 39%}
+.cognition-evidence-row strong{color:#deedef;font-weight:650;overflow-wrap:anywhere;text-align:right}
+.cognition-caution{border-left:3px solid #5bcdbd;background:rgba(19,73,78,.14);border-radius:9px;margin-top:16px;padding:12px;color:#a4d5d5;font-size:12px}
+.cognition-outcome{padding-bottom:7px}
+@media(max-width:720px){.cognition-columns{grid-template-columns:1fr}.cognition-metrics{grid-template-columns:repeat(3,minmax(0,1fr))}.cognition-metric{padding:11px}.cognition-metric strong{font-size:20px}.cognition-evidence-row{gap:8px}}

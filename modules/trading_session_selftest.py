@@ -116,14 +116,14 @@ def exercise(folder):
     f.bot.step()
     status=f.service.status()
     assert any(json.loads(o['result'] or '{}').get('realized_net')is not None and abs(json.loads(o['result'] or '{}').get('realized_net',0)-4.8)<1e-8 for o in status['orders']),[(o['state'],o['result']) for o in status['orders']]
-    f.service.stop(emergency=True);f.bot.step();assert len(f.api.sent)==2
+    f.service.stop();f.bot.step();assert len(f.api.sent)==2
     with f.gateway.db() as db:
         receipts=db.execute('SELECT count(*) FROM ingestion_outbox').fetchone()[0]
         events=db.execute('SELECT count(*) FROM trading_events WHERE memory_receipt IS NOT NULL').fetchone()[0]
     assert receipts==events and events>=8
     return {'scope':'offline broker double; actual Core/PermissionManager/TaskAuthority/six-strategy/MT5-ticket/memory-outbox path',
         'passed':True,'fixture_submissions':len(f.api.sent),'real_broker_orders':0,'durable_events':events,
-        'session_state':f.service.session(proposal['id'])['state'],'emergency_stopped':f.service.status()['emergency_stopped']}
+        'session_state':f.service.session(proposal['id'])['state']}
 
 
 class FixtureFreqtrade:

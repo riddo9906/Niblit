@@ -168,3 +168,35 @@ def test_duplicate_sources_do_not_fill_retrieval_budget(tmp_path):
         g.ingest([("Aurora calibration amber-72.", source + ":1")], source=source,
                  namespace="test", principal="operator")
     assert len(recall(g)["results"]) == 1
+
+
+def test_retrieval_reports_bounded_candidate_work(tmp_path):
+    g = gateway(tmp_path, Backend())
+    ingest(g)
+    result = recall(g)
+    timings = result["timings_ms"]
+    assert timings["ledger_scan_and_decode_ms"] >= 0
+    assert timings["candidate_record_fetch_and_decode_ms"] >= 0
+    assert timings["lexical_and_exact_match_ms"] >= 0
+    assert timings["dense_embedding_ms"] >= 0
+    assert timings["qdrant_query_ms"] >= 0
+    assert result["stats"]["candidate_pool_limit"] == 80
+    assert result["stats"]["candidate_rows_fetched"] <= result["stats"]["candidate_pool_limit"]
+    assert result["results"]
+
+
+def test_exact_identifier_retrieval_preserves_split_chunk_anchor(tmp_path):
+    g = gateway(tmp_path, Backend())
+    identifier = "12345678-1234-1234-1234-123456789abc"
+    content = "Record ID: " + identifier + " is attached to this evidence."
+    split_at = len("Record ID: ") + 17
+    g.ingest([
+        (content[:split_at], "fixture.txt#offset=0"),
+        (content[split_at:], f"fixture.txt#offset={split_at}"),
+    ], source="fixture.txt", namespace="test", principal="operator")
+    result = g.retrieve(identifier, namespace="test", principal="operator")
+    assert result["results"]
+    assert all(item["matched_identifiers"] == [identifier] for item in result["results"])
+    assert {item["citation"] for item in result["results"]} == {
+        "fixture.txt#offset=0", f"fixture.txt#offset={split_at}"
+    }

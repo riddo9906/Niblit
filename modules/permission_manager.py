@@ -1,4 +1,21 @@
 import json, os
+from contextlib import contextmanager
+from contextvars import ContextVar
+
+# One-time grants are context-local: they cannot leak into another request,
+# thread or persisted permission file.
+_TEMPORARY_PERMISSION_ACTIONS = ContextVar("niblit_temporary_permission_actions", default=frozenset())
+
+
+@contextmanager
+def permission_grant_once(action):
+    current = _TEMPORARY_PERMISSION_ACTIONS.get()
+    token = _TEMPORARY_PERMISSION_ACTIONS.set(current | {str(action)})
+    try:
+        yield
+    finally:
+        _TEMPORARY_PERMISSION_ACTIONS.reset(token)
+
 
 try:
     from niblit_memory import _writable_path as _mem_writable_path
@@ -46,7 +63,7 @@ class PermissionManager:
         return allow
 
     def check(self, action):
-        return bool(self.perms.get(action, False))
+        return action in _TEMPORARY_PERMISSION_ACTIONS.get() or bool(self.perms.get(action, False))
     @staticmethod
     def learning_spec(topic, justification, source_path='modules/memory_laboratory/runtime.py'):
         if not isinstance(topic,str) or not 3<=len(topic.strip())<=160:raise ValueError('Bounded learning objective required')
@@ -168,9 +185,6 @@ class PermissionManager:
                     runtime_id TEXT NOT NULL,state TEXT NOT NULL,created REAL NOT NULL,
                     expires REAL NOT NULL,initial_equity REAL NOT NULL,peak_equity REAL NOT NULL,
                     entries INTEGER NOT NULL DEFAULT 0,reason TEXT);
-                CREATE TABLE IF NOT EXISTS trading_control(
-                    singleton INTEGER PRIMARY KEY CHECK(singleton=1),stopped INTEGER NOT NULL);
-                INSERT OR IGNORE INTO trading_control VALUES(1,0);
             ''')
             db.execute("UPDATE trading_sessions SET state='interrupted',reason='Core restarted; activation required' WHERE runtime_id<>? AND state IN ('active','risk_halted','pending')", (runtime_id,))
 
@@ -189,7 +203,7 @@ class PermissionManager:
             gateway.audit(db,'trading.proposed',ident,spec_hash=fingerprint,**self.trading_scope)
         return ident
 
-    def activate_trading(self, gateway, ident, fingerprint, runtime_id, *, clear_stop=False):
+    def activate_trading(self, gateway, ident, fingerprint, runtime_id):
         import time
         gateway.require('ingest',**self.trading_scope)
         with gateway.db() as db:
@@ -203,17 +217,14 @@ class PermissionManager:
             if spec.get('environment') not in ('demo','dry-run','simulation') or spec.get('live_money') is not False:raise PermissionError('Real-money trading scopes are disabled')
             if row['spec_hash']!=fingerprint or self._learning_hash(spec)!=fingerprint:
                 raise PermissionError('Trading scope changed; review a fresh proposal')
-            if db.execute("SELECT 1 FROM trading_sessions WHERE state IN ('active','risk_halted') AND json_extract(spec,'$.adapter')=? AND json_extract(spec,'$.account')=? AND expires>?",(spec['adapter'],spec['account'],time.time())).fetchone():
-                raise PermissionError('An account session is already active')
-            stopped=db.execute('SELECT stopped FROM trading_control WHERE singleton=1').fetchone()[0]
-            # An authenticated, exact-scope activation is the operator's explicit
-            # decision to resume demo trading. Do not require a second checkbox
-            # just to clear a stop left latched by an earlier test/release.
-            # The stop still blocks every delivery until this verified activation.
-            if stopped:
-                db.execute('UPDATE trading_control SET stopped=0 WHERE singleton=1')
-                gateway.audit(db,'trading.emergency_stop_cleared_on_activation',ident,
-                              actor=self.trading_scope['principal'],**self.trading_scope)
+            # Independent instruments on one demo account may run concurrently.
+            # The same instrument still has a single worker/session identity;
+            # Core's position ledger separately attributes every broker fill.
+            if db.execute("SELECT 1 FROM trading_sessions WHERE state IN ('active','risk_halted') "
+                    "AND json_extract(spec,'$.adapter')=? AND json_extract(spec,'$.account')=? "
+                    "AND json_extract(spec,'$.instrument')=? AND expires>?",
+                    (spec['adapter'],spec['account'],spec['instrument'],time.time())).fetchone():
+                raise PermissionError('This account instrument already has an active session')
             db.execute("UPDATE trading_sessions SET state='active',expires=?,reason=NULL WHERE id=?",
                        (time.time()+spec['seconds'],ident))
             gateway.audit(db,'trading.activated',ident,spec_hash=fingerprint,actor=self.trading_scope['principal'],**self.trading_scope)
@@ -229,7 +240,6 @@ class PermissionManager:
             if not row or row['runtime_id']!=runtime_id or row['expires']<=time.time():raise PermissionError('Trading session expired or interrupted')
             if row['state'] not in (('active',) if action=='open' else ('active','risk_halted')):
                 raise PermissionError('Trading session stopped or risk halted')
-            if conn.execute('SELECT stopped FROM trading_control WHERE singleton=1').fetchone()[0]:raise PermissionError('Emergency stop latched')
             owner=conn.execute('SELECT state,owner,token_hash FROM trading_admission WHERE singleton=1').fetchone()
             if not owner or owner['state']!='active' or owner['owner']!='trading_cycle' or owner['token_hash']!=(token_hash or hashlib.sha256(token.encode()).hexdigest()):
                 raise PermissionError('Original Core trading-cycle admission required')
@@ -243,14 +253,13 @@ class PermissionManager:
             if consume and action=='open':conn.execute('UPDATE trading_sessions SET entries=entries+1 WHERE id=?',(ident,))
         return spec
 
-    def stop_trading(self,gateway,ident=None,*,emergency=False,reason='Operator stopped session'):
+    def stop_trading(self,gateway,ident=None,*,reason='Operator stopped session'):
         with gateway.db() as db:
             db.execute('BEGIN IMMEDIATE')
-            if emergency:db.execute('UPDATE trading_control SET stopped=1 WHERE singleton=1')
             if ident is None:
                 db.execute("UPDATE trading_sessions SET state='stopped',reason=? WHERE state IN ('active','risk_halted','pending')",(reason,))
             else:db.execute("UPDATE trading_sessions SET state='stopped',reason=? WHERE id=?",(reason,ident))
-            gateway.audit(db,'trading.emergency_stop' if emergency else 'trading.stopped',ident or 'all')
+            gateway.audit(db,'trading.stopped',ident or 'all')
 
 
 if __name__ == "__main__":

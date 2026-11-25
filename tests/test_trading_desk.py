@@ -155,8 +155,12 @@ def test_packaged_observation_profile_denies_execution_before_token_or_adapter(d
     monkeypatch.setenv('NIBLIT_DESKTOP_OBSERVATION_ONLY','1')
     app=create_app(desk,core_hosted=True)
     with TestClient(app,base_url='http://127.0.0.1:5100') as client:
+        html=client.get('/').text
+        token=html.split('name="desk-token" content="')[1].split('"')[0]
+        headers={'origin':'http://127.0.0.1:5100','x-desk-token':token}
         for path in ('/api/demo/start','/api/mt5/confirm','/api/core-trading/activate'):
-            response=client.post(path,json={},headers={'origin':'http://127.0.0.1:5100'})
+            assert client.post(path,json={},headers={'origin':'http://127.0.0.1:5100'}).status_code==403
+            response=client.post(path,json={},headers=headers)
             assert response.status_code==403
             assert 'EXECUTION_DENIED' in response.text
     assert not desk.transport.called

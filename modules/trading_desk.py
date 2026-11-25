@@ -461,9 +461,30 @@ class Desk:
                 db.execute('UPDATE tickets SET state=?,result=? WHERE id=?',(state,json.dumps(selected),key))
             return {'state':state,'result':selected}
 
+    def attributed_trades(self):
+        """Read both native open positions and closed history without duplicate IDs.
+
+        The isolated Freqtrade API may only expose active positions through
+        /status, while /trades contains completed history. This is read-only.
+        """
+        history = self.api('trades?limit=100').get('trades', [])
+        opened = self.api('status')
+        if not isinstance(history, list) or not isinstance(opened, list):
+            raise ValueError('Invalid native trade history/status response')
+        by_id = {}
+        for trade in history + opened:
+            if not isinstance(trade, dict) or trade.get('trade_id') is None:
+                raise ValueError('Native trade identity unavailable')
+            key = str(trade['trade_id'])
+            if key in by_id and (by_id[key].get('pair') != trade.get('pair')
+                                 or by_id[key].get('enter_tag') != trade.get('enter_tag')):
+                raise ValueError('Conflicting native trade attribution')
+            by_id[key] = trade
+        return list(by_id.values())
+
     def reconcile(self):
         config = self.configuration()
-        trades = self.api('trades?limit=100').get('trades',[])
+        trades = self.attributed_trades()
         resolved = 0
         with self.lock, self.db() as db:
             rows = db.execute("SELECT * FROM tickets WHERE state IN ('sending','unknown')").fetchall()
@@ -662,6 +683,15 @@ def create_app(desk=None, mt5=None, core_hosted=False):
             if remote_blocked:
                 from fastapi.responses import JSONResponse
                 return JSONResponse({'detail':'Remote XM profile selected; desktop MT5 fallback and mutations disabled. Use Core remote observation.'},403)
+        # The installed observation-only policy is independent of the removed
+        # demo emergency latch. Enforce it before route body validation or tokens.
+        if core_hosted and os.getenv('NIBLIT_DESKTOP_OBSERVATION_ONLY')=='1' and request.method=='POST':
+            path=request.url.path
+            prefix=request.scope.get('root_path','')
+            if prefix and path.startswith(prefix):path=path[len(prefix):]
+            if path in ('/api/demo/start','/api/mt5/confirm','/api/core-trading/activate'):
+                from fastapi.responses import JSONResponse
+                return JSONResponse({'detail':'EXECUTION_DENIED: installed desktop is observation-only'},403)
         if request.method != 'GET':
             origin = request.headers.get('origin','')
             allowed_origins={'http://127.0.0.1:8767','http://localhost:8767'}

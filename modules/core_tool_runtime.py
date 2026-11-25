@@ -1216,6 +1216,34 @@ def build_governed_tool_loop(core_getter: Callable) -> LlmToolLoop:
     # Phase 5G-F: evidence-traced ORIGINAL read-only commands. Registered on the
     # SAME loop through the SAME register_capability path - no second executor.
     register_original_readonly_tools(loop, core_getter)
+    # Phase 5H: connect configured local MCP capabilities (Desktop Commander)
+    # to this same schema/permission/dispatch loop. An unavailable optional MCP
+    # server must not prevent Core's native governed tools from working.
+    try:
+        from modules.mcp_agent_bridge import register_mcp_tools
+        registered_mcp = register_mcp_tools(loop)
+        if registered_mcp:
+            log.info("Registered %d governed MCP tools", len(registered_mcp))
+    except Exception as exc:
+        log.warning("Optional MCP tool registration failed: %s", type(exc).__name__)
+    # Docker Desktop is exposed as a native governed capability set. Read-only
+    # inspection is automatic; all container/Compose mutations require approval.
+    try:
+        from modules.docker_tool_runtime import register_docker_tools
+        registered_docker = register_docker_tools(loop)
+        if registered_docker:
+            log.info("Registered %d governed Docker tools", len(registered_docker))
+    except Exception as exc:
+        log.warning("Optional Docker tool registration failed: %s", type(exc).__name__)
+    # On-demand SKILL.md packs give the GGUF model Codex-like task procedures
+    # without importing or executing arbitrary skill scripts.
+    try:
+        from modules.agent_skill_registry import register_skill_tools
+        registered_skills = register_skill_tools(loop)
+        if registered_skills:
+            log.info("Registered %d on-demand skill tools", len(registered_skills))
+    except Exception as exc:
+        log.warning("Optional skill registry registration failed: %s", type(exc).__name__)
     return loop
 
 
@@ -1227,6 +1255,12 @@ def get_governed_tool_loop(core_getter: Optional[Callable] = None) -> LlmToolLoo
             _singleton_core_getter = core_getter
         if _loop_singleton is None:
             _loop_singleton = build_governed_tool_loop(_get_singleton_core)
+        return _loop_singleton
+
+
+def get_existing_governed_tool_loop() -> Optional[LlmToolLoop]:
+    """Return the initialized process loop without constructing dependencies."""
+    with _loop_lock:
         return _loop_singleton
 
 

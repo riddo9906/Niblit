@@ -1,5 +1,14 @@
 # Niblit living context map
-Updated: 2026-11-12
+Updated: 2026-11-25
+
+## Current external entry point — 2026-11-25
+Read `D:\NiblitAIOS\NIBLIT_DEV_CONTEXT.md` first for the concise cross-agent development index, mandatory foundational engineering doctrine, current R16 checkpoint, native cognition direction, repository paths and session-start procedure. The generated source atlas is under `docs/code-atlas/`; use it before broad source searches. This map below remains the detailed historical implementation record; old service and build claims are not current proof.
+
+## Mandatory foundational design authority — 2026-11-25
+The project-wide binding design standard is `docs/architecture/NIBLIT_ENGINEERING_DOCTRINE.md`. It applies to every subsystem, repository, runtime, model, integration and future development agent. Read it before architecture changes or implementation. Follow the real software/engineering discipline, authoritative documentation, specifications, standards, protocols and research relevant to the target capability. Implement the actual logical integration and validate its contracts; do not substitute monkey patches, superficial workarounds, compatibility shims, stubs or simulated behaviour for correct engineering. Temporary exceptions must be isolated, explicitly non-production, justified by a documented blocker, assigned an owner and removal condition, tested, and fail closed where required. Stop and report a blocker rather than silently weakening the design.
+
+The doctrine covers the central structured keyword/information representation; native LLM and cognition engineering; provider-specific integrations (including Qdrant ingestion, embeddings, vectors, payloads, indexes and retrieval); local llama.cpp/GGUF and host hardware; governed memory and learning; quantitative/AI trading; and the ultimate custom AI-native OS, boot chain, kernel, firmware interfaces, HAL, drivers and intelligent orchestration. It distinguishes the ultimate target from current verified implementation. A Linux-based bring-up may be an intermediate OS stage, not a substitute for the custom OS objective. AI orchestration must use documented firmware/kernel/driver interfaces; deterministic low-level control and independent recovery remain.
+
 
 ## Authority and roots
 The existing sibling workspace at C:/Users/Riyaad/Documents/GitHub is the authorized implementation target, already a local sandbox as confirmed by the user. No additional build/copy was created.
@@ -419,7 +428,7 @@ ambiguity fails closed. No reboot completion is claimed until sign-in and API re
 Live evidence: outputs/NIBLIT_VPS_LIVE_EVIDENCE.json in the Codex task output directory.
 
 
-## Reboot recovery verified � 2026-11-07, 15:31 SAST
+## Reboot recovery verified � 2026-11-07, 15:31 SAST
 
 The actual VPS boot time was 15:23:32 SAST. Gateway startup after sign-in was verified.
 The operator manually opened MT5; automatic visible terminal startup is NOT yet accepted.
@@ -523,3 +532,54 @@ Actual isolated Chat/learning A–H passed: explicit JSON-field learning via exi
 Research application now routes exact learning recall through research_contracts source identities and strict proposal validation; server renders only bound source observations and scoped comparisons. Existing core_tool_runtime learning lock owns request lifecycle context; server Chat/Stop/status bind jobs to a per-tab capability header and canonical principal/namespace, with durable research.job audit and learning.cancelled/timed_out outcomes. PhasedResearchEngine honors phase/commit cancellation gates. ResearchDisconnectMiddleware handles buffered request disconnects. No second research engine or model authority.
 
 Latest real candidate: Core 14692/5800, UI 13556/5183, D:/NiblitAIOS/releases/candidates/chat-20261114/ui-completion. Installed package unchanged. See workspace outputs/NIBLIT_PHASE2_COMPLETION_ACCEPTANCE.md for actual UI receipts and remaining scope limitations. Trading preparation is read-only; no execution acceptance or activation is implied.
+
+
+## 2026-11-25 — Foundational engineering doctrine adopted
+
+The user clarified and reaffirmed Niblit's intended design as an independently engineered AI-native computational system, with every subsystem built according to the real discipline and documented methods for its purpose. This is a strict architecture constraint, not an optional aspiration or stylistic preference.
+
+Canonical directive: `docs/architecture/NIBLIT_ENGINEERING_DOCTRINE.md`. External cross-agent entry point: `D:\NiblitAIOS\NIBLIT_DEV_CONTEXT.md`. The root README links to the directive. All future agents must read and apply it before design or implementation.
+
+The central structured keyword/information architecture is intended to span all Niblit subsystems and provide typed, traceable internal representations with provider-specific adapters. Each external platform must be integrated according to its own official contracts and operational requirements. Qdrant is a configured storage/retrieval substrate, not Niblit's memory authority. Native LLM/cognition, local llama.cpp/GGUF and host hardware, memory/learning, quantitative and AI trading, and the ultimate custom AI-native OS all fall under the same engineering standard.
+
+Mandatory lifecycle: research -> requirements/specification -> architecture -> implementation -> native integration -> verification/benchmarking -> documentation/reproducibility -> controlled evolution. Monkey patches, compatibility shims, superficial workarounds, stubs and simulated behaviour may not replace correct integration or be represented as production completion. Any unavoidable temporary exception must be isolated, explicitly non-production, documented with blocker/risk/owner/removal condition, tested and fail-closed where required.
+
+OS clarification: the ultimate target is an actual custom Niblit OS/kernel with bootloader, HAL, drivers, system services and native AI orchestration. Linux may be used as an intermediate bring-up platform, not as a redefinition of the end goal. AI orchestrates through documented UEFI/ACPI/kernel/driver interfaces; it does not replace firmware initialization or deterministic kernel scheduling. A minimal trusted recovery environment and operator authority remain.
+
+This directive is prospective and binding. It does not certify existing code as compliant or complete. Audit existing components incrementally, preserve current work, and classify each capability using evidence-backed status. Do not perform a wholesale rewrite merely because this directive was added.
+
+
+## 2026-11-25 — Initial foundation implementation audit
+
+Evidence report: `docs/architecture/NIBLIT_FOUNDATION_AUDIT_20261125.md`. This is a partial audit of native cognition/structured keywords, memory/Qdrant and local GGUF/llama.cpp. It does not audit or certify the full native LLM training lifecycle, complete cognition stack, custom OS/kernel/firmware/drivers, or trading research architecture.
+
+Repository state at inspection: Core HEAD `301571f0`, Cloud Server HEAD `5dfec96`; both had substantial pre-existing modified/untracked work. No runtime source was changed; preserve all existing work.
+
+Verified findings:
+- Native cognition v0.2 exists as a deterministic source-to-cognition pipeline with 21 English keyword groups, source spans/hashes, numeric and relation cues, and analysis-plan selection. LocalBrain injects bounded heuristic hints into local-model prompts. It is not a trained native Niblit LLM and does not update model weights. Current code/docs explicitly limit the lexicon/parser and relation extraction.
+- Native foundation seed sources in the 1.875 GB Core SQLite ledger: 14 pending, 1 superseded, zero attempts. Qdrant Cloud read-only preflight failed with `ResponseHandlingException`; zero writes attempted. Native seeds are not yet proven retrievable from Qdrant.
+- Memory Laboratory has a governed SQLite outbox and rebuildable Qdrant projection with pinned `intfloat/multilingual-e5-small` revision, E5 query/passage prefixes, versioned collections, payload indexes and read-back verification code. A separate legacy 384-dimensional `modules/embedding_engine.py` contract exists; reconcile ownership and version boundaries explicitly.
+- Cloud Server model directory is configured as `D:/models`, containing Qwen2.5-Coder 3B/14B, Qwen2.5 0.5B, Llama 3.2 1B, Gemma 3 4B and Qwen3 1.7B/4B GGUF files. Registry recognises only its explicit canonical IDs; other files are not automatically registered.
+- A standalone llama.cpp build at `C:\\Users\\Riyaad\\llama_migration\\llama.cpp` has a Vulkan-enabled CMake configuration. Its `llama-server.exe` reports build 9205 / `dd7cad719` and `--list-devices` sees Radeon RX 580 8 GB. However, the Cloud Server's active `llama-cpp-python 0.3.16` runtime reports GPU offload unsupported, and the inspected Windows llama-server provider profile rejects nonzero GPU layers. Thus a Vulkan-capable binary exists, but GPU-offloaded Niblit inference was not demonstrated.
+- LocalBrain still discovers GGUFs from obsolete `C:\\Users\\Riyaad\\llama_migration\\models`, not the canonical `D:/models` registry path. This is a stale configuration contract.
+- Three Cloud Server `app/debug/patch_*.py` files exist, but no runtime imports/references were found in inspected app source. Treat as historical/debug artifacts for review, not active runtime monkey-patching. GGUFEngine's Windows-specific mmap/constructor workarounds require upstream/reproduction review before acceptance.
+
+Tests: Core `niblit-env` ran `test_native_cognition_foundation.py`, `test_native_cognition_local_brain_integration.py`, `test_native_cognition_research_integration.py` and `test_memory_framework_runtime.py`; process exited 0 with 66 passing progress indicators. These do not prove Qdrant Cloud or Vulkan inference acceptance.
+
+Next priority: restore and verify Qdrant Cloud read access, then project/retrieve only approved native seed records through the existing governed outbox; specify the central typed structured-information contract; reconcile embedding ownership; choose and build one authoritative Vulkan-capable GGUF runtime and correct the stale model-path contract. Continue separate evidence-based audits for native LLM training, full cognition, OS/kernel/firmware/drivers and trading before changing those subsystems.
+
+## 2026-11-25 R16 governed GGUF tool path and latency checkpoint
+
+Current acceptance evidence: D:\NiblitAIOS\codex-workspaces\r15-hybrid-integration-r16\acceptance\native-audit-20261125\R16_GOVERNED_GGUF_TOOL_CALLING_ACCEPTANCE.md.
+
+Live Core API → local Qwen2.5-Coder 3B GGUF → Desktop Commander read-only list_directory is verified on the physical desktop. Latest model metadata confirms requested/resolved/executed model qwen2.5-coder-3b, no fallback; tool trace is success. Latest request inspected D:\models and returned eight actual GGUF filenames. Core 5305 and Cloud 8205 are running; latest /health is core_bound=true. /api/agent/tools reports 104 capabilities, 41 MCP tools (Desktop Commander 21, Filesystem 15, Git 5), 11 Docker Desktop tools and eight instruction packs.
+
+Latency work is instrumented in modules/llm_tool_loop.py, modules/memory_laboratory/context.py, modules/memory_laboratory/gateway.py and server.py. A single eligible tool under tool_choice=required now skips only the redundant model selection call; schema-constrained argument generation, validation, permissions, approval and execution remain unchanged. Normal memory retrieval uses bounded lexical/Qdrant candidate IDs and authoritative SQLite fetch/decode; exact UUID retrieval retains exhaustive matching, including split chunks.
+
+Latest live measurement (request r16-candidate-pool-live-20261125): 125.1 s API total, 83.7 s instrumented Core loop, 9.5 s memory retrieval. SQLite ledger scan/decode is 1.71 s (previous detailed baseline 100.75 s); candidate fetch/decode 1.75 s (previous 13.31 s). Candidate pool: 64 lexical, 32 dense, 96 unique, cap 64, 61 rows fetched. Model selection inference 0 ms for the single eligible required tool; post-tool decision 41.7 s; structured arguments 19.6 s; tool dispatch 12.9 s. This is a single observed request, not an SLA. Full detail and prior cold/warm comparisons are in the acceptance report.
+
+After the final candidate-pool adjustment, all seven focused suites passed (73 tests; 3 dependency deprecation warnings); Python compile and diff checks passed. Earlier one-time approval route test and UI production build remain verified. Browser UI approval acceptance is still open.
+
+Remaining: reduce model inference and outer Core overhead; reconcile 12.9 s dispatch vs 4.7 s MCP trace; answer still includes memory citations on a filename-only request; Lean service 127.0.0.1:8100 is unavailable; browser-driven approval/live activity test; packaging (PyInstaller/Tauri/APK), clean-room startup and promotion. Do not claim R16 release-ready.
+
+Preserve all dirty worktrees. No reset/clean/stash/stage/commit/push/discard was performed. No release artifact was promoted. The previous niblit_memory.json atomic-replace warning remains a data-integrity item; this latency work did not inspect memory values or intentionally write the legacy JSON memory file.

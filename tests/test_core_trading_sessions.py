@@ -24,6 +24,31 @@ def test_observation_and_proposal_never_authorize(f):
     assert len(f.bot.manager['candidates'])==6
 
 
+def test_uncertain_other_account_does_not_block_verified_demo_account(f):
+    # A prior delivery remains unknown and auditable on another broker account.
+    # It must not silently become a grant or position on this account.
+    activate(f)
+    with f.gateway.db() as db:
+        db.execute("INSERT INTO trading_orders VALUES('other-account-unknown','old-session','mt5','unrelated-account','EUR/USD','EURUSD','open','unknown','{}',NULL,0)")
+    f.bot.step()
+    assert len(f.api.sent)==1
+    with f.gateway.db() as db:
+        assert db.execute("SELECT state FROM trading_orders WHERE id='other-account-unknown'").fetchone()[0]=='unknown'
+
+
+def test_uncertain_same_account_blocks_even_across_adapters(f):
+    # Local and VPS demo adapters may share a broker account. Quarantine is
+    # account-wide, never bypassed merely by selecting another transport.
+    scope=activate(f)
+    with f.gateway.db() as db:
+        db.execute("INSERT INTO trading_orders VALUES('same-account-unknown',?,'exness_demo',?,'GBP/USD','GBPUSD','open','unknown','{}',NULL,0)",
+                   (scope['id'],scope['spec']['account']))
+    f.bot.step()
+    assert not f.api.sent
+    with f.gateway.db() as db:
+        assert db.execute("SELECT state FROM trading_orders WHERE id='same-account-unknown'").fetchone()[0]=='unknown'
+
+
 def test_scope_tamper_and_replayed_activation(f):
     p=f.service.propose('mt5','EURUSD',60)
     with pytest.raises(PermissionError):f.service.activate(p['id'],'0'*64,threaded=False)
@@ -45,13 +70,11 @@ def test_expiry_keeps_observer_but_no_order(f):
     assert f.bot.manager['assessment_complete']
 
 
-def test_restart_interrupts_scope_and_keeps_emergency_stop(f):
-    p=activate(f);f.service.stop(emergency=True)
+def test_restart_interrupts_scope_without_persistent_latch(f):
+    p=activate(f);f.service.stop()
     other=CoreTradingSessions(f.runtime,f.service.adapters,journal=f.service.journal,notify=lambda _:None)
     q=other.propose('mt5','EURUSD',60)
-    assert other.status()['emergency_stopped'] is True
     other.activate(q['id'],q['spec_hash'],threaded=False)
-    assert other.status()['emergency_stopped'] is False
     with pytest.raises(PermissionError):f.service.pm.check_trading(f.gateway,q['id'],f.service.runtime_id,'forged','open')
     assert f.service.session(p['id'])['state']=='stopped'
 
@@ -250,7 +273,7 @@ def test_http_review_activation_to_core_worker_and_hosted_desk(f,monkeypatch,tmp
     app=FastAPI();register_trading_routes(app,lambda:f.service)
     hosted=register_market_desk(app,lambda:create_app(Desk(tmp_path/'desk'),mt5=f.bridge,core_hosted=True))
     original=f.service.activate
-    monkeypatch.setattr(f.service,'activate',lambda ident,fingerprint,clear_stop=False:original(ident,fingerprint,clear_stop=clear_stop,threaded=False))
+    monkeypatch.setattr(f.service,'activate',lambda ident,fingerprint:original(ident,fingerprint,threaded=False))
     client=TestClient(app)
     page=client.get('/market-desk/')
     assert page.status_code==200
@@ -263,16 +286,15 @@ def test_http_review_activation_to_core_worker_and_hosted_desk(f,monkeypatch,tmp
     result=client.post('/api/trading/sessions/activate',json={'id':p['id'],'spec_hash':p['spec_hash'],'acknowledgement':'ACTIVATE_BOUNDED_DEMO_SESSION'},headers=headers)
     assert result.status_code==200,result.text
     f.bot.step();assert len(f.api.sent)==1
-    assert client.post('/api/trading/sessions/stop',json={'emergency':True},headers=headers).status_code==200
+    assert client.post('/api/trading/sessions/stop',json={},headers=headers).status_code==200
     f.bot.step();assert len(f.api.sent)==1
     hosted.shutdown()
 
 
-def test_emergency_stop_persists_when_memory_permission_is_revoked(f):
+def test_ordinary_stop_persists_when_memory_permission_is_revoked(f):
     activate(f);f.gateway.denied=True
-    response=f.service.stop(emergency=True)
+    response=f.service.stop()
     assert response['state']=='stopped' and response['telemetry_pending']
-    assert f.service.status()['emergency_stopped']
     f.bot.step();assert not f.api.sent
 
 
@@ -632,3 +654,155 @@ def test_volume_policy_drop_invalidates_existing_review(f,monkeypatch):
     f.orders.autonomous_max_volume=.01
     with pytest.raises(PermissionError):f.service.activate(p['id'],p['spec_hash'],threaded=False)
     assert not f.api.sent
+
+
+def test_freqtrade_split_open_status_and_closed_history_reconciles_end_to_end(tmp_path):
+    """Native /trades may omit open trades; /status owns the open readback."""
+    from modules.trading_session_selftest import freq_fixture
+    f=freq_fixture(tmp_path)
+    original=f.desk.api
+    def isolated_api(path,payload=None,**kwargs):
+        if path.startswith('trades?'):
+            return {'trades':[dict(t) for t in f.api.trades if not t['is_open']]}
+        return original(path,payload,**kwargs)
+    f.desk.api=isolated_api
+    p=f.service.propose('freqtrade','BTC/USDT:USDT',60,{'max_entries':2})
+    f.service.activate(p['id'],p['spec_hash'],threaded=False)
+    f.bot.step()
+    assert len(f.api.sent)==1 and len(f.api.trades)==1
+    f.bot.step()
+    orders=[o for o in f.service.status()['orders'] if o['session_id']==p['id']]
+    assert any(o['state']=='open' for o in orders),orders
+    f.api.price*=1.03
+    f.bot.step()
+    f.bot.step()
+    assert len(f.api.sent)==2
+    orders=[o for o in f.service.status()['orders'] if o['session_id']==p['id']]
+    assert any(o['state']=='closed' for o in orders),orders
+    f.service.shutdown()
+
+
+def test_freqtrade_native_readback_deduplicates_consistent_trade_ids(tmp_path):
+    from modules.trading_session_selftest import freq_fixture
+    f=freq_fixture(tmp_path)
+    f.api.trades.append(dict(trade_id=7,pair='BTC/USDT:USDT',enter_tag='niblit_core:example',is_open=True,profit_abs=0.))
+    rows=f.desk.attributed_trades()
+    assert len(rows)==1 and rows[0]['trade_id']==7
+    f.service.shutdown()
+
+
+def test_freqtrade_native_readback_rejects_conflicting_attribution(tmp_path):
+    from modules.trading_session_selftest import freq_fixture
+    f=freq_fixture(tmp_path)
+    f.api.trades.append(dict(trade_id=7,pair='BTC/USDT:USDT',enter_tag='niblit_core:original',is_open=True,profit_abs=0.))
+    original=f.desk.api
+    def conflicting_api(path,payload=None,**kwargs):
+        if path.startswith('trades?'):
+            return {'trades':[dict(trade_id=7,pair='BTC/USDT:USDT',enter_tag='niblit_core:other',is_open=False)]}
+        return original(path,payload,**kwargs)
+    f.desk.api=conflicting_api
+    with pytest.raises(ValueError,match='Conflicting native trade attribution'):
+        f.desk.attributed_trades()
+    f.service.shutdown()
+
+
+def test_owned_position_reversal_uses_existing_close_order_path(f,monkeypatch):
+    """An early-exit recommendation uses the native Core ticket, not a new sender."""
+    import modules.position_exit_policy as policy
+    proposal=activate(f)
+    f.bot.step()  # Open fixture trade
+    f.bot.step()  # Reconcile the broker-linked position
+    assert len(f.api.sent)==1
+    observed=[]
+    def reversal(position,candles,quote,context,*,observed_profit=None):
+        observed.append((position['price_open'],context['strategy']))
+        return {'action':'close','reason':'Fixture confirmed profitable reversal',
+                'execution_eligible':True,'policy':'early-reversal-v1','evidence':{'score':3}}
+    monkeypatch.setattr(policy,'assess_reversal',reversal)
+    f.bot.step()
+    assert observed
+    assert len(f.api.sent)==2
+    assert f.api.sent[-1].get('position')
+    assert any(o['action']=='close' for o in f.service.status()['orders'])
+    assert any(e['kind']=='position_reversal_evaluation' and e['payload']['report']['action']=='close'
+               for e in f.service.status()['events'])
+    f.service.shutdown()
+
+
+def test_completed_outcome_has_broker_net_r_and_sampled_excursions(f):
+    proposal=activate(f)
+    f.bot.step()
+    f.bot.step()
+    assert any(e['kind']=='position_watch' and e['payload']['performance']['gross_price_only']
+               and e['payload']['performance']['realized_profit'] is None
+               for e in f.service.status()['events'])
+    f.api.price+=.01
+    f.bot.step()
+    f.bot.step()
+    reports=[e['payload']['performance'] for e in f.service.status()['events']
+             if e['kind']=='trading_outcome']
+    assert reports
+    assert reports[0]['broker_reconciled'] is True
+    assert reports[0]['net_realized_r']>0
+    assert reports[0]['observed_mfe_r']>=0
+    f.service.shutdown()
+
+
+def test_multiple_instruments_can_have_parallel_demo_sessions_same_account(f):
+    """An owned open position on EUR/USD does not monopolize the demo account."""
+    first=f.service.propose('mt5','EURUSD',60)
+    f.service.activate(first['id'],first['spec_hash'],threaded=False)
+    import copy
+    alternative=copy.deepcopy(first['spec'])
+    alternative['symbol']='GBPUSD'
+    alternative['instrument']='GBP/USD'
+    second_id=f.service.pm.propose_trading(f.gateway,alternative,f.service.runtime_id,10000.)
+    second=f.service.session(second_id)
+    f.service.pm.activate_trading(f.gateway,second_id,second['spec_hash'],f.service.runtime_id)
+    assert f.service.session(first['id'])['state']=='active'
+    assert f.service.session(second_id)['state']=='active'
+    # A second worker for the very same instrument must not overwrite the first.
+    duplicate_id=f.service.pm.propose_trading(f.gateway,first['spec'],f.service.runtime_id,10000.)
+    duplicate=f.service.session(duplicate_id)
+    with pytest.raises(PermissionError,match='instrument already has an active session'):
+        f.service.pm.activate_trading(f.gateway,duplicate_id,duplicate['spec_hash'],f.service.runtime_id)
+    f.service.shutdown()
+
+
+def test_multi_symbol_observers_are_independent_and_never_place_orders(f):
+    result=f.service.observe_many('mt5',['EURUSD','GBPUSD','EURUSD'],threaded=False)
+    assert result['symbols']==['EURUSD','GBPUSD']
+    assert result['observers']==2 and result['execution_started'] is False
+    assert ('mt5','EURUSD') in f.service.bots and ('mt5','GBPUSD') in f.service.bots
+    assert f.service.bots['mt5','EURUSD'] is not f.service.bots['mt5','GBPUSD']
+    assert len(f.api.sent)==0
+    for symbols in ([],['EURUSD']*13,[''],['EURUSD',1]):
+        if symbols==['EURUSD']*13: # Repeated duplicates are counted before work starts.
+            pass
+        with pytest.raises(ValueError):f.service.observe_many('mt5',symbols,threaded=False)
+    f.service.shutdown()
+
+
+def test_reviewed_demo_session_accepts_ten_entries_and_five_positions(monkeypatch):
+    from modules.core_trading_sessions import configured_limits, scoped_limits
+    monkeypatch.delenv('NIBLIT_MAX_SESSION_ENTRIES',raising=False)
+    monkeypatch.delenv('NIBLIT_MAX_OPEN_POSITIONS',raising=False)
+    monkeypatch.delenv('NIBLIT_AUTO_MAX_LOTS',raising=False)
+    bounds=configured_limits()
+    assert bounds['max_entries']==10 and bounds['max_positions']==5
+    selected=scoped_limits('mt5',{'demo_volume_ceiling':.10},{
+        'max_entries':10,'max_positions':5,'max_volume':.10,
+        'risk_cash':25,'risk_fraction':.0025,'max_margin_fraction':.10})
+    assert selected['max_entries']==10 and selected['max_positions']==5
+    assert selected['max_volume']==.10 and selected['risk_cash']==25
+    assert selected['risk_fraction']==.0025
+    for name,value,ceiling in (('max_entries',11,10),('max_positions',6,5),('risk_cash',26,25)):
+        with pytest.raises(ValueError,match=f'{name} requested {value} exceeds configured demo ceiling {ceiling}'):
+            scoped_limits('mt5',{'demo_volume_ceiling':.10},{name:value})
+
+
+def test_reviewed_demo_session_reports_actual_volume_ceiling(monkeypatch):
+    from modules.core_trading_sessions import scoped_limits
+    monkeypatch.delenv('NIBLIT_AUTO_MAX_LOTS',raising=False)
+    with pytest.raises(ValueError,match='max_volume requested 0.1 exceeds configured demo ceiling 0.01'):
+        scoped_limits('mt5',{'demo_volume_ceiling':.01},{'max_volume':.10})

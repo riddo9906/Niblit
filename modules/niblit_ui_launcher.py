@@ -444,6 +444,11 @@ def _start_api_server_thread(
 
     Returns ``(server_obj, thread)`` or ``None`` on failure.
     """
+    existing_server = getattr(core, "_headless_api_server", None)
+    existing_thread = getattr(core, "_headless_api_thread", None)
+    if existing_server is not None and existing_thread is not None and existing_thread.is_alive():
+        emit(f"Reusing already started Niblit Core API and mobile backend on port {port}")
+        return existing_server, existing_thread
     try:
         import server as server_module  # type: ignore[import-not-found]
     except Exception as exc:
@@ -475,6 +480,18 @@ def _start_api_server_thread(
     )
     thread.start()
     emit(f"Niblit API server starting on port {port}")
+    # The Android gateway is a separate mobile-only listener, not a reverse
+    # proxy to Core's unrestricted API. Start it inside the same packaged
+    # process so launching niblit.exe also starts Android connectivity.
+    if os.getenv("NIBLIT_MOBILE_GATEWAY_AUTOSTART", "0") == "1":
+        try:
+            from modules.mobile_runtime_service import start_mobile_gateway
+            mobile = start_mobile_gateway(emit=emit)
+            if mobile is not None:
+                server_obj._niblit_mobile_server = mobile[0]
+                server_obj._niblit_mobile_thread = mobile[1]
+        except Exception as exc:
+            emit(f"Niblit mobile gateway could not start: {type(exc).__name__}: {exc}")
     return server_obj, thread
 
 
@@ -899,7 +916,10 @@ def launch_primary_ui(
                     env={**_build_child_env(str(bundled_ui.parent)), 'NIBLIT_DESKTOP_BINDING':json.dumps({
                         'core_url':api_url,'cloud_url':c_url,'core_pid':os.getpid(),
                         'instance':os.environ.get('NIBLIT_DESKTOP_INSTANCE',''),
-                        'release':os.environ.get('NIBLIT_INSTALLATION_MANIFEST','')})},
+                        # Uninstalled, versioned builds have no installation manifest.
+                        # Bind to their actual executable directory instead of
+                        # sending an empty identity that the Tauri frontend rejects.
+                        'release':os.environ.get('NIBLIT_INSTALLATION_MANIFEST') or str(bundled_ui.parent.resolve())})},
                 )
                 if not _wait_for_process_stabilisation(ui_process, emit):
                     ui_process.kill()

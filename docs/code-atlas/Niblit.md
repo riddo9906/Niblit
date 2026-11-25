@@ -4,8 +4,10 @@ Generated from source without importing modules. Definitions and docstrings are 
 
 | Source | Lines | Symbols | Review signals |
 |---|---:|---:|---:|
+| [Check-Niblit-Local.cmd](../../../Niblit/Check-Niblit-Local.cmd) | 6 | 0 | 0 |
 | [SelfResearcher.py](../../../Niblit/SelfResearcher.py) | 11 | 0 | 0 |
 | [Slsa_generator_full.py](../../../Niblit/Slsa_generator_full.py) | 321 | 16 | 0 |
+| [Start-Client-Portal.cmd](../../../Niblit/Start-Client-Portal.cmd) | 15 | 0 | 0 |
 | [Start-Memory-Desk.cmd](../../../Niblit/Start-Memory-Desk.cmd) | 4 | 0 | 0 |
 | [Start-Niblit-Connected.cmd](../../../Niblit/Start-Niblit-Connected.cmd) | 4 | 0 | 0 |
 | [Start-Niblit-Memory.cmd](../../../Niblit/Start-Niblit-Memory.cmd) | 4 | 0 | 0 |
@@ -46,12 +48,12 @@ Generated from source without importing modules. Definitions and docstrings are 
 | [add_wait_instrument.py](../../../Niblit/add_wait_instrument.py) | 25 | 0 | 0 |
 | [aios_hal.py](../../../Niblit/aios_hal.py) | 243 | 11 | 0 |
 | [aios_runtime.py](../../../Niblit/aios_runtime.py) | 465 | 22 | 0 |
-| [aios_scheduler.py](../../../Niblit/aios_scheduler.py) | 326 | 15 | 0 |
+| [aios_scheduler.py](../../../Niblit/aios_scheduler.py) | 388 | 16 | 0 |
 | [app.py](../../../Niblit/app.py) | 2883 | 64 | 0 |
 | [apply_instrumentation.py](../../../Niblit/apply_instrumentation.py) | 71 | 0 | 0 |
 | [check_instrument.py](../../../Niblit/check_instrument.py) | 7 | 0 | 0 |
 | [collector_full.py](../../../Niblit/collector_full.py) | 136 | 7 | 0 |
-| [config.py](../../../Niblit/config.py) | 247 | 5 | 0 |
+| [config.py](../../../Niblit/config.py) | 250 | 5 | 0 |
 | [conftest.py](../../../Niblit/conftest.py) | 99 | 4 | 0 |
 | [core_init_diagnostics.py](../../../Niblit/core_init_diagnostics.py) | 163 | 2 | 0 |
 | [debug_pytest_import.py](../../../Niblit/debug_pytest_import.py) | 14 | 0 | 0 |
@@ -67,13 +69,13 @@ Generated from source without importing modules. Definitions and docstrings are 
 | [kivy_app.py](../../../Niblit/kivy_app.py) | 30 | 0 | 0 |
 | [lifecycle_engine.py](../../../Niblit/lifecycle_engine.py) | 473 | 25 | 10 |
 | [live_command_tester.py](../../../Niblit/live_command_tester.py) | 751 | 21 | 0 |
-| [main.py](../../../Niblit/main.py) | 1523 | 31 | 0 |
+| [main.py](../../../Niblit/main.py) | 1723 | 33 | 0 |
 | [main_instrumented.py](../../../Niblit/main_instrumented.py) | 200 | 5 | 0 |
 | [membrane_full.py](../../../Niblit/membrane_full.py) | 17 | 2 | 0 |
 | [module_loader.py](../../../Niblit/module_loader.py) | 89 | 4 | 0 |
 | [niblit_actions.py](../../../Niblit/niblit_actions.py) | 61 | 6 | 0 |
-| [niblit_brain.py](../../../Niblit/niblit_brain.py) | 2641 | 71 | 0 |
-| [niblit_core.py](../../../Niblit/niblit_core.py) | 12422 | 288 | 2 |
+| [niblit_brain.py](../../../Niblit/niblit_brain.py) | 2645 | 71 | 0 |
+| [niblit_core.py](../../../Niblit/niblit_core.py) | 12548 | 290 | 2 |
 | [niblit_dashboard.py](../../../Niblit/niblit_dashboard.py) | 1107 | 51 | 0 |
 | [niblit_env.py](../../../Niblit/niblit_env.py) | 29 | 4 | 0 |
 | [niblit_full_upgrade_pipeline.py](../../../Niblit/niblit_full_upgrade_pipeline.py) | 1127 | 63 | 0 |
@@ -87,7 +89,7 @@ Generated from source without importing modules. Definitions and docstrings are 
 | [niblit_net.py](../../../Niblit/niblit_net.py) | 27 | 2 | 0 |
 | [niblit_network_full.py](../../../Niblit/niblit_network_full.py) | 32 | 4 | 0 |
 | [niblit_orchestrator.py](../../../Niblit/niblit_orchestrator.py) | 385 | 13 | 0 |
-| [niblit_router.py](../../../Niblit/niblit_router.py) | 7887 | 94 | 0 |
+| [niblit_router.py](../../../Niblit/niblit_router.py) | 7866 | 94 | 0 |
 | [niblit_sensors_full.py](../../../Niblit/niblit_sensors_full.py) | 49 | 5 | 0 |
 | [niblit_sqlite_db.py](../../../Niblit/niblit_sqlite_db.py) | 277 | 17 | 0 |
 | [niblit_tasks.py](../../../Niblit/niblit_tasks.py) | 102 | 9 | 0 |
@@ -98,7 +100,7 @@ Generated from source without importing modules. Definitions and docstrings are 
 | [run_realtime.py](../../../Niblit/run_realtime.py) | 90 | 3 | 0 |
 | [run_trading_brain.py](../../../Niblit/run_trading_brain.py) | 63 | 1 | 0 |
 | [self_maintenance_full.py](../../../Niblit/self_maintenance_full.py) | 18 | 2 | 0 |
-| [server.py](../../../Niblit/server.py) | 2495 | 87 | 0 |
+| [server.py](../../../Niblit/server.py) | 3166 | 116 | 0 |
 | [setup.py](../../../Niblit/setup.py) | 21 | 0 | 0 |
 | [shared_import_fixer.py](../../../Niblit/shared_import_fixer.py) | 38 | 2 | 0 |
 | [sitecustomize.py](../../../Niblit/sitecustomize.py) | 8 | 0 | 0 |
@@ -258,15 +260,25 @@ Generated from source without importing modules. Definitions and docstrings are 
 | [api/federation.py](../../../Niblit/api/federation.py) | 19 | 2 | 0 |
 | [api/index.py](../../../Niblit/api/index.py) | 1621 | 38 | 0 |
 | [assets/setup_niblit.sh](../../../Niblit/assets/setup_niblit.sh) | 125 | 0 | 0 |
-| [assets/client-portal/index.html](../../../Niblit/assets/client-portal/index.html) | 6 | 0 | 0 |
-| [assets/client-portal/portal.css](../../../Niblit/assets/client-portal/portal.css) | 3 | 0 | 0 |
-| [assets/client-portal/portal.js](../../../Niblit/assets/client-portal/portal.js) | 30 | 0 | 0 |
+| [assets/client-portal/index.html](../../../Niblit/assets/client-portal/index.html) | 5 | 0 | 0 |
+| [assets/client-portal/portal.css](../../../Niblit/assets/client-portal/portal.css) | 50 | 0 | 0 |
+| [assets/client-portal/portal.js](../../../Niblit/assets/client-portal/portal.js) | 67 | 0 | 0 |
 | [assets/memory-desk/desk.css](../../../Niblit/assets/memory-desk/desk.css) | 1 | 0 | 0 |
 | [assets/memory-desk/desk.js](../../../Niblit/assets/memory-desk/desk.js) | 70 | 0 | 0 |
 | [assets/memory-desk/index.html](../../../Niblit/assets/memory-desk/index.html) | 15 | 0 | 0 |
-| [assets/trading-desk/desk.css](../../../Niblit/assets/trading-desk/desk.css) | 2 | 0 | 0 |
-| [assets/trading-desk/desk.js](../../../Niblit/assets/trading-desk/desk.js) | 43 | 0 | 0 |
-| [assets/trading-desk/index.html](../../../Niblit/assets/trading-desk/index.html) | 15 | 0 | 0 |
+| [assets/trading-desk/broker-view.js](../../../Niblit/assets/trading-desk/broker-view.js) | 44 | 0 | 0 |
+| [assets/trading-desk/chart.js](../../../Niblit/assets/trading-desk/chart.js) | 75 | 0 | 0 |
+| [assets/trading-desk/desk-cognition-proof.css](../../../Niblit/assets/trading-desk/desk-cognition-proof.css) | 19 | 0 | 0 |
+| [assets/trading-desk/desk-cognition-proof.js](../../../Niblit/assets/trading-desk/desk-cognition-proof.js) | 110 | 0 | 0 |
+| [assets/trading-desk/desk-modern.css](../../../Niblit/assets/trading-desk/desk-modern.css) | 102 | 0 | 0 |
+| [assets/trading-desk/desk-modern.js](../../../Niblit/assets/trading-desk/desk-modern.js) | 100 | 0 | 0 |
+| [assets/trading-desk/desk.css](../../../Niblit/assets/trading-desk/desk.css) | 142 | 0 | 0 |
+| [assets/trading-desk/desk.js](../../../Niblit/assets/trading-desk/desk.js) | 106 | 0 | 0 |
+| [assets/trading-desk/exness-demo.js](../../../Niblit/assets/trading-desk/exness-demo.js) | 65 | 0 | 0 |
+| [assets/trading-desk/index.html](../../../Niblit/assets/trading-desk/index.html) | 145 | 0 | 0 |
+| [assets/trading-desk/intelligence.js](../../../Niblit/assets/trading-desk/intelligence.js) | 66 | 0 | 0 |
+| [assets/trading-desk/remote-observation.js](../../../Niblit/assets/trading-desk/remote-observation.js) | 63 | 0 | 0 |
+| [assets/trading-desk/sessions.js](../../../Niblit/assets/trading-desk/sessions.js) | 345 | 0 | 0 |
 | [boot/install.sh](../../../Niblit/boot/install.sh) | 175 | 0 | 0 |
 | [boot/niblit_boot.sh](../../../Niblit/boot/niblit_boot.sh) | 56 | 0 | 0 |
 | [boot/niblit_usb.py](../../../Niblit/boot/niblit_usb.py) | 267 | 4 | 0 |
@@ -391,7 +403,7 @@ Generated from source without importing modules. Definitions and docstrings are 
 | [core/notification_queue.py](../../../Niblit/core/notification_queue.py) | 326 | 16 | 0 |
 | [core/orchestrator.py](../../../Niblit/core/orchestrator.py) | 174 | 8 | 0 |
 | [core/runtime_health.py](../../../Niblit/core/runtime_health.py) | 84 | 6 | 0 |
-| [core/runtime_manager.py](../../../Niblit/core/runtime_manager.py) | 1415 | 87 | 0 |
+| [core/runtime_manager.py](../../../Niblit/core/runtime_manager.py) | 1425 | 87 | 0 |
 | [core/simulation.py](../../../Niblit/core/simulation.py) | 32 | 5 | 0 |
 | [core/task_queue.py](../../../Niblit/core/task_queue.py) | 250 | 19 | 0 |
 | [core/tool_router.py](../../../Niblit/core/tool_router.py) | 77 | 11 | 0 |
@@ -414,6 +426,23 @@ Generated from source without importing modules. Definitions and docstrings are 
 | [core/renderers/spreadsheet_renderer.py](../../../Niblit/core/renderers/spreadsheet_renderer.py) | 128 | 5 | 0 |
 | [core/renderers/video_renderer.py](../../../Niblit/core/renderers/video_renderer.py) | 100 | 5 | 0 |
 | [core/renderers/yaml_renderer.py](../../../Niblit/core/renderers/yaml_renderer.py) | 101 | 5 | 0 |
+| [deploy/freqtrade-lab/NiblitCoreManaged.py](../../../Niblit/deploy/freqtrade-lab/NiblitCoreManaged.py) | 54 | 5 | 0 |
+| [deploy/freqtrade-lab/NiblitLabManager.py](../../../Niblit/deploy/freqtrade-lab/NiblitLabManager.py) | 137 | 17 | 0 |
+| [deploy/freqtrade-lab/NiblitMicroDemo.py](../../../Niblit/deploy/freqtrade-lab/NiblitMicroDemo.py) | 65 | 8 | 0 |
+| [deploy/hybrid/Build-Hybrid.ps1](../../../Niblit/deploy/hybrid/Build-Hybrid.ps1) | 12 | 0 | 0 |
+| [deploy/vps-gateway/Install-Gateway.ps1](../../../Niblit/deploy/vps-gateway/Install-Gateway.ps1) | 12 | 0 | 0 |
+| [deploy/vps-gateway/Read-Gateway.ps1](../../../Niblit/deploy/vps-gateway/Read-Gateway.ps1) | 17 | 0 | 0 |
+| [deploy/vps-gateway/Register-ObservationStartup.ps1](../../../Niblit/deploy/vps-gateway/Register-ObservationStartup.ps1) | 44 | 0 | 0 |
+| [deploy/vps-gateway/Start-Gateway.ps1](../../../Niblit/deploy/vps-gateway/Start-Gateway.ps1) | 8 | 0 | 0 |
+| [deploy/vps-gateway/Start-ObservationTunnel.ps1](../../../Niblit/deploy/vps-gateway/Start-ObservationTunnel.ps1) | 32 | 0 | 0 |
+| [deploy/vps-gateway/Start-ObservedTerminal.ps1](../../../Niblit/deploy/vps-gateway/Start-ObservedTerminal.ps1) | 40 | 0 | 0 |
+| [deploy/vps-gateway/backup_state.py](../../../Niblit/deploy/vps-gateway/backup_state.py) | 29 | 1 | 0 |
+| [deploy/vps-gateway/broker.py](../../../Niblit/deploy/vps-gateway/broker.py) | 166 | 2 | 0 |
+| [deploy/vps-gateway/demo_execution.py](../../../Niblit/deploy/vps-gateway/demo_execution.py) | 290 | 13 | 0 |
+| [deploy/vps-gateway/discover_demo.py](../../../Niblit/deploy/vps-gateway/discover_demo.py) | 38 | 2 | 0 |
+| [deploy/vps-gateway/funded_risk.py](../../../Niblit/deploy/vps-gateway/funded_risk.py) | 131 | 4 | 0 |
+| [deploy/vps-gateway/gateway.py](../../../Niblit/deploy/vps-gateway/gateway.py) | 420 | 20 | 1 |
+| [deploy/vps-gateway/test_gateway.py](../../../Niblit/deploy/vps-gateway/test_gateway.py) | 270 | 31 | 0 |
 | [distributed_niblit/__init__.py](../../../Niblit/distributed_niblit/__init__.py) | 52 | 0 | 0 |
 | [distributed_niblit/agent_node/__init__.py](../../../Niblit/distributed_niblit/agent_node/__init__.py) | 11 | 0 | 0 |
 | [distributed_niblit/agent_node/agent_runtime.py](../../../Niblit/distributed_niblit/agent_node/agent_runtime.py) | 74 | 5 | 0 |
@@ -473,7 +502,7 @@ Generated from source without importing modules. Definitions and docstrings are 
 | [modules/__init__.py](../../../Niblit/modules/__init__.py) | 3 | 0 | 0 |
 | [modules/academic_study_module.py](../../../Niblit/modules/academic_study_module.py) | 749 | 19 | 0 |
 | [modules/adaptive_learning.py](../../../Niblit/modules/adaptive_learning.py) | 175 | 9 | 0 |
-| [modules/adaptive_market_cognition.py](../../../Niblit/modules/adaptive_market_cognition.py) | 761 | 33 | 0 |
+| [modules/adaptive_market_cognition.py](../../../Niblit/modules/adaptive_market_cognition.py) | 1349 | 44 | 0 |
 | [modules/adaptive_retrieval_cognition.py](../../../Niblit/modules/adaptive_retrieval_cognition.py) | 546 | 23 | 0 |
 | [modules/agentic_workflows.py](../../../Niblit/modules/agentic_workflows.py) | 161 | 11 | 0 |
 | [modules/aios_layer_registry.py](../../../Niblit/modules/aios_layer_registry.py) | 532 | 13 | 0 |
@@ -486,7 +515,7 @@ Generated from source without importing modules. Definitions and docstrings are 
 | [modules/attention_allocator.py](../../../Niblit/modules/attention_allocator.py) | 164 | 8 | 0 |
 | [modules/autonomic_runtime_manager.py](../../../Niblit/modules/autonomic_runtime_manager.py) | 313 | 17 | 0 |
 | [modules/autonomous_github.py](../../../Niblit/modules/autonomous_github.py) | 324 | 15 | 0 |
-| [modules/autonomous_learning_engine.py](../../../Niblit/modules/autonomous_learning_engine.py) | 6935 | 103 | 0 |
+| [modules/autonomous_learning_engine.py](../../../Niblit/modules/autonomous_learning_engine.py) | 7051 | 105 | 0 |
 | [modules/autonomous_network.py](../../../Niblit/modules/autonomous_network.py) | 435 | 30 | 0 |
 | [modules/background_jobs.py](../../../Niblit/modules/background_jobs.py) | 182 | 7 | 1 |
 | [modules/background_topic_refresh.py](../../../Niblit/modules/background_topic_refresh.py) | 200 | 3 | 0 |
@@ -498,9 +527,12 @@ Generated from source without importing modules. Definitions and docstrings are 
 | [modules/boot_diagnostics.py](../../../Niblit/modules/boot_diagnostics.py) | 180 | 17 | 0 |
 | [modules/bootloader.py](../../../Niblit/modules/bootloader.py) | 5 | 2 | 0 |
 | [modules/brain_router.py](../../../Niblit/modules/brain_router.py) | 368 | 15 | 0 |
+| [modules/broker_observation.py](../../../Niblit/modules/broker_observation.py) | 86 | 3 | 0 |
 | [modules/build_scanner.py](../../../Niblit/modules/build_scanner.py) | 225 | 9 | 0 |
 | [modules/builds_integrator.py](../../../Niblit/modules/builds_integrator.py) | 470 | 20 | 0 |
 | [modules/causal_temporal_engine.py](../../../Niblit/modules/causal_temporal_engine.py) | 268 | 20 | 0 |
+| [modules/chart_annotations.py](../../../Niblit/modules/chart_annotations.py) | 199 | 11 | 0 |
+| [modules/chart_views.py](../../../Niblit/modules/chart_views.py) | 154 | 8 | 0 |
 | [modules/chat_attachments.py](../../../Niblit/modules/chat_attachments.py) | 146 | 7 | 1 |
 | [modules/chat_completions.py](../../../Niblit/modules/chat_completions.py) | 507 | 19 | 0 |
 | [modules/circuit_breaker.py](../../../Niblit/modules/circuit_breaker.py) | 229 | 11 | 0 |
@@ -511,17 +543,20 @@ Generated from source without importing modules. Definitions and docstrings are 
 | [modules/code_quality_checker.py](../../../Niblit/modules/code_quality_checker.py) | 381 | 11 | 0 |
 | [modules/cognition_core.py](../../../Niblit/modules/cognition_core.py) | 653 | 12 | 0 |
 | [modules/cognitive_budget_manager.py](../../../Niblit/modules/cognitive_budget_manager.py) | 160 | 11 | 0 |
+| [modules/cognitive_chat.py](../../../Niblit/modules/cognitive_chat.py) | 300 | 4 | 0 |
 | [modules/cognitive_coherence_engine.py](../../../Niblit/modules/cognitive_coherence_engine.py) | 312 | 19 | 0 |
 | [modules/cognitive_episode.py](../../../Niblit/modules/cognitive_episode.py) | 747 | 35 | 0 |
 | [modules/cognitive_feedback_loop.py](../../../Niblit/modules/cognitive_feedback_loop.py) | 232 | 12 | 0 |
 | [modules/cognitive_identity.py](../../../Niblit/modules/cognitive_identity.py) | 403 | 17 | 0 |
 | [modules/cognitive_immune_system.py](../../../Niblit/modules/cognitive_immune_system.py) | 230 | 18 | 0 |
-| [modules/cognitive_ingress.py](../../../Niblit/modules/cognitive_ingress.py) | 291 | 18 | 0 |
+| [modules/cognitive_ingress.py](../../../Niblit/modules/cognitive_ingress.py) | 353 | 19 | 0 |
 | [modules/cognitive_journal.py](../../../Niblit/modules/cognitive_journal.py) | 267 | 12 | 0 |
 | [modules/cognitive_memory_layer.py](../../../Niblit/modules/cognitive_memory_layer.py) | 221 | 13 | 0 |
+| [modules/cognitive_observation_runtime.py](../../../Niblit/modules/cognitive_observation_runtime.py) | 95 | 2 | 0 |
 | [modules/cognitive_router.py](../../../Niblit/modules/cognitive_router.py) | 236 | 9 | 0 |
 | [modules/cognitive_synthesis_engine.py](../../../Niblit/modules/cognitive_synthesis_engine.py) | 197 | 21 | 0 |
 | [modules/collaborative_learner.py](../../../Niblit/modules/collaborative_learner.py) | 162 | 7 | 0 |
+| [modules/command_effects.py](../../../Niblit/modules/command_effects.py) | 23 | 1 | 0 |
 | [modules/command_registry.py](../../../Niblit/modules/command_registry.py) | 518 | 25 | 0 |
 | [modules/command_surface_audit.py](../../../Niblit/modules/command_surface_audit.py) | 1161 | 14 | 0 |
 | [modules/concept_synthesizer.py](../../../Niblit/modules/concept_synthesizer.py) | 457 | 13 | 0 |
@@ -529,15 +564,21 @@ Generated from source without importing modules. Definitions and docstrings are 
 | [modules/constitutional_layer.py](../../../Niblit/modules/constitutional_layer.py) | 317 | 17 | 0 |
 | [modules/control_panel.py](../../../Niblit/modules/control_panel.py) | 13 | 3 | 0 |
 | [modules/copilot_change_analyzer.py](../../../Niblit/modules/copilot_change_analyzer.py) | 173 | 9 | 0 |
-| [modules/core_tool_runtime.py](../../../Niblit/modules/core_tool_runtime.py) | 1525 | 26 | 0 |
+| [modules/core_tool_runtime.py](../../../Niblit/modules/core_tool_runtime.py) | 1774 | 40 | 0 |
+| [modules/core_trading_sessions.py](../../../Niblit/modules/core_trading_sessions.py) | 929 | 31 | 0 |
 | [modules/counter_active_membrane.py](../../../Niblit/modules/counter_active_membrane.py) | 13 | 3 | 0 |
+| [modules/crypto_stops.py](../../../Niblit/modules/crypto_stops.py) | 124 | 7 | 0 |
 | [modules/dashboard.py](../../../Niblit/modules/dashboard.py) | 35 | 2 | 0 |
 | [modules/db.py](../../../Niblit/modules/db.py) | 15 | 0 | 0 |
 | [modules/decision_engine.py](../../../Niblit/modules/decision_engine.py) | 813 | 20 | 0 |
 | [modules/deliberative_planner.py](../../../Niblit/modules/deliberative_planner.py) | 316 | 11 | 0 |
+| [modules/demo_autotrader.py](../../../Niblit/modules/demo_autotrader.py) | 397 | 12 | 0 |
+| [modules/demo_strategy.py](../../../Niblit/modules/demo_strategy.py) | 133 | 5 | 0 |
 | [modules/dependency_injection.py](../../../Niblit/modules/dependency_injection.py) | 199 | 34 | 6 |
 | [modules/deployment_bridge.py](../../../Niblit/modules/deployment_bridge.py) | 300 | 12 | 0 |
-| [modules/desktop_diagnostics.py](../../../Niblit/modules/desktop_diagnostics.py) | 119 | 3 | 0 |
+| [modules/desktop_dependencies.py](../../../Niblit/modules/desktop_dependencies.py) | 56 | 3 | 0 |
+| [modules/desktop_diagnostics.py](../../../Niblit/modules/desktop_diagnostics.py) | 128 | 3 | 0 |
+| [modules/desktop_market_intelligence.py](../../../Niblit/modules/desktop_market_intelligence.py) | 104 | 6 | 0 |
 | [modules/desktop_runtime_shell.py](../../../Niblit/modules/desktop_runtime_shell.py) | 992 | 45 | 0 |
 | [modules/device_control.py](../../../Niblit/modules/device_control.py) | 352 | 17 | 0 |
 | [modules/device_manager.py](../../../Niblit/modules/device_manager.py) | 13 | 3 | 0 |
@@ -557,13 +598,19 @@ Generated from source without importing modules. Definitions and docstrings are 
 | [modules/evolution_queue.py](../../../Niblit/modules/evolution_queue.py) | 258 | 14 | 0 |
 | [modules/evolve.py](../../../Niblit/modules/evolve.py) | 913 | 33 | 0 |
 | [modules/evolve_adapter.py](../../../Niblit/modules/evolve_adapter.py) | 188 | 5 | 0 |
-| [modules/execution_graph.py](../../../Niblit/modules/execution_graph.py) | 397 | 16 | 0 |
+| [modules/execution_graph.py](../../../Niblit/modules/execution_graph.py) | 446 | 16 | 0 |
+| [modules/execution_venue_router.py](../../../Niblit/modules/execution_venue_router.py) | 86 | 4 | 0 |
 | [modules/federation_foundation.py](../../../Niblit/modules/federation_foundation.py) | 75 | 6 | 0 |
 | [modules/filesystem_manager.py](../../../Niblit/modules/filesystem_manager.py) | 665 | 32 | 0 |
 | [modules/firmware.py](../../../Niblit/modules/firmware.py) | 5 | 2 | 0 |
 | [modules/forecast_arbitrator.py](../../../Niblit/modules/forecast_arbitrator.py) | 339 | 18 | 0 |
 | [modules/foundation_architecture.py](../../../Niblit/modules/foundation_architecture.py) | 1104 | 36 | 0 |
+| [modules/freqtrade_chart_adapter.py](../../../Niblit/modules/freqtrade_chart_adapter.py) | 23 | 1 | 0 |
+| [modules/freqtrade_core_claim.py](../../../Niblit/modules/freqtrade_core_claim.py) | 96 | 4 | 0 |
+| [modules/freqtrade_native_analysis.py](../../../Niblit/modules/freqtrade_native_analysis.py) | 85 | 4 | 0 |
 | [modules/freqtrade_operator.py](../../../Niblit/modules/freqtrade_operator.py) | 62 | 2 | 0 |
+| [modules/freqtrade_research.py](../../../Niblit/modules/freqtrade_research.py) | 124 | 4 | 0 |
+| [modules/funded_risk.py](../../../Niblit/modules/funded_risk.py) | 131 | 4 | 0 |
 | [modules/fused_memory.py](../../../Niblit/modules/fused_memory.py) | 21 | 0 | 0 |
 | [modules/fused_memory_primary.py](../../../Niblit/modules/fused_memory_primary.py) | 19 | 0 | 0 |
 | [modules/game_engine.py](../../../Niblit/modules/game_engine.py) | 319 | 21 | 0 |
@@ -576,9 +623,9 @@ Generated from source without importing modules. Definitions and docstrings are 
 | [modules/goal_engine.py](../../../Niblit/modules/goal_engine.py) | 430 | 13 | 0 |
 | [modules/governed_document_cognition.py](../../../Niblit/modules/governed_document_cognition.py) | 676 | 24 | 0 |
 | [modules/governed_live_cognition.py](../../../Niblit/modules/governed_live_cognition.py) | 275 | 10 | 0 |
-| [modules/governed_research.py](../../../Niblit/modules/governed_research.py) | 185 | 8 | 0 |
+| [modules/governed_research.py](../../../Niblit/modules/governed_research.py) | 231 | 14 | 0 |
 | [modules/governed_training_pipeline.py](../../../Niblit/modules/governed_training_pipeline.py) | 822 | 26 | 0 |
-| [modules/graded_curriculum.py](../../../Niblit/modules/graded_curriculum.py) | 539 | 21 | 0 |
+| [modules/graded_curriculum.py](../../../Niblit/modules/graded_curriculum.py) | 546 | 21 | 0 |
 | [modules/graph_rag.py](../../../Niblit/modules/graph_rag.py) | 538 | 27 | 0 |
 | [modules/graph_rag_bridge.py](../../../Niblit/modules/graph_rag_bridge.py) | 493 | 16 | 0 |
 | [modules/graph_scoring_engine.py](../../../Niblit/modules/graph_scoring_engine.py) | 164 | 10 | 0 |
@@ -586,14 +633,14 @@ Generated from source without importing modules. Definitions and docstrings are 
 | [modules/hf_adapter.py](../../../Niblit/modules/hf_adapter.py) | 139 | 5 | 0 |
 | [modules/hf_brain.py](../../../Niblit/modules/hf_brain.py) | 363 | 11 | 0 |
 | [modules/human_alignment_engine.py](../../../Niblit/modules/human_alignment_engine.py) | 369 | 21 | 0 |
-| [modules/hybrid_qdrant_manager.py](../../../Niblit/modules/hybrid_qdrant_manager.py) | 785 | 20 | 0 |
+| [modules/hybrid_qdrant_manager.py](../../../Niblit/modules/hybrid_qdrant_manager.py) | 843 | 23 | 0 |
 | [modules/hypothesis_engine.py](../../../Niblit/modules/hypothesis_engine.py) | 960 | 48 | 0 |
 | [modules/idea_generator.py](../../../Niblit/modules/idea_generator.py) | 59 | 4 | 0 |
 | [modules/improvement_integrator.py](../../../Niblit/modules/improvement_integrator.py) | 502 | 8 | 0 |
 | [modules/ingestion.py](../../../Niblit/modules/ingestion.py) | 15 | 0 | 0 |
 | [modules/intent_engine.py](../../../Niblit/modules/intent_engine.py) | 274 | 9 | 0 |
 | [modules/intent_parser.py](../../../Niblit/modules/intent_parser.py) | 289 | 5 | 0 |
-| [modules/internet_manager.py](../../../Niblit/modules/internet_manager.py) | 598 | 12 | 0 |
+| [modules/internet_manager.py](../../../Niblit/modules/internet_manager.py) | 605 | 12 | 0 |
 | [modules/kb_tool_executor.py](../../../Niblit/modules/kb_tool_executor.py) | 234 | 9 | 0 |
 | [modules/kernel_integration.py](../../../Niblit/modules/kernel_integration.py) | 310 | 20 | 0 |
 | [modules/knowledge_adapter.py](../../../Niblit/modules/knowledge_adapter.py) | 141 | 2 | 0 |
@@ -610,6 +657,7 @@ Generated from source without importing modules. Definitions and docstrings are 
 | [modules/lean_algo_manager.py](../../../Niblit/modules/lean_algo_manager.py) | 1041 | 37 | 1 |
 | [modules/lean_deploy_engine.py](../../../Niblit/modules/lean_deploy_engine.py) | 990 | 34 | 1 |
 | [modules/lean_engine.py](../../../Niblit/modules/lean_engine.py) | 647 | 20 | 1 |
+| [modules/learning_commands.py](../../../Niblit/modules/learning_commands.py) | 48 | 2 | 0 |
 | [modules/learning_status.py](../../../Niblit/modules/learning_status.py) | 16 | 1 | 0 |
 | [modules/legacy_cognition_recovery.py](../../../Niblit/modules/legacy_cognition_recovery.py) | 227 | 8 | 0 |
 | [modules/live_updater.py](../../../Niblit/modules/live_updater.py) | 352 | 18 | 0 |
@@ -621,13 +669,21 @@ Generated from source without importing modules. Definitions and docstrings are 
 | [modules/llm_controller.py](../../../Niblit/modules/llm_controller.py) | 49 | 5 | 0 |
 | [modules/llm_module.py](../../../Niblit/modules/llm_module.py) | 194 | 7 | 0 |
 | [modules/llm_provider_manager.py](../../../Niblit/modules/llm_provider_manager.py) | 453 | 26 | 0 |
-| [modules/llm_tool_loop.py](../../../Niblit/modules/llm_tool_loop.py) | 372 | 13 | 0 |
+| [modules/llm_tool_loop.py](../../../Niblit/modules/llm_tool_loop.py) | 389 | 14 | 0 |
 | [modules/llm_training_agent.py](../../../Niblit/modules/llm_training_agent.py) | 446 | 12 | 0 |
-| [modules/local_brain.py](../../../Niblit/modules/local_brain.py) | 882 | 51 | 2 |
+| [modules/local_brain.py](../../../Niblit/modules/local_brain.py) | 922 | 52 | 2 |
 | [modules/local_brain_patch.py](../../../Niblit/modules/local_brain_patch.py) | 64 | 6 | 0 |
+| [modules/local_large_inference.py](../../../Niblit/modules/local_large_inference.py) | 26 | 2 | 0 |
 | [modules/local_llm_adapter.py](../../../Niblit/modules/local_llm_adapter.py) | 58 | 8 | 0 |
-| [modules/market_data_providers.py](../../../Niblit/modules/market_data_providers.py) | 751 | 27 | 1 |
+| [modules/market_counterfactual_lab.py](../../../Niblit/modules/market_counterfactual_lab.py) | 151 | 3 | 0 |
+| [modules/market_data_providers.py](../../../Niblit/modules/market_data_providers.py) | 800 | 28 | 1 |
+| [modules/market_decision_trace.py](../../../Niblit/modules/market_decision_trace.py) | 86 | 2 | 0 |
+| [modules/market_events.py](../../../Niblit/modules/market_events.py) | 88 | 7 | 0 |
+| [modules/market_evidence.py](../../../Niblit/modules/market_evidence.py) | 116 | 2 | 0 |
+| [modules/market_prediction.py](../../../Niblit/modules/market_prediction.py) | 180 | 9 | 0 |
+| [modules/market_regime_evidence.py](../../../Niblit/modules/market_regime_evidence.py) | 218 | 6 | 0 |
 | [modules/market_researcher.py](../../../Niblit/modules/market_researcher.py) | 55 | 5 | 0 |
+| [modules/market_thesis.py](../../../Niblit/modules/market_thesis.py) | 86 | 1 | 0 |
 | [modules/mcp_server.py](../../../Niblit/modules/mcp_server.py) | 1041 | 40 | 0 |
 | [modules/memory_context.py](../../../Niblit/modules/memory_context.py) | 35 | 1 | 0 |
 | [modules/memory_graph.py](../../../Niblit/modules/memory_graph.py) | 670 | 22 | 0 |
@@ -639,16 +695,22 @@ Generated from source without importing modules. Definitions and docstrings are 
 | [modules/meta_governance_engine.py](../../../Niblit/modules/meta_governance_engine.py) | 248 | 19 | 0 |
 | [modules/metacognition.py](../../../Niblit/modules/metacognition.py) | 562 | 13 | 0 |
 | [modules/metrics_observability.py](../../../Niblit/modules/metrics_observability.py) | 207 | 14 | 0 |
+| [modules/mobile_portal_session.py](../../../Niblit/modules/mobile_portal_session.py) | 83 | 5 | 0 |
+| [modules/mobile_runtime_service.py](../../../Niblit/modules/mobile_runtime_service.py) | 339 | 28 | 0 |
 | [modules/model_ecology.py](../../../Niblit/modules/model_ecology.py) | 397 | 20 | 0 |
 | [modules/model_orchestrator.py](../../../Niblit/modules/model_orchestrator.py) | 265 | 12 | 0 |
 | [modules/module_autonomy.py](../../../Niblit/modules/module_autonomy.py) | 370 | 20 | 0 |
 | [modules/monitoring_alerting.py](../../../Niblit/modules/monitoring_alerting.py) | 202 | 11 | 0 |
-| [modules/mt5_bridge.py](../../../Niblit/modules/mt5_bridge.py) | 141 | 8 | 1 |
-| [modules/mt5_orders.py](../../../Niblit/modules/mt5_orders.py) | 158 | 8 | 0 |
+| [modules/mt5_adoption_lease.py](../../../Niblit/modules/mt5_adoption_lease.py) | 137 | 8 | 0 |
+| [modules/mt5_bridge.py](../../../Niblit/modules/mt5_bridge.py) | 231 | 11 | 1 |
+| [modules/mt5_orders.py](../../../Niblit/modules/mt5_orders.py) | 317 | 11 | 0 |
 | [modules/multi_agent_consciousness.py](../../../Niblit/modules/multi_agent_consciousness.py) | 203 | 17 | 0 |
 | [modules/multi_level_caching.py](../../../Niblit/modules/multi_level_caching.py) | 330 | 29 | 3 |
-| [modules/multi_repo_orchestrator.py](../../../Niblit/modules/multi_repo_orchestrator.py) | 1174 | 49 | 0 |
+| [modules/multi_repo_orchestrator.py](../../../Niblit/modules/multi_repo_orchestrator.py) | 1207 | 49 | 0 |
 | [modules/multimodal_intelligence.py](../../../Niblit/modules/multimodal_intelligence.py) | 291 | 16 | 0 |
+| [modules/native_evidence_learning.py](../../../Niblit/modules/native_evidence_learning.py) | 181 | 9 | 0 |
+| [modules/native_learning_gateway.py](../../../Niblit/modules/native_learning_gateway.py) | 40 | 1 | 0 |
+| [modules/native_runtime_readiness.py](../../../Niblit/modules/native_runtime_readiness.py) | 70 | 1 | 0 |
 | [modules/niblit_cognitive_graph_kernel.py](../../../Niblit/modules/niblit_cognitive_graph_kernel.py) | 1298 | 69 | 0 |
 | [modules/niblit_core_kernel.py](../../../Niblit/modules/niblit_core_kernel.py) | 1171 | 60 | 0 |
 | [modules/niblit_core_kernel_v2.py](../../../Niblit/modules/niblit_core_kernel_v2.py) | 1114 | 41 | 0 |
@@ -662,23 +724,34 @@ Generated from source without importing modules. Definitions and docstrings are 
 | [modules/niblit_sidecar.py](../../../Niblit/modules/niblit_sidecar.py) | 347 | 14 | 0 |
 | [modules/niblit_state.py](../../../Niblit/modules/niblit_state.py) | 171 | 11 | 0 |
 | [modules/niblit_tool_executor.py](../../../Niblit/modules/niblit_tool_executor.py) | 674 | 28 | 0 |
-| [modules/niblit_ui_launcher.py](../../../Niblit/modules/niblit_ui_launcher.py) | 1073 | 26 | 0 |
+| [modules/niblit_ui_launcher.py](../../../Niblit/modules/niblit_ui_launcher.py) | 1182 | 28 | 0 |
+| [modules/observation_supervisor.py](../../../Niblit/modules/observation_supervisor.py) | 135 | 9 | 0 |
+| [modules/online_market_study.py](../../../Niblit/modules/online_market_study.py) | 113 | 6 | 0 |
 | [modules/openai_adapter.py](../../../Niblit/modules/openai_adapter.py) | 253 | 9 | 0 |
 | [modules/openai_budget.py](../../../Niblit/modules/openai_budget.py) | 111 | 9 | 1 |
-| [modules/operator_commands.py](../../../Niblit/modules/operator_commands.py) | 255 | 9 | 0 |
+| [modules/operator_commands.py](../../../Niblit/modules/operator_commands.py) | 268 | 9 | 0 |
 | [modules/orphan_imports.py](../../../Niblit/modules/orphan_imports.py) | 64 | 3 | 0 |
 | [modules/os_integration.py](../../../Niblit/modules/os_integration.py) | 442 | 38 | 0 |
-| [modules/paper_trading.py](../../../Niblit/modules/paper_trading.py) | 133 | 14 | 0 |
+| [modules/paper_trading.py](../../../Niblit/modules/paper_trading.py) | 327 | 21 | 0 |
 | [modules/parallel_learner.py](../../../Niblit/modules/parallel_learner.py) | 105 | 6 | 0 |
 | [modules/parallel_learning_engine.py](../../../Niblit/modules/parallel_learning_engine.py) | 267 | 10 | 0 |
 | [modules/parameter_manager.py](../../../Niblit/modules/parameter_manager.py) | 385 | 13 | 1 |
-| [modules/permission_manager.py](../../../Niblit/modules/permission_manager.py) | 47 | 6 | 0 |
-| [modules/phased_research_engine.py](../../../Niblit/modules/phased_research_engine.py) | 1409 | 32 | 0 |
+| [modules/permission_manager.py](../../../Niblit/modules/permission_manager.py) | 249 | 20 | 0 |
+| [modules/phase6_preflight.py](../../../Niblit/modules/phase6_preflight.py) | 42 | 4 | 1 |
+| [modules/phased_research_engine.py](../../../Niblit/modules/phased_research_engine.py) | 1792 | 37 | 0 |
 | [modules/platform_bootstrap.py](../../../Niblit/modules/platform_bootstrap.py) | 324 | 25 | 0 |
 | [modules/platform_compat.py](../../../Niblit/modules/platform_compat.py) | 126 | 6 | 0 |
 | [modules/plugin_architecture.py](../../../Niblit/modules/plugin_architecture.py) | 259 | 17 | 3 |
 | [modules/policy_optimizer.py](../../../Niblit/modules/policy_optimizer.py) | 659 | 14 | 0 |
+| [modules/portal_learning.py](../../../Niblit/modules/portal_learning.py) | 179 | 11 | 0 |
+| [modules/portal_model.py](../../../Niblit/modules/portal_model.py) | 166 | 6 | 0 |
+| [modules/portal_notifications.py](../../../Niblit/modules/portal_notifications.py) | 93 | 4 | 0 |
+| [modules/portal_remote.py](../../../Niblit/modules/portal_remote.py) | 19 | 2 | 0 |
+| [modules/portal_tools.py](../../../Niblit/modules/portal_tools.py) | 137 | 11 | 0 |
 | [modules/portal_workspaces.py](../../../Niblit/modules/portal_workspaces.py) | 125 | 9 | 0 |
+| [modules/position_cognition_record.py](../../../Niblit/modules/position_cognition_record.py) | 242 | 11 | 0 |
+| [modules/position_exit_policy.py](../../../Niblit/modules/position_exit_policy.py) | 161 | 2 | 0 |
+| [modules/position_intelligence.py](../../../Niblit/modules/position_intelligence.py) | 292 | 13 | 0 |
 | [modules/position_sizer.py](../../../Niblit/modules/position_sizer.py) | 298 | 10 | 0 |
 | [modules/prediction_engine.py](../../../Niblit/modules/prediction_engine.py) | 198 | 7 | 0 |
 | [modules/predictive_world_model.py](../../../Niblit/modules/predictive_world_model.py) | 413 | 20 | 0 |
@@ -696,62 +769,81 @@ Generated from source without importing modules. Definitions and docstrings are 
 | [modules/recursive_stability_governor.py](../../../Niblit/modules/recursive_stability_governor.py) | 289 | 19 | 0 |
 | [modules/reflect.py](../../../Niblit/modules/reflect.py) | 555 | 16 | 0 |
 | [modules/reflection_engine.py](../../../Niblit/modules/reflection_engine.py) | 399 | 14 | 0 |
-| [modules/research_contracts.py](../../../Niblit/modules/research_contracts.py) | 161 | 14 | 0 |
-| [modules/research_orchestrator.py](../../../Niblit/modules/research_orchestrator.py) | 597 | 20 | 0 |
-| [modules/research_provider_adapter.py](../../../Niblit/modules/research_provider_adapter.py) | 106 | 6 | 0 |
-| [modules/researcher_engine.py](../../../Niblit/modules/researcher_engine.py) | 394 | 10 | 0 |
+| [modules/release_preflight.py](../../../Niblit/modules/release_preflight.py) | 59 | 2 | 0 |
+| [modules/remote_broker_gateway.py](../../../Niblit/modules/remote_broker_gateway.py) | 170 | 7 | 0 |
+| [modules/remote_demo_adapter.py](../../../Niblit/modules/remote_demo_adapter.py) | 123 | 13 | 0 |
+| [modules/remote_market_intelligence.py](../../../Niblit/modules/remote_market_intelligence.py) | 24 | 3 | 0 |
+| [modules/research_contracts.py](../../../Niblit/modules/research_contracts.py) | 306 | 19 | 0 |
+| [modules/research_orchestrator.py](../../../Niblit/modules/research_orchestrator.py) | 628 | 20 | 0 |
+| [modules/research_provider_adapter.py](../../../Niblit/modules/research_provider_adapter.py) | 113 | 6 | 0 |
+| [modules/researcher_engine.py](../../../Niblit/modules/researcher_engine.py) | 405 | 10 | 0 |
 | [modules/resilience_wrapper.py](../../../Niblit/modules/resilience_wrapper.py) | 304 | 10 | 0 |
-| [modules/resilient_boot.py](../../../Niblit/modules/resilient_boot.py) | 193 | 6 | 0 |
+| [modules/resilient_boot.py](../../../Niblit/modules/resilient_boot.py) | 209 | 6 | 0 |
 | [modules/reward_model.py](../../../Niblit/modules/reward_model.py) | 415 | 11 | 0 |
 | [modules/rl_trading_policy.py](../../../Niblit/modules/rl_trading_policy.py) | 611 | 30 | 0 |
 | [modules/ruflo_adapter.py](../../../Niblit/modules/ruflo_adapter.py) | 189 | 10 | 0 |
 | [modules/runtime_architecture_model.py](../../../Niblit/modules/runtime_architecture_model.py) | 66 | 5 | 0 |
-| [modules/runtime_bootstrap.py](../../../Niblit/modules/runtime_bootstrap.py) | 60 | 4 | 0 |
+| [modules/runtime_bootstrap.py](../../../Niblit/modules/runtime_bootstrap.py) | 85 | 4 | 0 |
+| [modules/runtime_lifecycle.py](../../../Niblit/modules/runtime_lifecycle.py) | 45 | 2 | 0 |
 | [modules/runtime_resource_manager.py](../../../Niblit/modules/runtime_resource_manager.py) | 325 | 13 | 0 |
-| [modules/runtime_router_v2.py](../../../Niblit/modules/runtime_router_v2.py) | 122 | 7 | 0 |
+| [modules/runtime_router_v2.py](../../../Niblit/modules/runtime_router_v2.py) | 127 | 7 | 0 |
 | [modules/safe_loader.py](../../../Niblit/modules/safe_loader.py) | 29 | 1 | 0 |
 | [modules/salience_engine.py](../../../Niblit/modules/salience_engine.py) | 191 | 11 | 0 |
 | [modules/searchcode_search.py](../../../Niblit/modules/searchcode_search.py) | 380 | 10 | 0 |
 | [modules/security_hardening.py](../../../Niblit/modules/security_hardening.py) | 336 | 15 | 0 |
 | [modules/security_membrane.py](../../../Niblit/modules/security_membrane.py) | 325 | 17 | 0 |
 | [modules/self_healer.py](../../../Niblit/modules/self_healer.py) | 126 | 7 | 0 |
-| [modules/self_idea_generator.py](../../../Niblit/modules/self_idea_generator.py) | 62 | 5 | 0 |
-| [modules/self_idea_implementation.py](../../../Niblit/modules/self_idea_implementation.py) | 262 | 9 | 0 |
+| [modules/self_idea_generator.py](../../../Niblit/modules/self_idea_generator.py) | 67 | 6 | 0 |
+| [modules/self_idea_implementation.py](../../../Niblit/modules/self_idea_implementation.py) | 263 | 9 | 0 |
 | [modules/self_implementer.py](../../../Niblit/modules/self_implementer.py) | 148 | 9 | 0 |
 | [modules/self_improvement_orchestrator.py](../../../Niblit/modules/self_improvement_orchestrator.py) | 504 | 12 | 0 |
 | [modules/self_maintenance.py](../../../Niblit/modules/self_maintenance.py) | 88 | 5 | 0 |
 | [modules/self_model.py](../../../Niblit/modules/self_model.py) | 368 | 17 | 0 |
 | [modules/self_monitor.py](../../../Niblit/modules/self_monitor.py) | 538 | 13 | 0 |
 | [modules/self_researcher.py](../../../Niblit/modules/self_researcher.py) | 1553 | 60 | 9 |
-| [modules/self_teacher.py](../../../Niblit/modules/self_teacher.py) | 558 | 19 | 0 |
-| [modules/server_manager.py](../../../Niblit/modules/server_manager.py) | 319 | 18 | 0 |
+| [modules/self_teacher.py](../../../Niblit/modules/self_teacher.py) | 568 | 20 | 0 |
+| [modules/server_manager.py](../../../Niblit/modules/server_manager.py) | 457 | 20 | 0 |
 | [modules/slice_guard.py](../../../Niblit/modules/slice_guard.py) | 16 | 1 | 0 |
-| [modules/slsa_generator.py](../../../Niblit/modules/slsa_generator.py) | 500 | 23 | 0 |
-| [modules/slsa_manager.py](../../../Niblit/modules/slsa_manager.py) | 201 | 10 | 0 |
+| [modules/slsa_generator.py](../../../Niblit/modules/slsa_generator.py) | 504 | 23 | 0 |
+| [modules/slsa_manager.py](../../../Niblit/modules/slsa_manager.py) | 203 | 10 | 0 |
 | [modules/software_studier.py](../../../Niblit/modules/software_studier.py) | 488 | 9 | 0 |
 | [modules/sqlite_researcher.py](../../../Niblit/modules/sqlite_researcher.py) | 331 | 12 | 0 |
+| [modules/ssh_forward_identity.py](../../../Niblit/modules/ssh_forward_identity.py) | 131 | 5 | 0 |
 | [modules/stackoverflow_search.py](../../../Niblit/modules/stackoverflow_search.py) | 213 | 10 | 0 |
 | [modules/steward_agent.py](../../../Niblit/modules/steward_agent.py) | 81 | 6 | 0 |
 | [modules/steward_executor.py](../../../Niblit/modules/steward_executor.py) | 57 | 2 | 0 |
 | [modules/storage.py](../../../Niblit/modules/storage.py) | 10 | 0 | 0 |
+| [modules/strategy_manager.py](../../../Niblit/modules/strategy_manager.py) | 235 | 4 | 0 |
+| [modules/strategy_performance_shadow.py](../../../Niblit/modules/strategy_performance_shadow.py) | 115 | 3 | 0 |
+| [modules/strategy_research.py](../../../Niblit/modules/strategy_research.py) | 113 | 5 | 0 |
 | [modules/structural_awareness.py](../../../Niblit/modules/structural_awareness.py) | 637 | 12 | 0 |
 | [modules/structured_logging.py](../../../Niblit/modules/structured_logging.py) | 290 | 31 | 1 |
+| [modules/structured_trade_engine.py](../../../Niblit/modules/structured_trade_engine.py) | 167 | 5 | 0 |
 | [modules/sync_engine.py](../../../Niblit/modules/sync_engine.py) | 994 | 51 | 0 |
+| [modules/task_admission.py](../../../Niblit/modules/task_admission.py) | 272 | 18 | 3 |
 | [modules/temporal_coherence.py](../../../Niblit/modules/temporal_coherence.py) | 366 | 32 | 0 |
 | [modules/terminal_tools.py](../../../Niblit/modules/terminal_tools.py) | 35 | 4 | 0 |
 | [modules/termux_wakelock.py](../../../Niblit/modules/termux_wakelock.py) | 218 | 11 | 0 |
-| [modules/tft_forecast.py](../../../Niblit/modules/tft_forecast.py) | 344 | 8 | 0 |
+| [modules/tft_forecast.py](../../../Niblit/modules/tft_forecast.py) | 352 | 9 | 0 |
 | [modules/tiered_knowledge_system.py](../../../Niblit/modules/tiered_knowledge_system.py) | 517 | 21 | 0 |
 | [modules/tokenizer_trainer.py](../../../Niblit/modules/tokenizer_trainer.py) | 362 | 10 | 0 |
 | [modules/topic_constructor.py](../../../Niblit/modules/topic_constructor.py) | 339 | 7 | 0 |
 | [modules/trade_kb_learner.py](../../../Niblit/modules/trade_kb_learner.py) | 337 | 11 | 0 |
+| [modules/trade_performance_metrics.py](../../../Niblit/modules/trade_performance_metrics.py) | 77 | 3 | 0 |
 | [modules/trading_adapter.py](../../../Niblit/modules/trading_adapter.py) | 128 | 2 | 0 |
 | [modules/trading_brain.py](../../../Niblit/modules/trading_brain.py) | 911 | 15 | 0 |
-| [modules/trading_desk.py](../../../Niblit/modules/trading_desk.py) | 395 | 21 | 1 |
-| [modules/trading_read_tools.py](../../../Niblit/modules/trading_read_tools.py) | 132 | 4 | 0 |
+| [modules/trading_desk.py](../../../Niblit/modules/trading_desk.py) | 824 | 28 | 1 |
+| [modules/trading_execution_rehearsal.py](../../../Niblit/modules/trading_execution_rehearsal.py) | 327 | 11 | 0 |
+| [modules/trading_observation.py](../../../Niblit/modules/trading_observation.py) | 473 | 14 | 0 |
+| [modules/trading_read_tools.py](../../../Niblit/modules/trading_read_tools.py) | 162 | 5 | 0 |
 | [modules/trading_runtime_client.py](../../../Niblit/modules/trading_runtime_client.py) | 115 | 12 | 0 |
+| [modules/trading_session_adapters.py](../../../Niblit/modules/trading_session_adapters.py) | 494 | 26 | 0 |
+| [modules/trading_session_api.py](../../../Niblit/modules/trading_session_api.py) | 321 | 12 | 0 |
+| [modules/trading_session_probe.py](../../../Niblit/modules/trading_session_probe.py) | 73 | 2 | 0 |
+| [modules/trading_session_selftest.py](../../../Niblit/modules/trading_session_selftest.py) | 225 | 32 | 0 |
 | [modules/trading_study.py](../../../Niblit/modules/trading_study.py) | 639 | 24 | 1 |
 | [modules/trading_swing_v3.py](../../../Niblit/modules/trading_swing_v3.py) | 679 | 26 | 0 |
+| [modules/trading_values.py](../../../Niblit/modules/trading_values.py) | 153 | 4 | 0 |
 | [modules/training_dataset_governance.py](../../../Niblit/modules/training_dataset_governance.py) | 672 | 24 | 0 |
 | [modules/unified_cognitive_state.py](../../../Niblit/modules/unified_cognitive_state.py) | 354 | 23 | 0 |
 | [modules/unified_runtime.py](../../../Niblit/modules/unified_runtime.py) | 1426 | 57 | 0 |
@@ -806,22 +898,31 @@ Generated from source without importing modules. Definitions and docstrings are 
 | [modules/memory/router/memory_router.py](../../../Niblit/modules/memory/router/memory_router.py) | 64 | 4 | 0 |
 | [modules/memory_laboratory/__init__.py](../../../Niblit/modules/memory_laboratory/__init__.py) | 6 | 0 | 0 |
 | [modules/memory_laboratory/__main__.py](../../../Niblit/modules/memory_laboratory/__main__.py) | 40 | 1 | 0 |
+| [modules/memory_laboratory/cognitive.py](../../../Niblit/modules/memory_laboratory/cognitive.py) | 84 | 5 | 0 |
 | [modules/memory_laboratory/consolidation.py](../../../Niblit/modules/memory_laboratory/consolidation.py) | 93 | 5 | 0 |
-| [modules/memory_laboratory/context.py](../../../Niblit/modules/memory_laboratory/context.py) | 76 | 2 | 0 |
+| [modules/memory_laboratory/context.py](../../../Niblit/modules/memory_laboratory/context.py) | 92 | 2 | 0 |
 | [modules/memory_laboratory/contracts.py](../../../Niblit/modules/memory_laboratory/contracts.py) | 83 | 5 | 0 |
-| [modules/memory_laboratory/gateway.py](../../../Niblit/modules/memory_laboratory/gateway.py) | 328 | 15 | 0 |
+| [modules/memory_laboratory/gateway.py](../../../Niblit/modules/memory_laboratory/gateway.py) | 833 | 27 | 0 |
 | [modules/memory_laboratory/market.py](../../../Niblit/modules/memory_laboratory/market.py) | 135 | 9 | 0 |
 | [modules/memory_laboratory/migration.py](../../../Niblit/modules/memory_laboratory/migration.py) | 105 | 4 | 0 |
 | [modules/memory_laboratory/operator.py](../../../Niblit/modules/memory_laboratory/operator.py) | 126 | 2 | 0 |
-| [modules/memory_laboratory/runtime.py](../../../Niblit/modules/memory_laboratory/runtime.py) | 276 | 15 | 0 |
-| [modules/memory_laboratory/setup.py](../../../Niblit/modules/memory_laboratory/setup.py) | 212 | 14 | 0 |
-| [modules/memory_laboratory/web.py](../../../Niblit/modules/memory_laboratory/web.py) | 331 | 8 | 0 |
+| [modules/memory_laboratory/runtime.py](../../../Niblit/modules/memory_laboratory/runtime.py) | 500 | 22 | 0 |
+| [modules/memory_laboratory/setup.py](../../../Niblit/modules/memory_laboratory/setup.py) | 239 | 17 | 0 |
+| [modules/memory_laboratory/web.py](../../../Niblit/modules/memory_laboratory/web.py) | 409 | 12 | 0 |
 | [modules/meta_cognition/__init__.py](../../../Niblit/modules/meta_cognition/__init__.py) | 150 | 7 | 0 |
 | [modules/meta_cognition/evolution_planner.py](../../../Niblit/modules/meta_cognition/evolution_planner.py) | 230 | 16 | 0 |
 | [modules/meta_cognition/intent_engine.py](../../../Niblit/modules/meta_cognition/intent_engine.py) | 180 | 13 | 0 |
 | [modules/meta_cognition/meta_evaluator.py](../../../Niblit/modules/meta_cognition/meta_evaluator.py) | 171 | 17 | 0 |
 | [modules/meta_cognition/resource_allocator.py](../../../Niblit/modules/meta_cognition/resource_allocator.py) | 169 | 7 | 0 |
 | [modules/meta_cognition/self_model.py](../../../Niblit/modules/meta_cognition/self_model.py) | 194 | 14 | 0 |
+| [modules/native_cognition/__init__.py](../../../Niblit/modules/native_cognition/__init__.py) | 17 | 0 | 0 |
+| [modules/native_cognition/alphabet.py](../../../Niblit/modules/native_cognition/alphabet.py) | 137 | 5 | 0 |
+| [modules/native_cognition/cognition.py](../../../Niblit/modules/native_cognition/cognition.py) | 112 | 3 | 0 |
+| [modules/native_cognition/language.py](../../../Niblit/modules/native_cognition/language.py) | 115 | 5 | 0 |
+| [modules/native_cognition/maths.py](../../../Niblit/modules/native_cognition/maths.py) | 77 | 4 | 1 |
+| [modules/native_cognition/memorization.py](../../../Niblit/modules/native_cognition/memorization.py) | 39 | 1 | 0 |
+| [modules/native_cognition/numbers.py](../../../Niblit/modules/native_cognition/numbers.py) | 127 | 4 | 0 |
+| [modules/native_cognition/seed.py](../../../Niblit/modules/native_cognition/seed.py) | 121 | 2 | 0 |
 | [modules/trading_decision_engine/__init__.py](../../../Niblit/modules/trading_decision_engine/__init__.py) | 23 | 0 | 0 |
 | [modules/trading_decision_engine/freqtrade_adapter.py](../../../Niblit/modules/trading_decision_engine/freqtrade_adapter.py) | 121 | 3 | 0 |
 | [modules/trading_decision_engine/niblit_decision_engine.py](../../../Niblit/modules/trading_decision_engine/niblit_decision_engine.py) | 426 | 9 | 0 |
@@ -901,8 +1002,8 @@ Generated from source without importing modules. Definitions and docstrings are 
 | [niblit_agents/semantic_agent.py](../../../Niblit/niblit_agents/semantic_agent.py) | 218 | 7 | 0 |
 | [niblit_core/__init__.py](../../../Niblit/niblit_core/__init__.py) | 75 | 3 | 0 |
 | [niblit_core/config/__init__.py](../../../Niblit/niblit_core/config/__init__.py) | 2 | 0 | 0 |
-| [niblit_core/config/paths.py](../../../Niblit/niblit_core/config/paths.py) | 28 | 4 | 0 |
-| [niblit_memory/__init__.py](../../../Niblit/niblit_memory/__init__.py) | 4122 | 233 | 0 |
+| [niblit_core/config/paths.py](../../../Niblit/niblit_core/config/paths.py) | 284 | 15 | 0 |
+| [niblit_memory/__init__.py](../../../Niblit/niblit_memory/__init__.py) | 4144 | 233 | 0 |
 | [niblit_memory/chunker.py](../../../Niblit/niblit_memory/chunker.py) | 267 | 10 | 0 |
 | [niblit_memory/document_normalizer.py](../../../Niblit/niblit_memory/document_normalizer.py) | 417 | 14 | 0 |
 | [niblit_memory/governed_qdrant_memory.py](../../../Niblit/niblit_memory/governed_qdrant_memory.py) | 439 | 17 | 0 |
@@ -934,31 +1035,75 @@ Generated from source without importing modules. Definitions and docstrings are 
 | [qdrant_cluster_logic/deployment/create_payload_indexes.sh](../../../Niblit/qdrant_cluster_logic/deployment/create_payload_indexes.sh) | 52 | 0 | 0 |
 | [qdrant_cluster_logic/deployment/initialize_cluster.sh](../../../Niblit/qdrant_cluster_logic/deployment/initialize_cluster.sh) | 90 | 0 | 0 |
 | [qdrant_cluster_logic/deployment/snapshot_recovery.sh](../../../Niblit/qdrant_cluster_logic/deployment/snapshot_recovery.sh) | 10 | 0 | 0 |
+| [scripts/Bootstrap-Niblit-Portal-Owner.py](../../../Niblit/scripts/Bootstrap-Niblit-Portal-Owner.py) | 43 | 0 | 0 |
+| [scripts/Build-Niblit-Android.ps1](../../../Niblit/scripts/Build-Niblit-Android.ps1) | 43 | 0 | 0 |
+| [scripts/Configure-Niblit-Portal-Email.ps1](../../../Niblit/scripts/Configure-Niblit-Portal-Email.ps1) | 27 | 0 | 0 |
+| [scripts/Install-Niblit-Android-DDrive.ps1](../../../Niblit/scripts/Install-Niblit-Android-DDrive.ps1) | 70 | 0 | 0 |
+| [scripts/Invoke-Niblit-Wednesday-Preflight.ps1](../../../Niblit/scripts/Invoke-Niblit-Wednesday-Preflight.ps1) | 69 | 0 | 0 |
+| [scripts/Invoke-ScopedBuild.ps1](../../../Niblit/scripts/Invoke-ScopedBuild.ps1) | 13 | 0 | 0 |
+| [scripts/Open-Niblit-Trading.cmd](../../../Niblit/scripts/Open-Niblit-Trading.cmd) | 2 | 0 | 0 |
+| [scripts/Open-Niblit-Trading.ps1](../../../Niblit/scripts/Open-Niblit-Trading.ps1) | 20 | 0 | 0 |
+| [scripts/Restart-Niblit-Client-Portal.ps1](../../../Niblit/scripts/Restart-Niblit-Client-Portal.ps1) | 14 | 0 | 0 |
 | [scripts/Start-Memory-Laboratory.ps1](../../../Niblit/scripts/Start-Memory-Laboratory.ps1) | 51 | 0 | 0 |
+| [scripts/Start-Niblit-14B.ps1](../../../Niblit/scripts/Start-Niblit-14B.ps1) | 35 | 0 | 0 |
+| [scripts/Start-Niblit-Autotrading.cmd](../../../Niblit/scripts/Start-Niblit-Autotrading.cmd) | 2 | 0 | 0 |
+| [scripts/Start-Niblit-Autotrading.ps1](../../../Niblit/scripts/Start-Niblit-Autotrading.ps1) | 47 | 0 | 0 |
+| [scripts/Start-Niblit-Client-Portal.ps1](../../../Niblit/scripts/Start-Niblit-Client-Portal.ps1) | 29 | 0 | 0 |
+| [scripts/Start-Niblit-Cloud-14B-Preview.ps1](../../../Niblit/scripts/Start-Niblit-Cloud-14B-Preview.ps1) | 29 | 0 | 0 |
 | [scripts/Start-Niblit-Desktop.cmd](../../../Niblit/scripts/Start-Niblit-Desktop.cmd) | 8 | 0 | 0 |
 | [scripts/Start-Niblit-Freqtrade.cmd](../../../Niblit/scripts/Start-Niblit-Freqtrade.cmd) | 14 | 0 | 0 |
-| [scripts/Start-Niblit-Freqtrade.ps1](../../../Niblit/scripts/Start-Niblit-Freqtrade.ps1) | 89 | 0 | 0 |
+| [scripts/Start-Niblit-Freqtrade.ps1](../../../Niblit/scripts/Start-Niblit-Freqtrade.ps1) | 90 | 0 | 0 |
 | [scripts/Start-Niblit-Live.cmd](../../../Niblit/scripts/Start-Niblit-Live.cmd) | 19 | 0 | 0 |
-| [scripts/Start-Niblit-Testing.ps1](../../../Niblit/scripts/Start-Niblit-Testing.ps1) | 95 | 0 | 0 |
+| [scripts/Start-Niblit-Mobile-Gateway.ps1](../../../Niblit/scripts/Start-Niblit-Mobile-Gateway.ps1) | 19 | 0 | 0 |
+| [scripts/Start-Niblit-Testing.ps1](../../../Niblit/scripts/Start-Niblit-Testing.ps1) | 109 | 0 | 0 |
 | [scripts/Start-Niblit-With-Memory.ps1](../../../Niblit/scripts/Start-Niblit-With-Memory.ps1) | 22 | 0 | 0 |
+| [scripts/Start-R13-Handover-Observer.ps1](../../../Niblit/scripts/Start-R13-Handover-Observer.ps1) | 21 | 0 | 0 |
+| [scripts/Test-Niblit-Android-Integrated-R14.ps1](../../../Niblit/scripts/Test-Niblit-Android-Integrated-R14.ps1) | 41 | 0 | 0 |
+| [scripts/backfill_r14_position_cognition.py](../../../Niblit/scripts/backfill_r14_position_cognition.py) | 241 | 4 | 0 |
+| [scripts/backup-client-portal.py](../../../Niblit/scripts/backup-client-portal.py) | 30 | 1 | 0 |
+| [scripts/bind-release-runtime.js](../../../Niblit/scripts/bind-release-runtime.js) | 43 | 0 | 0 |
+| [scripts/build-paths.js](../../../Niblit/scripts/build-paths.js) | 94 | 0 | 0 |
+| [scripts/build-paths.test.js](../../../Niblit/scripts/build-paths.test.js) | 26 | 0 | 0 |
+| [scripts/check-build-contract.py](../../../Niblit/scripts/check-build-contract.py) | 47 | 1 | 0 |
+| [scripts/check-market-pipeline.py](../../../Niblit/scripts/check-market-pipeline.py) | 87 | 1 | 0 |
+| [scripts/check-native-runtime.py](../../../Niblit/scripts/check-native-runtime.py) | 21 | 0 | 0 |
+| [scripts/check_native_cognition_readiness.py](../../../Niblit/scripts/check_native_cognition_readiness.py) | 26 | 1 | 0 |
 | [scripts/configure-memory-framework.py](../../../Niblit/scripts/configure-memory-framework.py) | 42 | 1 | 0 |
 | [scripts/configure-steward.py](../../../Niblit/scripts/configure-steward.py) | 27 | 0 | 0 |
 | [scripts/connect-steward-executor.py](../../../Niblit/scripts/connect-steward-executor.py) | 54 | 0 | 0 |
+| [scripts/ensure-docker-desktop.py](../../../Niblit/scripts/ensure-docker-desktop.py) | 12 | 0 | 0 |
 | [scripts/ensure-memory-service.py](../../../Niblit/scripts/ensure-memory-service.py) | 84 | 1 | 0 |
+| [scripts/hybrid-backup.py](../../../Niblit/scripts/hybrid-backup.py) | 50 | 2 | 0 |
+| [scripts/hybrid-qdrant-backup.py](../../../Niblit/scripts/hybrid-qdrant-backup.py) | 64 | 1 | 0 |
+| [scripts/inspect_market_cognition.py](../../../Niblit/scripts/inspect_market_cognition.py) | 174 | 3 | 0 |
+| [scripts/install-freqtrade-lab.py](../../../Niblit/scripts/install-freqtrade-lab.py) | 27 | 1 | 0 |
+| [scripts/install_android_sdk_packages.py](../../../Niblit/scripts/install_android_sdk_packages.py) | 47 | 2 | 0 |
 | [scripts/launch-memory-desk.py](../../../Niblit/scripts/launch-memory-desk.py) | 30 | 0 | 0 |
 | [scripts/launch-toolbox.py](../../../Niblit/scripts/launch-toolbox.py) | 42 | 0 | 0 |
 | [scripts/launch-trading-desk.py](../../../Niblit/scripts/launch-trading-desk.py) | 14 | 0 | 0 |
-| [scripts/niblit-build.js](../../../Niblit/scripts/niblit-build.js) | 513 | 0 | 0 |
+| [scripts/mt5_active_exit_advisory.py](../../../Niblit/scripts/mt5_active_exit_advisory.py) | 121 | 4 | 0 |
+| [scripts/mt5_handover_observer.py](../../../Niblit/scripts/mt5_handover_observer.py) | 271 | 7 | 0 |
+| [scripts/mt5_readonly_reconciliation.py](../../../Niblit/scripts/mt5_readonly_reconciliation.py) | 135 | 4 | 0 |
+| [scripts/niblit-build.js](../../../Niblit/scripts/niblit-build.js) | 579 | 0 | 0 |
 | [scripts/niblit-dev.js](../../../Niblit/scripts/niblit-dev.js) | 94 | 0 | 0 |
+| [scripts/probe_r14_market_regime.py](../../../Niblit/scripts/probe_r14_market_regime.py) | 27 | 0 | 0 |
+| [scripts/qdrant_readonly_check.py](../../../Niblit/scripts/qdrant_readonly_check.py) | 37 | 1 | 0 |
 | [scripts/reconcile-known-freqtrade-rejection.py](../../../Niblit/scripts/reconcile-known-freqtrade-rejection.py) | 25 | 0 | 0 |
+| [scripts/resume-market-observation.py](../../../Niblit/scripts/resume-market-observation.py) | 36 | 2 | 0 |
 | [scripts/run-client-portal.py](../../../Niblit/scripts/run-client-portal.py) | 25 | 0 | 0 |
-| [scripts/run-memory-desk.py](../../../Niblit/scripts/run-memory-desk.py) | 16 | 0 | 0 |
+| [scripts/run-memory-desk.py](../../../Niblit/scripts/run-memory-desk.py) | 21 | 0 | 0 |
 | [scripts/run-memory-framework.py](../../../Niblit/scripts/run-memory-framework.py) | 47 | 1 | 0 |
 | [scripts/run-trading-desk.py](../../../Niblit/scripts/run-trading-desk.py) | 14 | 0 | 0 |
+| [scripts/runtime-task-status.py](../../../Niblit/scripts/runtime-task-status.py) | 44 | 1 | 0 |
+| [scripts/scoped-build.js](../../../Niblit/scripts/scoped-build.js) | 102 | 0 | 0 |
+| [scripts/seed_native_cognition.py](../../../Niblit/scripts/seed_native_cognition.py) | 56 | 1 | 0 |
+| [scripts/smoke_mobile_gateway_v030.py](../../../Niblit/scripts/smoke_mobile_gateway_v030.py) | 11 | 0 | 0 |
+| [scripts/start-portal-local-model.ps1](../../../Niblit/scripts/start-portal-local-model.ps1) | 30 | 0 | 0 |
 | [scripts/verify-command-desktop.py](../../../Niblit/scripts/verify-command-desktop.py) | 74 | 2 | 0 |
 | [scripts/verify-desktop-autostart.py](../../../Niblit/scripts/verify-desktop-autostart.py) | 99 | 1 | 0 |
 | [scripts/verify-desktop-build.py](../../../Niblit/scripts/verify-desktop-build.py) | 241 | 2 | 0 |
 | [scripts/verify-desktop-runtime-chain.py](../../../Niblit/scripts/verify-desktop-runtime-chain.py) | 157 | 1 | 0 |
+| [scripts/verify-freqtrade-exits.py](../../../Niblit/scripts/verify-freqtrade-exits.py) | 41 | 3 | 0 |
 | [scripts/verify-memory-desktop.py](../../../Niblit/scripts/verify-memory-desktop.py) | 107 | 1 | 0 |
 | [scripts/verify-memory-framework.py](../../../Niblit/scripts/verify-memory-framework.py) | 95 | 1 | 0 |
 | [scripts/verify-memory-history.py](../../../Niblit/scripts/verify-memory-history.py) | 44 | 0 | 0 |
@@ -968,6 +1113,8 @@ Generated from source without importing modules. Definitions and docstrings are 
 | [scripts/verify-paper-architecture.py](../../../Niblit/scripts/verify-paper-architecture.py) | 147 | 2 | 0 |
 | [scripts/verify-steward-connection.py](../../../Niblit/scripts/verify-steward-connection.py) | 22 | 0 | 0 |
 | [scripts/verify-trading-desk.py](../../../Niblit/scripts/verify-trading-desk.py) | 29 | 0 | 0 |
+| [scripts/verify_native_cognition_seed.py](../../../Niblit/scripts/verify_native_cognition_seed.py) | 36 | 1 | 0 |
+| [scripts/verify_r14_modern_market_desk.py](../../../Niblit/scripts/verify_r14_modern_market_desk.py) | 40 | 0 | 0 |
 | [shared/__init__.py](../../../Niblit/shared/__init__.py) | 10 | 0 | 0 |
 | [shared/governance_contract/__init__.py](../../../Niblit/shared/governance_contract/__init__.py) | 74 | 0 | 0 |
 | [shared/governance_contract/advisor_protocol.py](../../../Niblit/shared/governance_contract/advisor_protocol.py) | 40 | 2 | 0 |
@@ -980,27 +1127,81 @@ Generated from source without importing modules. Definitions and docstrings are 
 | [shared/governance_contract/schema_v2.py](../../../Niblit/shared/governance_contract/schema_v2.py) | 85 | 1 | 0 |
 | [shared/governance_contract/telemetry_contract.py](../../../Niblit/shared/governance_contract/telemetry_contract.py) | 40 | 2 | 0 |
 | [shared/governance_contract/validators.py](../../../Niblit/shared/governance_contract/validators.py) | 79 | 2 | 0 |
-| [tests/test_ale_lifecycle.py](../../../Niblit/tests/test_ale_lifecycle.py) | 102 | 8 | 0 |
+| [tests/test_adaptive_market_cognition.py](../../../Niblit/tests/test_adaptive_market_cognition.py) | 51 | 6 | 0 |
+| [tests/test_adaptive_market_cognition_dqi.py](../../../Niblit/tests/test_adaptive_market_cognition_dqi.py) | 349 | 24 | 0 |
+| [tests/test_adaptive_market_cognition_evidence.py](../../../Niblit/tests/test_adaptive_market_cognition_evidence.py) | 289 | 23 | 0 |
+| [tests/test_adaptive_market_cognition_quality.py](../../../Niblit/tests/test_adaptive_market_cognition_quality.py) | 192 | 12 | 0 |
+| [tests/test_adaptive_market_cognition_risk.py](../../../Niblit/tests/test_adaptive_market_cognition_risk.py) | 167 | 16 | 0 |
+| [tests/test_ale_lifecycle.py](../../../Niblit/tests/test_ale_lifecycle.py) | 146 | 11 | 0 |
+| [tests/test_api_process_ownership.py](../../../Niblit/tests/test_api_process_ownership.py) | 31 | 3 | 0 |
+| [tests/test_broker_view.cjs](../../../Niblit/tests/test_broker_view.cjs) | 47 | 0 | 0 |
+| [tests/test_chart_annotations.py](../../../Niblit/tests/test_chart_annotations.py) | 243 | 33 | 1 |
+| [tests/test_chat_admission_priority.py](../../../Niblit/tests/test_chat_admission_priority.py) | 50 | 4 | 0 |
 | [tests/test_chat_attachments.py](../../../Niblit/tests/test_chat_attachments.py) | 93 | 7 | 0 |
 | [tests/test_chat_memory_reliability.py](../../../Niblit/tests/test_chat_memory_reliability.py) | 103 | 10 | 0 |
+| [tests/test_chat_paper_replay.py](../../../Niblit/tests/test_chat_paper_replay.py) | 73 | 7 | 0 |
 | [tests/test_chunker.py](../../../Niblit/tests/test_chunker.py) | 113 | 13 | 0 |
-| [tests/test_command_runtime.py](../../../Niblit/tests/test_command_runtime.py) | 546 | 43 | 0 |
+| [tests/test_cognitive_chat.py](../../../Niblit/tests/test_cognitive_chat.py) | 151 | 12 | 0 |
+| [tests/test_command_activation.py](../../../Niblit/tests/test_command_activation.py) | 75 | 9 | 0 |
+| [tests/test_command_runtime.py](../../../Niblit/tests/test_command_runtime.py) | 547 | 43 | 0 |
 | [tests/test_command_surface_audit.py](../../../Niblit/tests/test_command_surface_audit.py) | 522 | 33 | 0 |
+| [tests/test_core_market_pipeline.py](../../../Niblit/tests/test_core_market_pipeline.py) | 329 | 23 | 0 |
 | [tests/test_core_tool_runtime.py](../../../Niblit/tests/test_core_tool_runtime.py) | 227 | 22 | 1 |
+| [tests/test_core_trading_sessions.py](../../../Niblit/tests/test_core_trading_sessions.py) | 808 | 70 | 0 |
+| [tests/test_cost_provenance.py](../../../Niblit/tests/test_cost_provenance.py) | 58 | 10 | 0 |
+| [tests/test_crypto_stops.py](../../../Niblit/tests/test_crypto_stops.py) | 71 | 8 | 0 |
+| [tests/test_dae1_p2_observation.py](../../../Niblit/tests/test_dae1_p2_observation.py) | 57 | 7 | 0 |
+| [tests/test_dae1_p2_ui.cjs](../../../Niblit/tests/test_dae1_p2_ui.cjs) | 39 | 0 | 0 |
+| [tests/test_dae1_remote_gateway.py](../../../Niblit/tests/test_dae1_remote_gateway.py) | 279 | 18 | 1 |
+| [tests/test_dae1_scheduler_budget.py](../../../Niblit/tests/test_dae1_scheduler_budget.py) | 42 | 4 | 0 |
+| [tests/test_demo_autotrader.py](../../../Niblit/tests/test_demo_autotrader.py) | 240 | 19 | 0 |
+| [tests/test_demo_controls.py](../../../Niblit/tests/test_demo_controls.py) | 105 | 9 | 0 |
+| [tests/test_desktop_dependencies.py](../../../Niblit/tests/test_desktop_dependencies.py) | 36 | 4 | 0 |
 | [tests/test_desktop_diagnostics.py](../../../Niblit/tests/test_desktop_diagnostics.py) | 69 | 6 | 0 |
 | [tests/test_desktop_model_chat.py](../../../Niblit/tests/test_desktop_model_chat.py) | 66 | 3 | 0 |
 | [tests/test_document_normalizer.py](../../../Niblit/tests/test_document_normalizer.py) | 202 | 38 | 0 |
 | [tests/test_environment_navigator.py](../../../Niblit/tests/test_environment_navigator.py) | 75 | 6 | 0 |
+| [tests/test_essential_command_registry.py](../../../Niblit/tests/test_essential_command_registry.py) | 23 | 1 | 0 |
+| [tests/test_execution_rehearsal.py](../../../Niblit/tests/test_execution_rehearsal.py) | 29 | 2 | 0 |
+| [tests/test_execution_venue_router.py](../../../Niblit/tests/test_execution_venue_router.py) | 61 | 5 | 0 |
+| [tests/test_exness_remote_demo.py](../../../Niblit/tests/test_exness_remote_demo.py) | 437 | 35 | 0 |
 | [tests/test_file_search_endpoint.py](../../../Niblit/tests/test_file_search_endpoint.py) | 47 | 5 | 0 |
 | [tests/test_file_understanding_flow.py](../../../Niblit/tests/test_file_understanding_flow.py) | 367 | 18 | 0 |
+| [tests/test_freqtrade_analysis_integration.py](../../../Niblit/tests/test_freqtrade_analysis_integration.py) | 113 | 7 | 0 |
+| [tests/test_freqtrade_native_analysis.py](../../../Niblit/tests/test_freqtrade_native_analysis.py) | 76 | 8 | 0 |
 | [tests/test_freqtrade_operator.py](../../../Niblit/tests/test_freqtrade_operator.py) | 63 | 9 | 0 |
+| [tests/test_freqtrade_research.py](../../../Niblit/tests/test_freqtrade_research.py) | 26 | 1 | 0 |
+| [tests/test_governed_learning.py](../../../Niblit/tests/test_governed_learning.py) | 102 | 8 | 0 |
+| [tests/test_hybrid_infrastructure.py](../../../Niblit/tests/test_hybrid_infrastructure.py) | 79 | 5 | 0 |
 | [tests/test_inference_bridge.py](../../../Niblit/tests/test_inference_bridge.py) | 102 | 11 | 0 |
 | [tests/test_ingestion.py](../../../Niblit/tests/test_ingestion.py) | 129 | 14 | 0 |
 | [tests/test_integration_knowledge_pipeline.py](../../../Niblit/tests/test_integration_knowledge_pipeline.py) | 305 | 33 | 0 |
+| [tests/test_intelligence_ui.cjs](../../../Niblit/tests/test_intelligence_ui.cjs) | 23 | 0 | 0 |
+| [tests/test_isolated_controller_binding.py](../../../Niblit/tests/test_isolated_controller_binding.py) | 46 | 5 | 0 |
+| [tests/test_joint_trading_safety.py](../../../Niblit/tests/test_joint_trading_safety.py) | 141 | 14 | 0 |
 | [tests/test_knowledge_document.py](../../../Niblit/tests/test_knowledge_document.py) | 236 | 48 | 0 |
 | [tests/test_knowledge_store_startup_message.py](../../../Niblit/tests/test_knowledge_store_startup_message.py) | 28 | 3 | 0 |
+| [tests/test_layer_recovery.py](../../../Niblit/tests/test_layer_recovery.py) | 49 | 6 | 0 |
+| [tests/test_learning_approval.py](../../../Niblit/tests/test_learning_approval.py) | 214 | 22 | 0 |
+| [tests/test_learning_outcomes.py](../../../Niblit/tests/test_learning_outcomes.py) | 139 | 12 | 0 |
+| [tests/test_learning_remote.py](../../../Niblit/tests/test_learning_remote.py) | 105 | 15 | 0 |
+| [tests/test_legacy_trading_config.py](../../../Niblit/tests/test_legacy_trading_config.py) | 95 | 9 | 0 |
+| [tests/test_live_launcher_policy.py](../../../Niblit/tests/test_live_launcher_policy.py) | 14 | 2 | 0 |
 | [tests/test_llm_tool_loop.py](../../../Niblit/tests/test_llm_tool_loop.py) | 355 | 26 | 1 |
-| [tests/test_memory_desk.py](../../../Niblit/tests/test_memory_desk.py) | 93 | 7 | 0 |
+| [tests/test_local_large_inference.py](../../../Niblit/tests/test_local_large_inference.py) | 36 | 8 | 1 |
+| [tests/test_market_cognition_audit.py](../../../Niblit/tests/test_market_cognition_audit.py) | 94 | 8 | 0 |
+| [tests/test_market_counterfactual_lab.py](../../../Niblit/tests/test_market_counterfactual_lab.py) | 123 | 13 | 0 |
+| [tests/test_market_decision_trace.py](../../../Niblit/tests/test_market_decision_trace.py) | 80 | 6 | 0 |
+| [tests/test_market_events.py](../../../Niblit/tests/test_market_events.py) | 31 | 4 | 0 |
+| [tests/test_market_evidence.py](../../../Niblit/tests/test_market_evidence.py) | 89 | 11 | 0 |
+| [tests/test_market_memory_quality_governance_r12.py](../../../Niblit/tests/test_market_memory_quality_governance_r12.py) | 38 | 5 | 0 |
+| [tests/test_market_pipeline_readiness.py](../../../Niblit/tests/test_market_pipeline_readiness.py) | 74 | 6 | 0 |
+| [tests/test_market_prediction.py](../../../Niblit/tests/test_market_prediction.py) | 113 | 12 | 0 |
+| [tests/test_market_regime_evidence.py](../../../Niblit/tests/test_market_regime_evidence.py) | 159 | 16 | 0 |
+| [tests/test_market_restoration_v17.py](../../../Niblit/tests/test_market_restoration_v17.py) | 96 | 9 | 0 |
+| [tests/test_market_thesis.py](../../../Niblit/tests/test_market_thesis.py) | 87 | 6 | 0 |
+| [tests/test_memory_desk.py](../../../Niblit/tests/test_memory_desk.py) | 117 | 8 | 0 |
+| [tests/test_memory_embedding_batches.py](../../../Niblit/tests/test_memory_embedding_batches.py) | 309 | 43 | 0 |
 | [tests/test_memory_framework_runtime.py](../../../Niblit/tests/test_memory_framework_runtime.py) | 116 | 6 | 0 |
 | [tests/test_memory_laboratory_context.py](../../../Niblit/tests/test_memory_laboratory_context.py) | 58 | 8 | 0 |
 | [tests/test_memory_laboratory_gateway.py](../../../Niblit/tests/test_memory_laboratory_gateway.py) | 170 | 19 | 1 |
@@ -1008,12 +1209,27 @@ Generated from source without importing modules. Definitions and docstrings are 
 | [tests/test_memory_laboratory_migration.py](../../../Niblit/tests/test_memory_laboratory_migration.py) | 60 | 4 | 0 |
 | [tests/test_memory_laboratory_setup.py](../../../Niblit/tests/test_memory_laboratory_setup.py) | 181 | 19 | 0 |
 | [tests/test_memory_persistence_ownership.py](../../../Niblit/tests/test_memory_persistence_ownership.py) | 95 | 7 | 0 |
+| [tests/test_memory_projection_budget_r12.py](../../../Niblit/tests/test_memory_projection_budget_r12.py) | 61 | 2 | 0 |
+| [tests/test_memory_worker_recovery.py](../../../Niblit/tests/test_memory_worker_recovery.py) | 120 | 8 | 0 |
+| [tests/test_mobile_runtime_service.py](../../../Niblit/tests/test_mobile_runtime_service.py) | 94 | 8 | 0 |
+| [tests/test_mt5_active_exit_advisory.py](../../../Niblit/tests/test_mt5_active_exit_advisory.py) | 81 | 12 | 0 |
+| [tests/test_mt5_adoption_lease.py](../../../Niblit/tests/test_mt5_adoption_lease.py) | 83 | 7 | 0 |
 | [tests/test_mt5_bridge.py](../../../Niblit/tests/test_mt5_bridge.py) | 98 | 9 | 0 |
-| [tests/test_mt5_orders.py](../../../Niblit/tests/test_mt5_orders.py) | 86 | 9 | 0 |
-| [tests/test_niblit_ui_launcher.py](../../../Niblit/tests/test_niblit_ui_launcher.py) | 797 | 95 | 0 |
+| [tests/test_mt5_handover_observer.py](../../../Niblit/tests/test_mt5_handover_observer.py) | 179 | 31 | 0 |
+| [tests/test_mt5_orders.py](../../../Niblit/tests/test_mt5_orders.py) | 204 | 18 | 0 |
+| [tests/test_mt5_readonly_reconciliation.py](../../../Niblit/tests/test_mt5_readonly_reconciliation.py) | 113 | 16 | 0 |
+| [tests/test_native_cognition_foundation.py](../../../Niblit/tests/test_native_cognition_foundation.py) | 110 | 12 | 0 |
+| [tests/test_native_cognition_research_integration.py](../../../Niblit/tests/test_native_cognition_research_integration.py) | 71 | 7 | 0 |
+| [tests/test_native_evidence_learning.py](../../../Niblit/tests/test_native_evidence_learning.py) | 58 | 6 | 0 |
+| [tests/test_native_inference_contract.py](../../../Niblit/tests/test_native_inference_contract.py) | 30 | 3 | 0 |
+| [tests/test_native_runtime_readiness.py](../../../Niblit/tests/test_native_runtime_readiness.py) | 48 | 5 | 0 |
+| [tests/test_niblit_conversation.py](../../../Niblit/tests/test_niblit_conversation.py) | 93 | 9 | 0 |
+| [tests/test_niblit_ui_launcher.py](../../../Niblit/tests/test_niblit_ui_launcher.py) | 812 | 96 | 0 |
+| [tests/test_online_market_study.py](../../../Niblit/tests/test_online_market_study.py) | 61 | 5 | 0 |
 | [tests/test_openai_budget.py](../../../Niblit/tests/test_openai_budget.py) | 59 | 4 | 0 |
 | [tests/test_openai_responses_adapter.py](../../../Niblit/tests/test_openai_responses_adapter.py) | 119 | 12 | 0 |
 | [tests/test_operator_commands.py](../../../Niblit/tests/test_operator_commands.py) | 119 | 18 | 0 |
+| [tests/test_packaged_execution_repairs.py](../../../Niblit/tests/test_packaged_execution_repairs.py) | 206 | 14 | 0 |
 | [tests/test_packaged_module_inventory.py](../../../Niblit/tests/test_packaged_module_inventory.py) | 16 | 1 | 0 |
 | [tests/test_packaged_paper_defaults.py](../../../Niblit/tests/test_packaged_paper_defaults.py) | 24 | 1 | 0 |
 | [tests/test_paper_gateway.py](../../../Niblit/tests/test_paper_gateway.py) | 63 | 8 | 1 |
@@ -1021,16 +1237,52 @@ Generated from source without importing modules. Definitions and docstrings are 
 | [tests/test_phase5r_governance_hardening.py](../../../Niblit/tests/test_phase5r_governance_hardening.py) | 94 | 7 | 0 |
 | [tests/test_phase5v_event_forwarding.py](../../../Niblit/tests/test_phase5v_event_forwarding.py) | 48 | 4 | 0 |
 | [tests/test_phase5v_readiness.py](../../../Niblit/tests/test_phase5v_readiness.py) | 287 | 29 | 0 |
+| [tests/test_phase6_cognitive_observation.py](../../../Niblit/tests/test_phase6_cognitive_observation.py) | 182 | 17 | 0 |
+| [tests/test_portal_approval_email.py](../../../Niblit/tests/test_portal_approval_email.py) | 99 | 5 | 0 |
+| [tests/test_portal_deployment.py](../../../Niblit/tests/test_portal_deployment.py) | 36 | 2 | 0 |
+| [tests/test_portal_learning.py](../../../Niblit/tests/test_portal_learning.py) | 61 | 4 | 0 |
+| [tests/test_portal_model.py](../../../Niblit/tests/test_portal_model.py) | 39 | 3 | 0 |
+| [tests/test_portal_remote.py](../../../Niblit/tests/test_portal_remote.py) | 37 | 2 | 0 |
+| [tests/test_portal_tools.py](../../../Niblit/tests/test_portal_tools.py) | 98 | 6 | 0 |
 | [tests/test_portal_workspaces.py](../../../Niblit/tests/test_portal_workspaces.py) | 78 | 3 | 0 |
+| [tests/test_position_cognition_record.py](../../../Niblit/tests/test_position_cognition_record.py) | 160 | 15 | 0 |
+| [tests/test_position_exit_integration.py](../../../Niblit/tests/test_position_exit_integration.py) | 149 | 15 | 0 |
+| [tests/test_position_exit_policy.py](../../../Niblit/tests/test_position_exit_policy.py) | 127 | 14 | 0 |
+| [tests/test_position_intelligence.py](../../../Niblit/tests/test_position_intelligence.py) | 190 | 27 | 3 |
+| [tests/test_preparation_controls.py](../../../Niblit/tests/test_preparation_controls.py) | 58 | 5 | 0 |
+| [tests/test_public_source_learning.py](../../../Niblit/tests/test_public_source_learning.py) | 92 | 8 | 0 |
+| [tests/test_r14_demo_broker_minimum.py](../../../Niblit/tests/test_r14_demo_broker_minimum.py) | 22 | 3 | 0 |
+| [tests/test_r14_position_cognition_backfill.py](../../../Niblit/tests/test_r14_position_cognition_backfill.py) | 118 | 8 | 0 |
+| [tests/test_r3_packaged_boot.py](../../../Niblit/tests/test_r3_packaged_boot.py) | 38 | 2 | 0 |
+| [tests/test_r8_consensus.py](../../../Niblit/tests/test_r8_consensus.py) | 21 | 1 | 0 |
+| [tests/test_r91_funded.py](../../../Niblit/tests/test_r91_funded.py) | 98 | 8 | 0 |
+| [tests/test_r9_intelligence.py](../../../Niblit/tests/test_r9_intelligence.py) | 51 | 5 | 0 |
 | [tests/test_reasoning_memory_fallback.py](../../../Niblit/tests/test_reasoning_memory_fallback.py) | 19 | 1 | 0 |
+| [tests/test_release_preflight.py](../../../Niblit/tests/test_release_preflight.py) | 45 | 3 | 0 |
+| [tests/test_relocation_paths.py](../../../Niblit/tests/test_relocation_paths.py) | 311 | 23 | 0 |
+| [tests/test_remote_demo_readiness_policy.py](../../../Niblit/tests/test_remote_demo_readiness_policy.py) | 50 | 6 | 0 |
+| [tests/test_research_completion.py](../../../Niblit/tests/test_research_completion.py) | 147 | 9 | 0 |
+| [tests/test_research_recovery.py](../../../Niblit/tests/test_research_recovery.py) | 218 | 32 | 5 |
 | [tests/test_research_vertical.py](../../../Niblit/tests/test_research_vertical.py) | 234 | 20 | 0 |
 | [tests/test_runtime_observation_is_readonly.py](../../../Niblit/tests/test_runtime_observation_is_readonly.py) | 40 | 1 | 0 |
 | [tests/test_runtime_stream_responsiveness.py](../../../Niblit/tests/test_runtime_stream_responsiveness.py) | 68 | 4 | 1 |
+| [tests/test_scoped_build.cjs](../../../Niblit/tests/test_scoped_build.cjs) | 93 | 0 | 0 |
+| [tests/test_scoped_path_contract.py](../../../Niblit/tests/test_scoped_path_contract.py) | 29 | 4 | 0 |
 | [tests/test_server_manager.py](../../../Niblit/tests/test_server_manager.py) | 89 | 4 | 0 |
+| [tests/test_shutdown_research.py](../../../Niblit/tests/test_shutdown_research.py) | 52 | 2 | 0 |
 | [tests/test_slsa_lifecycle.py](../../../Niblit/tests/test_slsa_lifecycle.py) | 40 | 3 | 0 |
 | [tests/test_steward_agent.py](../../../Niblit/tests/test_steward_agent.py) | 59 | 4 | 0 |
-| [tests/test_testing_build_startup.py](../../../Niblit/tests/test_testing_build_startup.py) | 123 | 8 | 0 |
-| [tests/test_trading_desk.py](../../../Niblit/tests/test_trading_desk.py) | 142 | 14 | 0 |
+| [tests/test_strategy_failure_consensus.py](../../../Niblit/tests/test_strategy_failure_consensus.py) | 95 | 6 | 0 |
+| [tests/test_strategy_manager.py](../../../Niblit/tests/test_strategy_manager.py) | 26 | 5 | 0 |
+| [tests/test_strategy_performance_shadow.py](../../../Niblit/tests/test_strategy_performance_shadow.py) | 102 | 12 | 0 |
+| [tests/test_strategy_research.py](../../../Niblit/tests/test_strategy_research.py) | 63 | 7 | 0 |
+| [tests/test_structured_trade_engine.py](../../../Niblit/tests/test_structured_trade_engine.py) | 152 | 7 | 0 |
+| [tests/test_task_admission.py](../../../Niblit/tests/test_task_admission.py) | 55 | 3 | 0 |
+| [tests/test_task_delegation.py](../../../Niblit/tests/test_task_delegation.py) | 39 | 3 | 0 |
+| [tests/test_testing_build_startup.py](../../../Niblit/tests/test_testing_build_startup.py) | 178 | 11 | 0 |
+| [tests/test_trade_performance_metrics.py](../../../Niblit/tests/test_trade_performance_metrics.py) | 50 | 5 | 0 |
+| [tests/test_trading_desk.py](../../../Niblit/tests/test_trading_desk.py) | 166 | 16 | 0 |
+| [tests/test_trading_observation.py](../../../Niblit/tests/test_trading_observation.py) | 86 | 8 | 0 |
 | [tests/test_unified_memory_reliability.py](../../../Niblit/tests/test_unified_memory_reliability.py) | 63 | 5 | 0 |
 | [tests/test_web_fetcher.py](../../../Niblit/tests/test_web_fetcher.py) | 77 | 14 | 0 |
 | [tests/test_workspace_tools.py](../../../Niblit/tests/test_workspace_tools.py) | 466 | 37 | 0 |
@@ -1253,21 +1505,22 @@ aios_runtime.py — NIBLIT-AIOS Runtime Manager
 
 aios_scheduler.py — NIBLIT-AIOS Formal Scheduler
 
-- `ScheduledTask` at line 80: A unit of work managed by the AIOS scheduler.
-- `AIOSScheduler` at line 108: NIBLIT-AIOS formal task scheduler with priority queues.
-- `get_aios_scheduler` at line 315: Return the process-level AIOSScheduler singleton.
-- `ScheduledTask._heap_key` at line 102: Explanation needed.
-- `AIOSScheduler.__init__` at line 116: Explanation needed.
-- `AIOSScheduler.start` at line 134: Start the scheduler worker thread and the underlying LifecycleEngine.
-- `AIOSScheduler.stop` at line 155: Stop the scheduler and the underlying LifecycleEngine.
-- `AIOSScheduler.submit` at line 174: Submit a callable for scheduled execution.
-- `AIOSScheduler.cancel` at line 214: Cancel a pending task by its ``task_id``.
-- `AIOSScheduler.advance_phase` at line 231: Advance the scheduler to a named AIOS phase.
-- `AIOSScheduler.current_phase` at line 245: Return the current AIOS phase name.
-- `AIOSScheduler.status` at line 252: Return a summary of scheduler state.
-- `AIOSScheduler._worker_loop` at line 269: Background thread: drain the priority queue.
-- `AIOSScheduler._pop_ready_task` at line 278: Pop the highest-priority task that is ready to run.
-- `AIOSScheduler._execute` at line 295: Execute a task and record its result or error.
+- `ScheduledTask` at line 82: A unit of work managed by the AIOS scheduler.
+- `AIOSScheduler` at line 111: NIBLIT-AIOS formal task scheduler with priority queues.
+- `get_aios_scheduler` at line 377: Return the process-level AIOSScheduler singleton.
+- `ScheduledTask._heap_key` at line 105: Explanation needed.
+- `AIOSScheduler.__init__` at line 119: Explanation needed.
+- `AIOSScheduler.start` at line 146: Start the scheduler worker thread and the underlying LifecycleEngine.
+- `AIOSScheduler.stop` at line 167: Stop the scheduler and the underlying LifecycleEngine.
+- `AIOSScheduler.submit` at line 186: Submit a callable for scheduled execution.
+- `AIOSScheduler.prune_completed` at line 243: Bound history for a recurring caller without deleting other tasks.
+- `AIOSScheduler.cancel` at line 251: Cancel a pending task by its ``task_id``.
+- `AIOSScheduler.advance_phase` at line 268: Advance the scheduler to a named AIOS phase.
+- `AIOSScheduler.current_phase` at line 282: Return the current AIOS phase name.
+- `AIOSScheduler.status` at line 289: Return a summary of scheduler state.
+- `AIOSScheduler._worker_loop` at line 311: Background thread: drain the priority queue.
+- `AIOSScheduler._pop_ready_task` at line 320: Pop the highest-priority task that is ready to run.
+- `AIOSScheduler._execute` at line 355: Execute a task and record its result or error.
 
 ### app.py
 
@@ -1355,9 +1608,9 @@ Module purpose needs a human explanation.
 config.py — Centralized configuration management for Niblit.
 
 - `Config` at line 17: Base configuration – reads environment variables.
-- `DevelopmentConfig` at line 209: Development overrides.
-- `TestingConfig` at line 215: Testing overrides.
-- `ProductionConfig` at line 226: Production overrides.
+- `DevelopmentConfig` at line 212: Development overrides.
+- `TestingConfig` at line 218: Testing overrides.
+- `ProductionConfig` at line 229: Production overrides.
 - `Config.validate` at line 146: Print a structured table of which services are enabled/disabled.
 
 ### conftest.py
@@ -1480,37 +1733,39 @@ live_command_tester.py — Niblit Live Command Tester
 
 MAIN — Niblit AIOS
 
-- `_shutdown_on_signal` at line 106: Signal handler: flush autonomous-growth data then exit cleanly.
-- `timestamp` at line 169: Explanation needed.
-- `_command_vocabulary` at line 172: Explanation needed.
-- `suggest_command` at line 200: Explanation needed.
-- `_is_low_resource_mode` at line 210: Return True when the runtime should skip expensive startup work.
-- `parse_args` at line 222: Parse Niblit AIOS command-line arguments.
-- `_parse_tool_arguments` at line 328: Parse ``--tool-arguments`` into a JSON-object dict.
-- `_run_tool_cli_mode` at line 342: Handle ``--list-tools`` / ``--tool-call`` mode. Return process exit code.
-- `_should_launch_primary_ui` at line 382: Return True when the primary graphical UI (niblit-ui) should auto-launch.
-- `_should_launch_legacy_desktop` at line 408: Return True when the legacy Tk ``desktop_runtime_shell`` should be used.
-- `_should_launch_desktop` at line 415: Backward-compatible alias — prefer :func:`_should_launch_primary_ui`.
-- `_log_managed_ui_diagnostics` at line 420: Log repository discovery for the managed UI without handing startup to it.
-- `_emit_lifecycle_event` at line 444: Explanation needed.
-- `_start_runtime_dependencies` at line 465: Start service processes early without claiming deferred Core is ready.
-- `_run_staged_runtime_bootstrap` at line 478: Execute staged runtime bootstrap with lifecycle events per stage.
-- `debug` at line 558: Explanation needed.
-- `log_command` at line 565: Explanation needed.
-- `list_threads` at line 585: Explanation needed.
-- `print_notifications` at line 597: Print any pending background notifications to the console.
-- `boot` at line 636: Explanation needed.
-- `_cmd_show_notifications` at line 736: Drain the notification queue and return its contents as a string.
-- `_paged_out` at line 786: Print *response* to the terminal, paginating if it exceeds RESPONSE_PAGE_SIZE.
-- `_record_notifications` at line 836: Append *msgs* to the notification history ring buffer.
-- `_cmd_notifications_history` at line 847: Return a human-readable replay of the notification history.
-- `_record_exchange` at line 872: Record one user↔Niblit exchange for the session summary.
-- `_cmd_session_summary` at line 877: Return a summary of this session's commands and responses.
-- `_drain_init_messages` at line 899: Drain pending init progress messages and print them to the CLI.
-- `_cmd_unified_status` at line 917: The same feedback-loop report for CLI and desktop operators.
-- `_sync_cli_capability_registry` at line 923: Register CLI-only capabilities in the canonical capability registry.
-- `run_shell` at line 1008: Explanation needed.
-- `main` at line 1153: Niblit AIOS entry point.
+- `_claim_core_service` at line 194: Hold an OS lock across startup, before opening the operator API.
+- `_shutdown_on_signal` at line 221: Signal handler: flush autonomous-growth data then exit cleanly.
+- `timestamp` at line 284: Explanation needed.
+- `_command_vocabulary` at line 287: Explanation needed.
+- `suggest_command` at line 315: Explanation needed.
+- `_is_low_resource_mode` at line 325: Return True when the runtime should skip expensive startup work.
+- `parse_args` at line 337: Parse Niblit AIOS command-line arguments.
+- `_parse_tool_arguments` at line 445: Parse ``--tool-arguments`` into a JSON-object dict.
+- `_run_tool_cli_mode` at line 459: Handle ``--list-tools`` / ``--tool-call`` mode. Return process exit code.
+- `_should_launch_primary_ui` at line 499: Return True when the primary graphical UI (niblit-ui) should auto-launch.
+- `_should_launch_legacy_desktop` at line 525: Return True when the legacy Tk ``desktop_runtime_shell`` should be used.
+- `_should_launch_desktop` at line 532: Backward-compatible alias — prefer :func:`_should_launch_primary_ui`.
+- `_log_managed_ui_diagnostics` at line 537: Log repository discovery for the managed UI without handing startup to it.
+- `_emit_lifecycle_event` at line 561: Explanation needed.
+- `_start_runtime_dependencies` at line 582: Start service processes early without claiming deferred Core is ready.
+- `_run_staged_runtime_bootstrap` at line 595: Execute staged runtime bootstrap with lifecycle events per stage.
+- `debug` at line 686: Explanation needed.
+- `log_command` at line 693: Explanation needed.
+- `list_threads` at line 713: Explanation needed.
+- `print_notifications` at line 725: Print any pending background notifications to the console.
+- `boot` at line 764: Explanation needed.
+- `_cmd_show_notifications` at line 864: Drain the notification queue and return its contents as a string.
+- `_paged_out` at line 914: Print *response* to the terminal, paginating if it exceeds RESPONSE_PAGE_SIZE.
+- `_record_notifications` at line 964: Append *msgs* to the notification history ring buffer.
+- `_cmd_notifications_history` at line 975: Return a human-readable replay of the notification history.
+- `_record_exchange` at line 1000: Record one user↔Niblit exchange for the session summary.
+- `_cmd_session_summary` at line 1005: Return a summary of this session's commands and responses.
+- `_drain_init_messages` at line 1027: Drain pending init progress messages and print them to the CLI.
+- `_cmd_unified_status` at line 1045: The same feedback-loop report for CLI and desktop operators.
+- `_sync_cli_capability_registry` at line 1051: Register CLI-only capabilities in the canonical capability registry.
+- `run_shell` at line 1136: Explanation needed.
+- `main` at line 1281: Niblit AIOS entry point.
+- `_stop_owned_runtime_dependencies` at line 1698: Release only this frozen launcher's supervisor-owned services.
 
 ### main_instrumented.py
 
@@ -1561,11 +1816,11 @@ NIBLIT BRAIN MODULE - Enhanced Edition
 - `get_brain_debate_status` at line 358: Return a dict summarising the current debate-layer state.
 - `_DBMemoryAdapter` at line 371: Adapter for backward compatibility with old memory interfaces.
 - `NiblitCloudBrain` at line 420: Wrapper for a remote Niblit cloud-server inference endpoint.
-- `get_niblit_cloud_brain` at line 715: Return the process-wide :class:`NiblitCloudBrain` singleton.
-- `set_cloud_brain_url` at line 725: Switch the cloud-brain server URL at runtime.
-- `BrainTrainer` at line 759: Autonomous Brain Trainer and Updater.
-- `NiblitBrain` at line 1326: NiblitBrain with production improvements.
-- `hf_query` at line 2596: Execute a HuggingFace model query with optional memory context.
+- `get_niblit_cloud_brain` at line 719: Return the process-wide :class:`NiblitCloudBrain` singleton.
+- `set_cloud_brain_url` at line 729: Switch the cloud-brain server URL at runtime.
+- `BrainTrainer` at line 763: Autonomous Brain Trainer and Updater.
+- `NiblitBrain` at line 1330: NiblitBrain with production improvements.
+- `hf_query` at line 2600: Execute a HuggingFace model query with optional memory context.
 - `_DBMemoryAdapter.__init__` at line 374: Explanation needed.
 - `_DBMemoryAdapter.__getattr__` at line 379: Explanation needed.
 - `_DBMemoryAdapter.store_learning` at line 382: Store a learning entry, delegating to memory or local DB.
@@ -1577,53 +1832,53 @@ NIBLIT BRAIN MODULE - Enhanced Edition
 - `NiblitCloudBrain.reset_probe` at line 484: Force re-probe on the next :meth:`is_available` call.
 - `NiblitCloudBrain._probe` at line 488: Explanation needed.
 - `NiblitCloudBrain._headers` at line 499: Explanation needed.
-- `NiblitCloudBrain._request_json` at line 505: Perform one JSON request against the Cloud server root.
-- `NiblitCloudBrain.health` at line 529: Explanation needed.
-- `NiblitCloudBrain.runtime_status` at line 532: Explanation needed.
-- `NiblitCloudBrain.list_models` at line 535: Explanation needed.
-- `NiblitCloudBrain.chat_completion` at line 538: Explanation needed.
-- `NiblitCloudBrain._open_stream` at line 543: Explanation needed.
-- `NiblitCloudBrain.stream_chat_completion` at line 564: Pass Cloud SSE through without buffering the complete response.
-- `NiblitCloudBrain.open_chat_stream` at line 576: Open a Cloud SSE response before Core starts its HTTP response.
-- `NiblitCloudBrain.iter_chat_stream` at line 580: Read an already-open Cloud SSE response until completion/cancel.
-- `NiblitCloudBrain.chat` at line 593: Send a generation request to the cloud server and return the text.
-- `NiblitCloudBrain.ask` at line 698: Convenience wrapper: prepend *context* then call :meth:`chat`.
-- `BrainTrainer.__init__` at line 795: Explanation needed.
-- `BrainTrainer._load_from_memory` at line 817: Restore training data from persistent memory on start-up.
-- `BrainTrainer._persist_pair` at line 830: Persist a single training pair to memory.
-- `BrainTrainer.record_exchange` at line 844: Store a chat exchange as a training pair.
-- `BrainTrainer.ingest_research` at line 868: Ingest a research snippet from autonomous_learning into training data.
-- `BrainTrainer.ingest_knowledge_db` at line 902: Pull recent facts from KnowledgeDB into the trainer's fact store.
-- `BrainTrainer._get_cognitive_context_lines` at line 935: Return context lines for matching cognitive domains.
-- `BrainTrainer._get_facts_context_lines` at line 956: Return context lines for relevant knowledge facts.
-- `BrainTrainer._get_pairs_context_lines` at line 979: Return context lines for recent conversation exchanges.
-- `BrainTrainer.get_context_for` at line 997: Build a context prefix for the given query using stored training data.
-- `BrainTrainer.get_llm_data_summary` at line 1031: Return a summary of the accumulated LLM training data.
-- `BrainTrainer.update_cognitive_domain` at line 1044: Register and persist a live improvement for the given cognitive domain.
-- `BrainTrainer.ingest_evaluation_feedback` at line 1088: Feed evaluation/telemetry outcomes back into learning memory.
-- `BrainTrainer.get_cognitive_summary` at line 1123: Return per-domain counts and latest update timestamps.
-- `BrainTrainer._apply_cognitive_kb_item` at line 1134: Apply a single KnowledgeDB item to the cognitive domain store.
-- `BrainTrainer._sync_cognitive_kb_domains` at line 1145: Refresh cognitive-domain memories from KnowledgeDB without altering flow.
-- `BrainTrainer._ingest_latest_evaluation_feedback` at line 1158: Mirror the latest evaluation signal into trainer memory.
-- `BrainTrainer._ingest_quality_feedback` at line 1174: Publish recent quality scores into the reasoning cognitive domain.
-- `BrainTrainer._ingest_runtime_telemetry` at line 1189: Capture runtime telemetry as communication-domain cognition.
-- `BrainTrainer.run_training_cycle` at line 1201: Execute one training cycle: pull from knowledge_db and refresh all data.
-- `BrainTrainer.ingest_selfteach` at line 1229: Ingest self-teaching facts and quizzes from knowledge_db.
-- `BrainTrainer.run_self_teaching` at line 1261: Uses SelfTeacher to deeply learn each unique topic in memory/knowledge_db.
-- `NiblitBrain.__init__` at line 1345: Explanation needed.
-- `NiblitBrain.get_tools` at line 1543: Return a list of GPT tool definition dicts for all registered tool functions.
-- `NiblitBrain.call_tool` at line 1567: Dispatch an LLM tool-call response to the matching registered tool.
-- `NiblitBrain.process_query` at line 1599: Full Qdrant inference pipeline: retrieve semantic context then generate
-- `NiblitBrain._init_improvements` at line 1646: Initialize all production improvements.
-- `NiblitBrain.learn` at line 1737: Store learning with batch processing support.
-- `NiblitBrain.think` at line 1823: Think with circuit breaker protection and caching.
-- `NiblitBrain.handle_command` at line 2361: DEPRECATED: Commands are now handled by niblit_core.py via CommandRegistry.
-- `NiblitBrain.handle` at line 2438: Router compatibility wrapper.
-- `NiblitBrain._trigger_gap_learning` at line 2462: Queue *topic* for autonomous background research when the brain
-- `NiblitBrain.get_stats` at line 2488: Get brain statistics from all improvements.
-- `NiblitBrain.save_knowledge` at line 2521: Store structured knowledge and an optional embedding via fused memory.
-- `NiblitBrain.load_knowledge` at line 2550: Retrieve a piece of knowledge from the fused memory backend.
-- `NiblitBrain.retrieve_similar` at line 2569: Find knowledge entries semantically similar to *embedding*.
+- `NiblitCloudBrain._request_json` at line 507: Perform one JSON request against the Cloud server root.
+- `NiblitCloudBrain.health` at line 531: Explanation needed.
+- `NiblitCloudBrain.runtime_status` at line 534: Explanation needed.
+- `NiblitCloudBrain.list_models` at line 537: Explanation needed.
+- `NiblitCloudBrain.chat_completion` at line 540: Explanation needed.
+- `NiblitCloudBrain._open_stream` at line 547: Explanation needed.
+- `NiblitCloudBrain.stream_chat_completion` at line 568: Pass Cloud SSE through without buffering the complete response.
+- `NiblitCloudBrain.open_chat_stream` at line 580: Open a Cloud SSE response before Core starts its HTTP response.
+- `NiblitCloudBrain.iter_chat_stream` at line 584: Read an already-open Cloud SSE response until completion/cancel.
+- `NiblitCloudBrain.chat` at line 597: Send a generation request to the cloud server and return the text.
+- `NiblitCloudBrain.ask` at line 702: Convenience wrapper: prepend *context* then call :meth:`chat`.
+- `BrainTrainer.__init__` at line 799: Explanation needed.
+- `BrainTrainer._load_from_memory` at line 821: Restore training data from persistent memory on start-up.
+- `BrainTrainer._persist_pair` at line 834: Persist a single training pair to memory.
+- `BrainTrainer.record_exchange` at line 848: Store a chat exchange as a training pair.
+- `BrainTrainer.ingest_research` at line 872: Ingest a research snippet from autonomous_learning into training data.
+- `BrainTrainer.ingest_knowledge_db` at line 906: Pull recent facts from KnowledgeDB into the trainer's fact store.
+- `BrainTrainer._get_cognitive_context_lines` at line 939: Return context lines for matching cognitive domains.
+- `BrainTrainer._get_facts_context_lines` at line 960: Return context lines for relevant knowledge facts.
+- `BrainTrainer._get_pairs_context_lines` at line 983: Return context lines for recent conversation exchanges.
+- `BrainTrainer.get_context_for` at line 1001: Build a context prefix for the given query using stored training data.
+- `BrainTrainer.get_llm_data_summary` at line 1035: Return a summary of the accumulated LLM training data.
+- `BrainTrainer.update_cognitive_domain` at line 1048: Register and persist a live improvement for the given cognitive domain.
+- `BrainTrainer.ingest_evaluation_feedback` at line 1092: Feed evaluation/telemetry outcomes back into learning memory.
+- `BrainTrainer.get_cognitive_summary` at line 1127: Return per-domain counts and latest update timestamps.
+- `BrainTrainer._apply_cognitive_kb_item` at line 1138: Apply a single KnowledgeDB item to the cognitive domain store.
+- `BrainTrainer._sync_cognitive_kb_domains` at line 1149: Refresh cognitive-domain memories from KnowledgeDB without altering flow.
+- `BrainTrainer._ingest_latest_evaluation_feedback` at line 1162: Mirror the latest evaluation signal into trainer memory.
+- `BrainTrainer._ingest_quality_feedback` at line 1178: Publish recent quality scores into the reasoning cognitive domain.
+- `BrainTrainer._ingest_runtime_telemetry` at line 1193: Capture runtime telemetry as communication-domain cognition.
+- `BrainTrainer.run_training_cycle` at line 1205: Execute one training cycle: pull from knowledge_db and refresh all data.
+- `BrainTrainer.ingest_selfteach` at line 1233: Ingest self-teaching facts and quizzes from knowledge_db.
+- `BrainTrainer.run_self_teaching` at line 1265: Uses SelfTeacher to deeply learn each unique topic in memory/knowledge_db.
+- `NiblitBrain.__init__` at line 1349: Explanation needed.
+- `NiblitBrain.get_tools` at line 1547: Return a list of GPT tool definition dicts for all registered tool functions.
+- `NiblitBrain.call_tool` at line 1571: Dispatch an LLM tool-call response to the matching registered tool.
+- `NiblitBrain.process_query` at line 1603: Full Qdrant inference pipeline: retrieve semantic context then generate
+- `NiblitBrain._init_improvements` at line 1650: Initialize all production improvements.
+- `NiblitBrain.learn` at line 1741: Store learning with batch processing support.
+- `NiblitBrain.think` at line 1827: Think with circuit breaker protection and caching.
+- `NiblitBrain.handle_command` at line 2365: DEPRECATED: Commands are now handled by niblit_core.py via CommandRegistry.
+- `NiblitBrain.handle` at line 2442: Router compatibility wrapper.
+- `NiblitBrain._trigger_gap_learning` at line 2466: Queue *topic* for autonomous background research when the brain
+- `NiblitBrain.get_stats` at line 2492: Get brain statistics from all improvements.
+- `NiblitBrain.save_knowledge` at line 2525: Store structured knowledge and an optional embedding via fused memory.
+- `NiblitBrain.load_knowledge` at line 2554: Retrieve a piece of knowledge from the fused memory backend.
+- `NiblitBrain.retrieve_similar` at line 2573: Find knowledge entries semantically similar to *embedding*.
 
 ### niblit_core.py
 
@@ -1631,294 +1886,296 @@ niblit_core.py — NiblitCore: Production-Grade Autonomous AI Runtime with Full 
 
 - `_try_import` at line 127: Attempt to import *attr* from *dotted_path*.
 - `NiblitConfig` at line 474: Configuration for NiblitCore with environment variable support.
-- `StartupReport` at line 516: Track initialization status of each component.
-- `HealthCheckResult` at line 540: Result of comprehensive health check.
-- `PerformanceMetrics` at line 551: Track performance metrics for all operations.
-- `NiblitLogger` at line 578: Structured logging with context tracking.
-- `CachedOperation` at line 605: Simple cache with TTL for expensive operations.
-- `ModuleRegistry` at line 650: Registry for dynamically loaded modules with plugin support.
-- `_NoopLock` at line 711: Trivial no-op context manager used as a fallback when an object has no lock.
-- `sorted_walk` at line 719: os.walk wrapper that yields directories in sorted order.
-- `parse_intent` at line 726: Parse a user command string into (intent, meta) tuple.
-- `Stub` at line 756: Placeholder for optional modules that are unavailable.
-- `_FallbackDB` at line 765: Minimal no-op stub used when KnowledgeDB is unavailable.
-- `safe_import` at line 771: Import a class from the modules/ package, returning default on failure.
-- `hf_query` at line 1625: Execute a HuggingFace model query via HFBrain if available.
-- `LoopTracer` at line 1640: Thread-safe registry that captures structured error records from every
-- `NiblitCore` at line 1754: Production-Grade NiblitCore: Unified Autonomous AI Runtime with Full Self-Improvement
-- `NiblitConfig.__post_init__` at line 494: Explanation needed.
-- `NiblitConfig.from_env` at line 499: Load configuration from environment variables.
-- `StartupReport.add` at line 520: Record component initialization result.
-- `StartupReport.is_healthy` at line 524: Return True if all critical components initialized.
-- `StartupReport.summary` at line 532: Generate startup summary.
-- `PerformanceMetrics.record_operation` at line 557: Record operation execution.
-- `PerformanceMetrics.get_stats` at line 564: Get statistics for an operation.
-- `NiblitLogger.__init__` at line 581: Explanation needed.
-- `NiblitLogger.context` at line 586: Log operation entry/exit with context.
-- `NiblitLogger.get_context_depth` at line 600: Get current context stack depth.
-- `CachedOperation.__init__` at line 608: Explanation needed.
-- `CachedOperation.get` at line 614: Get cached value if not expired.
-- `CachedOperation.set` at line 625: Set cached value with timestamp.
-- `CachedOperation.cache_key` at line 632: Generate cache key from arguments.
-- `CachedOperation.clear_expired` at line 637: Remove all expired entries.
-- `ModuleRegistry.__init__` at line 653: Explanation needed.
-- `ModuleRegistry.register` at line 656: Register a module class.
-- `ModuleRegistry.load_from_directory` at line 661: Auto-discover and load modules from directory.
-- `ModuleRegistry.get` at line 684: Instantiate a registered module.
-- `_NoopLock.__enter__` at line 713: Explanation needed.
-- `_NoopLock.__exit__` at line 715: Explanation needed.
-- `Stub.__init__` at line 759: Explanation needed.
-- `Stub.__getattr__` at line 761: Explanation needed.
-- `_FallbackDB.__getattr__` at line 767: Explanation needed.
-- `LoopTracer.__init__` at line 1672: Explanation needed.
-- `LoopTracer._parse_frames` at line 1682: Explanation needed.
-- `LoopTracer.record` at line 1698: Record a loop error.  Safe to call from any thread.
-- `LoopTracer.get_errors` at line 1719: Return a snapshot of all recorded errors (thread-safe copy).
-- `LoopTracer.clear` at line 1725: Clear all recorded errors.
-- `LoopTracer.summary` at line 1731: Return a compact human-readable summary.
-- `NiblitCore.__init__` at line 1770: Initialize NiblitCore with optional config.
-- `NiblitCore._init_improvements` at line 2211: Initialize all production improvements.
-- `NiblitCore._init_with_timeout` at line 2324: Run *layer_fn* in a daemon thread; continue if it exceeds *timeout* seconds.
-- `NiblitCore._deferred_init` at line 2374: Phase-1 background initialization.
-- `NiblitCore.wait_for_initialization` at line 2444: Wait for all deferred layers without confusing essential readiness.
-- `NiblitCore.wait_for_ready` at line 2449: Wait for essential deferred initialization to finish.
-- `NiblitCore.readiness_status` at line 2467: Expose essential readiness separately from optional service health.
-- `NiblitCore._push_init_progress` at line 2482: Push a sub-phase progress message to the live init-progress queue.
-- `NiblitCore._command_registry_context` at line 2508: Return live runtime context for capability visibility decisions.
-- `NiblitCore._provider_status_snapshot` at line 2534: Read provider status without triggering provider initialization.
-- `NiblitCore._command_registry_snapshot` at line 2562: Return a static capability snapshot for command-registry consumers.
-- `NiblitCore._emit_capability_event` at line 2609: Publish capability lifecycle events through the canonical module bus.
-- `NiblitCore._dispatch_unified_runtime_command` at line 2635: Dispatch a runtime-native capability via the unified runtime.
-- `NiblitCore._dispatch_cognitive_ingress` at line 2644: Try the thin canonical cognitive path before deeper fallbacks.
-- `NiblitCore._cmd_runtime_capabilities` at line 2667: Show the canonical runtime capability registry snapshot.
-- `NiblitCore._register_commands` at line 2673: Register commands with CommandRegistry.
-- `NiblitCore._cmd_autonomous_start` at line 3245: Start autonomous learning engine.
-- `NiblitCore._cmd_autonomous_stop` at line 3253: Stop autonomous learning engine.
-- `NiblitCore._cmd_autonomous_status` at line 3261: Show autonomous learning status.
-- `NiblitCore._cmd_autonomous_code_status` at line 3333: Show programming literacy / code loop status in detail.
-- `NiblitCore._cmd_autonomous_add_topic` at line 3362: Add research topic to autonomous engine.
-- `NiblitCore._cmd_recall` at line 3382: Recall acquired data from KnowledgeDB matching a query.
-- `NiblitCore._cmd_acquired_data` at line 3415: Show acquired data stored in KnowledgeDB, optionally filtered by category.
-- `NiblitCore._cmd_knowledge_stats` at line 3457: Show a summary of all stored knowledge and ALE process awareness.
-- `NiblitCore._cmd_ale_process_awareness` at line 3479: Explain all Niblit ALE processes and how data flows through them.
-- `NiblitCore._cmd_show_improvements` at line 3554: Show all 10 self-improvement modules.
-- `NiblitCore._cmd_run_improvement_cycle` at line 3567: Run complete improvement cycle.
-- `NiblitCore._cmd_improvement_status` at line 3588: Show improvement system status.
-- `NiblitCore._cmd_show_new_commands` at line 3606: Show all commands added in recent updates.
-- `NiblitCore._cmd_agentic_run` at line 3692: Run a named agentic workflow, optionally with context key=value pairs.
-- `NiblitCore._cmd_agentic_list` at line 3716: List all registered agentic workflows.
-- `NiblitCore._cmd_agentic_status` at line 3728: Show agentic workflow module status.
-- `NiblitCore._cmd_enterprise_summary` at line 3747: Show enterprise operational summary.
-- `NiblitCore._cmd_enterprise_audit` at line 3753: Show recent audit log entries.
-- `NiblitCore._cmd_enterprise_health` at line 3770: Show component health report.
-- `NiblitCore._cmd_enterprise_sla` at line 3784: Show SLA metrics.
-- `NiblitCore._cmd_multimodal_process` at line 3801: Process content with multimodal intelligence.
-- `NiblitCore._cmd_multimodal_status` at line 3815: Show multimodal intelligence module status.
-- `NiblitCore._cmd_reasoning_build` at line 3837: Build knowledge graph from current KnowledgeDB facts.
-- `NiblitCore._cmd_reasoning_status` at line 3858: Show reasoning engine status.
-- `NiblitCore._cmd_reasoning_chain` at line 3869: Create a reasoning chain from the given concept.
-- `NiblitCore._cmd_reasoning_infer` at line 3878: Infer new knowledge from the current knowledge graph.
-- `NiblitCore._cmd_reasoning_cot` at line 3892: Run chain-of-thought reasoning for the given question.
-- `NiblitCore._cmd_reasoning_paths` at line 3916: Show multi-hop reasoning paths from the given concept.
-- `NiblitCore._cmd_reasoning_contradict` at line 3930: Detect potential contradictions in KB facts.
-- `NiblitCore._cmd_collab_status` at line 3957: Show collaborative learner status.
-- `NiblitCore._cmd_collab_register` at line 3972: Register a peer system: collab register <name> [cap1,cap2,...]
-- `NiblitCore._cmd_collab_request` at line 3984: Request knowledge from a peer: collab request <peer> <topic>
-- `NiblitCore._cmd_reload_module` at line 3999: Hot-reload a module at runtime.
-- `NiblitCore._cmd_upgrade` at line 4015: Reload all modules whose files changed on disk.
-- `NiblitCore._cmd_update_history` at line 4025: Show recent hot-reload history.
-- `NiblitCore._cmd_github_status` at line 4035: Show git status of the Niblit build directory.
-- `NiblitCore._cmd_github_pull` at line 4041: Pull the latest changes from GitHub into the build directory.
-- `NiblitCore._cmd_github_push` at line 4048: Push self-updates to GitHub. Optionally: 'github push <commit message>'
-- `NiblitCore._cmd_github_log` at line 4056: Show the last git commits from the build directory.
-- `NiblitCore._cmd_scan_build` at line 4070: Scan the Niblit build directory: list all files and subdirs.
-- `NiblitCore._cmd_read_build_file` at line 4091: Read a file from the Niblit build directory.
-- `NiblitCore._cmd_build_summary` at line 4105: Show a summary of the Niblit build directory.
-- `NiblitCore._cmd_build_path` at line 4111: Show the Niblit build path used by evolve and code generator.
-- `NiblitCore._cmd_tree_scan` at line 4129: Recursively list all files under *path* (or the repo root).
-- `NiblitCore._cmd_tree_read` at line 4160: Read and display the contents of a file at *path*.
-- `NiblitCore._cmd_tree_write` at line 4181: Write content to a file. Usage: tree write <path> <content>
-- `NiblitCore._cmd_tree_edit` at line 4201: Replace text in a file. Usage: tree edit <path> <old_text>||<new_text>
-- `NiblitCore._cmd_import_improvements` at line 4229: Scan the evolved/ directory, read improvement files, and hot-reload them.
-- `NiblitCore._cmd_sa_structure` at line 4311: Show full component inventory.
-- `NiblitCore._cmd_sa_threads` at line 4317: Show all active threads.
-- `NiblitCore._cmd_sa_loops` at line 4326: Show background loop status.
-- `NiblitCore._cmd_sa_modules` at line 4332: Show loaded Niblit modules.
-- `NiblitCore._cmd_sa_commands` at line 4338: Show all registered commands.
-- `NiblitCore._cmd_sa_dashboard` at line 4348: Show full runtime dashboard.
-- `NiblitCore._cmd_sa_flow` at line 4356: Show operational flow description.
-- `NiblitCore._cmd_sa_resources` at line 4362: Show resource usage.
-- `NiblitCore._cmd_sa_awareness` at line 4368: Show all structural awareness in one combined view.
-- `NiblitCore._cmd_sa_scripts` at line 4384: List every repo script and its function.
-- `NiblitCore._cmd_deploy_bridge` at line 4390: Cross-deployment state bridge commands.
-- `NiblitCore._cmd_autonomous_network` at line 4404: Autonomous network builder commands.
-- `NiblitCore._cmd_module_autonomy` at line 4422: Module autonomy framework commands.
-- `NiblitCore._cmd_autonomous_self_learn` at line 4444: Run the structural self-learn sequence immediately.
-- `NiblitCore._cmd_autonomous_evolve_sequence` at line 4453: Run the structured evolve sequence immediately.
-- `NiblitCore._cmd_autonomous_command_awareness` at line 4462: Trigger ALE Step 13: catalogue all registered commands into KnowledgeDB.
-- `NiblitCore._cmd_autonomous_command_exec` at line 4471: Trigger ALE Step 14: execute safe diagnostic commands autonomously.
-- `NiblitCore._cmd_autonomous_topic_seed` at line 4480: Trigger ALE Step 15: derive new topics from KB and seed to ALE + SLSA + KB queue.
-- `NiblitCore._cmd_autonomous_serpex_research` at line 4489: Trigger ALE Step 27: Serpex-backed validated web research with relevance filter.
-- `NiblitCore._cmd_autonomous_serpex_search` at line 4497: Live Serpex search with relevance filter.  Pass the query after 'serpex-search'.
-- `NiblitCore._cmd_generate_code` at line 4529: Generate code: 'python module name=my_mod docstring=Does X'
-- `NiblitCore._cmd_run_code` at line 4559: Run code: 'python print("hello")' — auto-fixes syntax errors if needed.
-- `NiblitCore._cmd_fix_code` at line 4571: Fix and run code: 'fix code python <code>' — diagnoses and auto-repairs errors.
-- `NiblitCore._cmd_validate_code` at line 4596: Validate syntax: 'validate python def foo(): pass'
-- `NiblitCore._cmd_study_language` at line 4611: Study a programming language.
-- `NiblitCore._cmd_list_templates` at line 4617: List available code templates.
-- `NiblitCore._cmd_available_languages` at line 4623: Show available languages for code compiler.
-- `NiblitCore._cmd_read_file` at line 4642: Read and display a file.
-- `NiblitCore._cmd_write_file` at line 4657: Write a file: '<filepath> <content>'
-- `NiblitCore._cmd_list_files` at line 4670: List files in a directory.
-- `NiblitCore._cmd_execute_file` at line 4689: Execute a file.
-- `NiblitCore._cmd_file_environment` at line 4704: Show filesystem environment info.
-- `NiblitCore._cmd_study_software` at line 4714: Study a software category.
-- `NiblitCore._cmd_software_categories` at line 4720: List software study categories.
-- `NiblitCore._cmd_analyze_architecture` at line 4726: Analyze a software architecture.
-- `NiblitCore._cmd_design_software` at line 4732: Generate a software design outline.
-- `NiblitCore._cmd_software_studied` at line 4738: Show what software has been studied.
-- `NiblitCore._cmd_evolve_step` at line 4748: Run one evolution step.
-- `NiblitCore._cmd_evolve_start` at line 4766: Start background evolution.
-- `NiblitCore._cmd_evolve_stop` at line 4774: Stop background evolution.
-- `NiblitCore._cmd_evolve_status` at line 4781: Show evolution status.
-- `NiblitCore._cmd_evolve_history` at line 4799: Show evolution history.
-- `NiblitCore._cmd_research_code` at line 4805: Research a programming language from the internet.
-- `NiblitCore._cmd_help` at line 4818: Help command.
-- `NiblitCore._cmd_loops_show` at line 4822: Explanation needed.
-- `NiblitCore._cmd_loops_hide` at line 4832: Explanation needed.
-- `NiblitCore._cmd_loops_status` at line 4842: Explanation needed.
-- `NiblitCore._loop_notify` at line 4883: Push a notification to the deque if loops_verbose is enabled.
-- `NiblitCore._cmd_routing_show` at line 4890: Explanation needed.
-- `NiblitCore._cmd_routing_hide` at line 4894: Explanation needed.
-- `NiblitCore._cmd_routing_status` at line 4898: Explanation needed.
-- `NiblitCore._cmd_chat_status` at line 4902: Return recent chat exchange info.
-- `NiblitCore._cmd_notifications` at line 4907: Return queued notifications.
-- `NiblitCore._cmd_confidence` at line 4916: Return Niblit's live meta-confidence report (additive).
-- `NiblitCore._cmd_swing_status` at line 4944: Return status of the FilteredSwingTraderV3 (additive).
-- `NiblitCore._cmd_swing_legs` at line 4951: Return last *last_n* trade legs as JSON (additive).
-- `NiblitCore._cmd_swing_explain` at line 4958: Explain the last swing entry signal (additive).
-- `NiblitCore._cmd_trainer_status` at line 4965: Return BackgroundTrainer status (additive).
-- `NiblitCore._cmd_ale` at line 4974: ALE persistent-state commands (additive).
-- `NiblitCore._cmd_memory_reset` at line 5060: Flush ALL of Niblit's memory, caches, and state files for a clean start.
-- `NiblitCore._cmd_reload_params` at line 5310: On-demand ParameterManager reload (additive).
-- `NiblitCore._cmd_run_selfheal` at line 5327: Explicit self-heal trigger with notification output (additive).
-- `NiblitCore._cmd_lean` at line 5375: Route a 'lean ...' command to the LeanEngine.
-- `NiblitCore._cmd_lean_deploy` at line 5490: Route 'lean deploy ...' to LeanDeployEngine (QuantConnect REST API).
-- `NiblitCore._cmd_market_data` at line 5610: Route 'market ...' commands to MarketDataProviders.
-- `NiblitCore._cmd_trading_study` at line 5732: Route 'trading study ...' commands to TradingStudy.
-- `NiblitCore._cmd_game` at line 5806: Route a 'game ...' command to the GameEngine.
-- `NiblitCore._cmd_file` at line 5911: Route a 'file ...' command to the UniversalFileManager.
-- `NiblitCore._cmd_hardware` at line 5974: Route 'hardware ...' commands to HardwareScanner.
-- `NiblitCore._cmd_os` at line 6012: Route 'os ...' commands to OSIntegration.
-- `NiblitCore._cmd_bios` at line 6074: Route 'bios ...' commands to BIOSIntegration.
-- `NiblitCore._cmd_krnl` at line 6108: Route 'krnl ...' commands to KernelIntegration.
-- `NiblitCore._cmd_device_ctrl` at line 6162: Route 'cmd exec / device ctrl' commands to DeviceControl.
-- `NiblitCore._cmd_mesh` at line 6220: Route 'mesh ...' commands to DeviceMesh.
-- `NiblitCore._cmd_github_deep` at line 6260: Route 'github-deep ...' commands to GitHubDeepResearch.
-- `NiblitCore._cmd_agents` at line 6302: Inspect and interact with the Phase-2 agent architecture.
-- `NiblitCore._cmd_dev_agent` at line 6381: Inspect NiblitDevAgent runtime/provider/architecture snapshots.
-- `NiblitCore._document_cognition_status` at line 6404: Return the governed document cognition status payload.
-- `NiblitCore._parse_document_cognition_options` at line 6411: Parse ingest arguments while preserving CLI defaults.
-- `NiblitCore._run_document_cognition_direct` at line 6430: Run ingestion directly when RuntimeManager is unavailable.
-- `NiblitCore._submit_document_cognition_task` at line 6444: Queue ingestion through RuntimeManager and return a stable status message.
-- `NiblitCore._pdf_ingestion_runtime_ready` at line 6466: Explanation needed.
-- `NiblitCore._select_pdf_via_native_windows_dialog` at line 6473: Return a selected PDF path using the native Windows OpenFileDialog.
-- `NiblitCore._ingest_pdf_file` at line 6525: Explanation needed.
-- `NiblitCore._cmd_pdf_ingest` at line 6556: Ingest a specific PDF path into the knowledge comprehension pipeline.
-- `NiblitCore._cmd_pdf_select_and_ingest` at line 6560: Select a PDF (Windows picker) and ingest into knowledge.
-- `NiblitCore._cmd_document_cognition` at line 6587: Run governed PDF document cognition through the runtime manager.
-- `NiblitCore._cmd_self_enhance` at line 6613: Trigger an explicit self-enhancement cycle.
-- `NiblitCore._cmd_status` at line 6637: Status command.
-- `NiblitCore._cmd_coherence` at line 6681: Phase 21: Temporal Coherence Layer inspection command.
-- `NiblitCore._cmd_health` at line 6726: Health check command.
-- `NiblitCore._cmd_metrics` at line 6741: Metrics command.
-- `NiblitCore._cmd_time` at line 6752: Time command.
-- `NiblitCore._cmd_slsa_status` at line 6756: SLSA status command.
-- `NiblitCore._cmd_slsa_start` at line 6760: SLSA start command.
-- `NiblitCore._cmd_slsa_stop` at line 6766: SLSA stop command.
-- `NiblitCore._cmd_slsa_restart` at line 6770: SLSA restart command.
-- `NiblitCore._cmd_self_research` at line 6776: Self-research command — uses self_researcher + internet directly, NOT LLM.
-- `NiblitCore._cmd_self_idea` at line 6811: Self-idea command — uses SelfIdeaImplementation directly, NOT LLM.
-- `NiblitCore._cmd_reflect` at line 6840: Reflect command — uses ReflectModule directly, NOT LLM.
-- `NiblitCore._cmd_self_implement` at line 6887: Self-implement command — uses SelfImplementer directly.
-- `NiblitCore._cmd_self_teach` at line 6914: Self-teach command — teaches a topic using SelfTeacher + internet research.
-- `NiblitCore._cmd_idea_implement` at line 6927: Generate and implement an idea using SelfIdeaImplementation.
-- `NiblitCore._cmd_search` at line 6947: Search command (uses internet directly, NOT LLM).
-- `NiblitCore._cmd_summary` at line 6961: Summary command (uses internet directly, NOT LLM).
-- `NiblitCore._cmd_run_diagnostics` at line 6972: Run the full niblit diagnostic suite (run_diagnostics.py) and return
-- `NiblitCore._cmd_run_live_test` at line 6997: Run the live command tester (live_command_tester.py) and return its
-- `NiblitCore._initialize_core` at line 7026: Initialize core components with explicit ordering.
-- `NiblitCore._init_database` at line 7033: Initialize database with fallback chain.
-- `NiblitCore._init_identity_and_security` at line 7054: Initialize identity and security modules.
-- `NiblitCore._init_internet` at line 7073: Initialize internet manager and GitHub Code Search client.
-- `NiblitCore._initialize_modules` at line 7169: Initialize all modules with dependency management.
-- `NiblitCore._verify_unified_loop` at line 7281: Verify that all layers are connected into one unified feedback loop.
-- `NiblitCore._refresh_unified_feedback_status` at line 7395: Refresh runtime status of the whole-system feedback loop.
-- `NiblitCore._arbitrate_turn_quality` at line 7471: Resolve per-turn quality into one domain-scoped runtime authority.
-- `NiblitCore._init_vector_store` at line 7569: Create a shared :class:`~modules.vector_store.VectorStore` singleton
-- `NiblitCore._init_ai_adapters` at line 7646: Initialize AI adapter modules.
-- `NiblitCore._init_brain_and_router` at line 7730: Initialize brain and router.
-- `NiblitCore._init_personality` at line 7841: Initialize NiblitPersonality for conversational responses.
-- `NiblitCore._init_learning_systems` at line 7856: Initialize learning-related systems.
-- `NiblitCore._init_system_services` at line 7915: Initialize system services.
-- `NiblitCore._init_optional_services` at line 7930: Initialize optional heavy modules including all improvements.
-- `NiblitCore._register_phase2_agent_instance` at line 9632: Register a Phase-2 agent on the runtime manager and local registry.
-- `NiblitCore._build_runtime_router_v2` at line 9646: Build the unified runtime router used by runtime-aware agents.
-- `NiblitCore._init_planner_agent` at line 9657: Register PlannerAgent task handlers when available.
-- `NiblitCore._init_research_agent` at line 9673: Register ResearchAgent task handlers when available.
-- `NiblitCore._init_coding_agent` at line 9691: Register CodingAgent task handlers when available.
-- `NiblitCore._init_testing_agent` at line 9708: Register TestingAgent task handlers when available.
-- `NiblitCore._init_reflection_agent` at line 9724: Register ReflectionAgent task handlers when available.
-- `NiblitCore._init_architecture_agent` at line 9740: Register ArchitectureAgent task handlers when available.
-- `NiblitCore._init_document_cognition_agent` at line 9757: Register the governed document cognition agent when available.
-- `NiblitCore._init_niblit_dev_agent` at line 9776: Register NiblitDevAgent with runtime manager and event bus wiring.
-- `NiblitCore._register_phase2_agents` at line 9808: Instantiate and register all available Phase-2 agents.
-- `NiblitCore._init_agents` at line 9826: Initialise the Phase-2 agent architecture (additive).
-- `NiblitCore._init_self_improvements` at line 9867: Initialize 10 self-improvement modules.
-- `NiblitCore._start_background_services` at line 9974: Start background services and loops.
-- `NiblitCore._start_sync_loops` at line 9988: Start synchronous background loops.
-- `NiblitCore._run_async_startup` at line 10013: Submit *coroutine* to the owned event loop and wait for its result.
-- `NiblitCore._start_trading_api` at line 10065: Start the port-8100 trading API from the main Niblit process.
-- `NiblitCore._verify_trading_api_readiness` at line 10123: Poll the trading API health and status endpoints with a bounded timeout.
-- `NiblitCore._start_async_loops` at line 10162: Start asynchronous background loops.
-- `NiblitCore._sleep_with_shutdown` at line 10186: Sleep in short intervals while allowing shutdown to interrupt promptly.
-- `NiblitCore._start_background_loop` at line 10195: Start a background thread and track it.
-- `NiblitCore._dump_monitoring_loop` at line 10216: Monitor dump loop health and log periodically. NO DUMP AT STARTUP.
-- `NiblitCore._async_health_loop` at line 10259: Async version of health loop.
-- `NiblitCore._async_trainer_loop` at line 10273: Async version of trainer loop.
-- `NiblitCore._async_auto_research_loop` at line 10292: Async version of auto research loop.
-- `NiblitCore._async_self_heal_loop` at line 10443: Async version of self heal loop.
-- `NiblitCore._health_loop` at line 10475: Monitor system health periodically.
-- `NiblitCore._trainer_loop` at line 10494: Run training cycles periodically.
-- `NiblitCore._auto_research_loop` at line 10511: Run autonomous research loop periodically.
-- `NiblitCore._self_heal_loop` at line 10698: Run self-healing loop periodically.
-- `NiblitCore._run_audit` at line 10728: Run repository audit via orchestrator tools.
-- `NiblitCore._run_self_heal_orchestrated` at line 10757: Run self-heal via orchestrator tools.
-- `NiblitCore._generate_fix_guide` at line 10770: Generate fix guide via orchestrator tools.
-- `NiblitCore._verify_imports_orchestrated` at line 10787: Verify module imports via orchestrator.
-- `NiblitCore._run_orchestration_pipeline` at line 10827: Run full orchestration pipeline (audit -> self-heal -> fix-guide -> verify).
-- `NiblitCore._hf_task` at line 10856: Execute a HuggingFace task.
-- `NiblitCore._start_slsa_engine` at line 10871: Start SLSA generator engine.
-- `NiblitCore._stop_slsa_engine` at line 10894: Stop SLSA generator engine.
-- `NiblitCore._restart_slsa_engine` at line 10911: Restart SLSA generator engine.
-- `NiblitCore._get_slsa_status` at line 10922: Get SLSA engine status.
-- `NiblitCore._get_memory_count` at line 10943: Return the number of stored memory entries, or 0 if unavailable.
-- `NiblitCore.get_memory_count` at line 10955: Public accessor for the number of stored memory entries.
-- `NiblitCore._trigger_learning` at line 10959: Invoke NiblitLearning on each conversation turn, queue follow-up tasks.
-- `NiblitCore.health_check` at line 11092: Comprehensive system health check.
-- `NiblitCore.handle` at line 11141: Process a user command and return a response.
-- `NiblitCore._handle_impl` at line 11155: Main handler with clean layered architecture.
-- `NiblitCore.help_text` at line 11828: Return the complete Niblit command reference.
-- `NiblitCore.get_loop_errors` at line 12065: Return all loop errors captured by the LoopTracer since startup.
-- `NiblitCore.loop_tracer_summary` at line 12069: Return a human-readable summary of all loop errors.
-- `NiblitCore.store_task_result` at line 12075: Persist a task result via the fused memory backend.
-- `NiblitCore.retrieve_task_result` at line 12105: Load a previously stored task result.
-- `NiblitCore.search_related_tasks` at line 12124: Find task results semantically similar to *embedding*.
-- `NiblitCore.list_all_tasks` at line 12149: Return all stored task results from the fused backend.
-- `NiblitCore.fortress_tick` at line 12163: Execute one complete FortressCycle via the CognitiveGraphKernel.
-- `NiblitCore.shutdown` at line 12186: Gracefully shutdown NiblitCore and all services.
-- Review: empty-body at line 715.
-- Review: empty-body at line 759.
+- `StartupReport` at line 518: Track initialization status of each component.
+- `HealthCheckResult` at line 542: Result of comprehensive health check.
+- `PerformanceMetrics` at line 553: Track performance metrics for all operations.
+- `NiblitLogger` at line 580: Structured logging with context tracking.
+- `CachedOperation` at line 607: Simple cache with TTL for expensive operations.
+- `ModuleRegistry` at line 652: Registry for dynamically loaded modules with plugin support.
+- `_NoopLock` at line 713: Trivial no-op context manager used as a fallback when an object has no lock.
+- `sorted_walk` at line 721: os.walk wrapper that yields directories in sorted order.
+- `parse_intent` at line 728: Parse a user command string into (intent, meta) tuple.
+- `Stub` at line 758: Placeholder for optional modules that are unavailable.
+- `_FallbackDB` at line 767: Minimal no-op stub used when KnowledgeDB is unavailable.
+- `safe_import` at line 773: Import a class from the modules/ package, returning default on failure.
+- `hf_query` at line 1627: Execute a HuggingFace model query via HFBrain if available.
+- `LoopTracer` at line 1642: Thread-safe registry that captures structured error records from every
+- `NiblitCore` at line 1756: Production-Grade NiblitCore: Unified Autonomous AI Runtime with Full Self-Improvement
+- `NiblitConfig.__post_init__` at line 495: Explanation needed.
+- `NiblitConfig.from_env` at line 500: Load configuration from environment variables.
+- `StartupReport.add` at line 522: Record component initialization result.
+- `StartupReport.is_healthy` at line 526: Return True if all critical components initialized.
+- `StartupReport.summary` at line 534: Generate startup summary.
+- `PerformanceMetrics.record_operation` at line 559: Record operation execution.
+- `PerformanceMetrics.get_stats` at line 566: Get statistics for an operation.
+- `NiblitLogger.__init__` at line 583: Explanation needed.
+- `NiblitLogger.context` at line 588: Log operation entry/exit with context.
+- `NiblitLogger.get_context_depth` at line 602: Get current context stack depth.
+- `CachedOperation.__init__` at line 610: Explanation needed.
+- `CachedOperation.get` at line 616: Get cached value if not expired.
+- `CachedOperation.set` at line 627: Set cached value with timestamp.
+- `CachedOperation.cache_key` at line 634: Generate cache key from arguments.
+- `CachedOperation.clear_expired` at line 639: Remove all expired entries.
+- `ModuleRegistry.__init__` at line 655: Explanation needed.
+- `ModuleRegistry.register` at line 658: Register a module class.
+- `ModuleRegistry.load_from_directory` at line 663: Auto-discover and load modules from directory.
+- `ModuleRegistry.get` at line 686: Instantiate a registered module.
+- `_NoopLock.__enter__` at line 715: Explanation needed.
+- `_NoopLock.__exit__` at line 717: Explanation needed.
+- `Stub.__init__` at line 761: Explanation needed.
+- `Stub.__getattr__` at line 763: Explanation needed.
+- `_FallbackDB.__getattr__` at line 769: Explanation needed.
+- `LoopTracer.__init__` at line 1674: Explanation needed.
+- `LoopTracer._parse_frames` at line 1684: Explanation needed.
+- `LoopTracer.record` at line 1700: Record a loop error.  Safe to call from any thread.
+- `LoopTracer.get_errors` at line 1721: Return a snapshot of all recorded errors (thread-safe copy).
+- `LoopTracer.clear` at line 1727: Clear all recorded errors.
+- `LoopTracer.summary` at line 1733: Return a compact human-readable summary.
+- `NiblitCore.__init__` at line 1772: Initialize NiblitCore with optional config.
+- `NiblitCore._init_command_registry` at line 2229: Initialize original handlers even when optional improvements are off.
+- `NiblitCore._init_improvements` at line 2247: Initialize all production improvements.
+- `NiblitCore._init_with_timeout` at line 2350: Run *layer_fn* in a daemon thread; continue if it exceeds *timeout* seconds.
+- `NiblitCore._deferred_init` at line 2400: Phase-1 background initialization.
+- `NiblitCore.wait_for_initialization` at line 2475: Wait for all deferred layers without confusing essential readiness.
+- `NiblitCore.wait_for_ready` at line 2480: Wait for essential deferred initialization to finish.
+- `NiblitCore.readiness_status` at line 2498: Expose essential readiness separately from optional service health.
+- `NiblitCore._push_init_progress` at line 2513: Push a sub-phase progress message to the live init-progress queue.
+- `NiblitCore._command_registry_context` at line 2539: Return live runtime context for capability visibility decisions.
+- `NiblitCore._provider_status_snapshot` at line 2565: Read provider status without triggering provider initialization.
+- `NiblitCore._command_registry_snapshot` at line 2593: Return a static capability snapshot for command-registry consumers.
+- `NiblitCore._emit_capability_event` at line 2640: Publish capability lifecycle events through the canonical module bus.
+- `NiblitCore._dispatch_unified_runtime_command` at line 2666: Dispatch a runtime-native capability via the unified runtime.
+- `NiblitCore._dispatch_cognitive_ingress` at line 2675: Try the thin canonical cognitive path before deeper fallbacks.
+- `NiblitCore._cmd_runtime_capabilities` at line 2698: Show the canonical runtime capability registry snapshot.
+- `NiblitCore._register_commands` at line 2704: Register commands with CommandRegistry.
+- `NiblitCore._prepare_queued_learning` at line 3276: Queued background learning proposes work; it never self-authorizes.
+- `NiblitCore._cmd_autonomous_start` at line 3289: Start the reviewed, local-only learning cycle through the owned ALE worker.
+- `NiblitCore._cmd_autonomous_stop` at line 3294: Cancel the owned ALE worker and report actual completion separately.
+- `NiblitCore._cmd_autonomous_status` at line 3299: Show autonomous learning status.
+- `NiblitCore._cmd_autonomous_code_status` at line 3371: Show programming literacy / code loop status in detail.
+- `NiblitCore._cmd_autonomous_add_topic` at line 3400: Add research topic to autonomous engine.
+- `NiblitCore._cmd_recall` at line 3420: Recall acquired data from KnowledgeDB matching a query.
+- `NiblitCore._cmd_acquired_data` at line 3453: Show acquired data stored in KnowledgeDB, optionally filtered by category.
+- `NiblitCore._cmd_knowledge_stats` at line 3495: Show a summary of all stored knowledge and ALE process awareness.
+- `NiblitCore._cmd_ale_process_awareness` at line 3517: Explain all Niblit ALE processes and how data flows through them.
+- `NiblitCore._cmd_show_improvements` at line 3592: Show all 10 self-improvement modules.
+- `NiblitCore._cmd_run_improvement_cycle` at line 3605: Run complete improvement cycle.
+- `NiblitCore._cmd_improvement_status` at line 3626: Show improvement system status.
+- `NiblitCore._cmd_show_new_commands` at line 3644: Show all commands added in recent updates.
+- `NiblitCore._cmd_agentic_run` at line 3730: Run a named agentic workflow, optionally with context key=value pairs.
+- `NiblitCore._cmd_agentic_list` at line 3754: List all registered agentic workflows.
+- `NiblitCore._cmd_agentic_status` at line 3766: Show agentic workflow module status.
+- `NiblitCore._cmd_enterprise_summary` at line 3785: Show enterprise operational summary.
+- `NiblitCore._cmd_enterprise_audit` at line 3791: Show recent audit log entries.
+- `NiblitCore._cmd_enterprise_health` at line 3808: Show component health report.
+- `NiblitCore._cmd_enterprise_sla` at line 3822: Show SLA metrics.
+- `NiblitCore._cmd_multimodal_process` at line 3839: Process content with multimodal intelligence.
+- `NiblitCore._cmd_multimodal_status` at line 3853: Show multimodal intelligence module status.
+- `NiblitCore._cmd_reasoning_build` at line 3875: Build knowledge graph from current KnowledgeDB facts.
+- `NiblitCore._cmd_reasoning_status` at line 3896: Show reasoning engine status.
+- `NiblitCore._cmd_reasoning_chain` at line 3907: Create a reasoning chain from the given concept.
+- `NiblitCore._cmd_reasoning_infer` at line 3916: Infer new knowledge from the current knowledge graph.
+- `NiblitCore._cmd_reasoning_cot` at line 3930: Run chain-of-thought reasoning for the given question.
+- `NiblitCore._cmd_reasoning_paths` at line 3954: Show multi-hop reasoning paths from the given concept.
+- `NiblitCore._cmd_reasoning_contradict` at line 3968: Detect potential contradictions in KB facts.
+- `NiblitCore._cmd_collab_status` at line 3995: Show collaborative learner status.
+- `NiblitCore._cmd_collab_register` at line 4010: Register a peer system: collab register <name> [cap1,cap2,...]
+- `NiblitCore._cmd_collab_request` at line 4022: Request knowledge from a peer: collab request <peer> <topic>
+- `NiblitCore._cmd_reload_module` at line 4037: Hot-reload a module at runtime.
+- `NiblitCore._cmd_upgrade` at line 4053: Reload all modules whose files changed on disk.
+- `NiblitCore._cmd_update_history` at line 4063: Show recent hot-reload history.
+- `NiblitCore._cmd_github_status` at line 4073: Show git status of the Niblit build directory.
+- `NiblitCore._cmd_github_pull` at line 4079: Pull the latest changes from GitHub into the build directory.
+- `NiblitCore._cmd_github_push` at line 4086: Push self-updates to GitHub. Optionally: 'github push <commit message>'
+- `NiblitCore._cmd_github_log` at line 4094: Show the last git commits from the build directory.
+- `NiblitCore._cmd_scan_build` at line 4108: Scan the Niblit build directory: list all files and subdirs.
+- `NiblitCore._cmd_read_build_file` at line 4129: Read a file from the Niblit build directory.
+- `NiblitCore._cmd_build_summary` at line 4143: Show a summary of the Niblit build directory.
+- `NiblitCore._cmd_build_path` at line 4149: Show the Niblit build path used by evolve and code generator.
+- `NiblitCore._cmd_tree_scan` at line 4167: Recursively list all files under *path* (or the repo root).
+- `NiblitCore._cmd_tree_read` at line 4198: Read and display the contents of a file at *path*.
+- `NiblitCore._cmd_tree_write` at line 4219: Write content to a file. Usage: tree write <path> <content>
+- `NiblitCore._cmd_tree_edit` at line 4239: Replace text in a file. Usage: tree edit <path> <old_text>||<new_text>
+- `NiblitCore._cmd_import_improvements` at line 4267: Scan the evolved/ directory, read improvement files, and hot-reload them.
+- `NiblitCore._cmd_sa_structure` at line 4349: Show full component inventory.
+- `NiblitCore._cmd_sa_threads` at line 4355: Show all active threads.
+- `NiblitCore._cmd_sa_loops` at line 4364: Show background loop status.
+- `NiblitCore._cmd_sa_modules` at line 4370: Show loaded Niblit modules.
+- `NiblitCore._cmd_sa_commands` at line 4376: Show all registered commands.
+- `NiblitCore._cmd_sa_dashboard` at line 4386: Show full runtime dashboard.
+- `NiblitCore._cmd_sa_flow` at line 4394: Show operational flow description.
+- `NiblitCore._cmd_sa_resources` at line 4400: Show resource usage.
+- `NiblitCore._cmd_sa_awareness` at line 4406: Show all structural awareness in one combined view.
+- `NiblitCore._cmd_sa_scripts` at line 4422: List every repo script and its function.
+- `NiblitCore._cmd_deploy_bridge` at line 4428: Cross-deployment state bridge commands.
+- `NiblitCore._cmd_autonomous_network` at line 4442: Autonomous network builder commands.
+- `NiblitCore._cmd_module_autonomy` at line 4460: Module autonomy framework commands.
+- `NiblitCore._cmd_autonomous_self_learn` at line 4482: Run the structural self-learn sequence immediately.
+- `NiblitCore._cmd_autonomous_evolve_sequence` at line 4491: Run the structured evolve sequence immediately.
+- `NiblitCore._cmd_autonomous_command_awareness` at line 4500: Trigger ALE Step 13: catalogue all registered commands into KnowledgeDB.
+- `NiblitCore._cmd_autonomous_command_exec` at line 4509: Trigger ALE Step 14: execute safe diagnostic commands autonomously.
+- `NiblitCore._cmd_autonomous_topic_seed` at line 4518: Trigger ALE Step 15: derive new topics from KB and seed to ALE + SLSA + KB queue.
+- `NiblitCore._cmd_autonomous_serpex_research` at line 4527: Trigger ALE Step 27: Serpex-backed validated web research with relevance filter.
+- `NiblitCore._cmd_autonomous_serpex_search` at line 4535: Live Serpex search with relevance filter.  Pass the query after 'serpex-search'.
+- `NiblitCore._cmd_generate_code` at line 4567: Generate code: 'python module name=my_mod docstring=Does X'
+- `NiblitCore._cmd_run_code` at line 4597: Run code: 'python print("hello")' — auto-fixes syntax errors if needed.
+- `NiblitCore._cmd_fix_code` at line 4609: Fix and run code: 'fix code python <code>' — diagnoses and auto-repairs errors.
+- `NiblitCore._cmd_validate_code` at line 4634: Validate syntax: 'validate python def foo(): pass'
+- `NiblitCore._cmd_study_language` at line 4649: Study a programming language.
+- `NiblitCore._cmd_list_templates` at line 4655: List available code templates.
+- `NiblitCore._cmd_available_languages` at line 4661: Show available languages for code compiler.
+- `NiblitCore._cmd_read_file` at line 4680: Read and display a file.
+- `NiblitCore._cmd_write_file` at line 4695: Write a file: '<filepath> <content>'
+- `NiblitCore._cmd_list_files` at line 4708: List files in a directory.
+- `NiblitCore._cmd_execute_file` at line 4727: Execute a file.
+- `NiblitCore._cmd_file_environment` at line 4742: Show filesystem environment info.
+- `NiblitCore._cmd_study_software` at line 4752: Study a software category.
+- `NiblitCore._cmd_software_categories` at line 4758: List software study categories.
+- `NiblitCore._cmd_analyze_architecture` at line 4764: Analyze a software architecture.
+- `NiblitCore._cmd_design_software` at line 4770: Generate a software design outline.
+- `NiblitCore._cmd_software_studied` at line 4776: Show what software has been studied.
+- `NiblitCore._cmd_evolve_step` at line 4786: Run one evolution step.
+- `NiblitCore._cmd_evolve_start` at line 4804: Start background evolution.
+- `NiblitCore._cmd_evolve_stop` at line 4816: Stop background evolution.
+- `NiblitCore._cmd_evolve_status` at line 4826: Show evolution status.
+- `NiblitCore._cmd_evolve_history` at line 4844: Show evolution history.
+- `NiblitCore._cmd_research_code` at line 4850: Research a programming language from the internet.
+- `NiblitCore._cmd_help` at line 4863: Help command.
+- `NiblitCore._cmd_loops_show` at line 4867: Explanation needed.
+- `NiblitCore._cmd_loops_hide` at line 4877: Explanation needed.
+- `NiblitCore._cmd_loops_status` at line 4887: Explanation needed.
+- `NiblitCore._loop_notify` at line 4928: Push a notification to the deque if loops_verbose is enabled.
+- `NiblitCore._cmd_routing_show` at line 4935: Explanation needed.
+- `NiblitCore._cmd_routing_hide` at line 4939: Explanation needed.
+- `NiblitCore._cmd_routing_status` at line 4943: Explanation needed.
+- `NiblitCore._cmd_chat_status` at line 4947: Return recent chat exchange info.
+- `NiblitCore._cmd_notifications` at line 4952: Return queued notifications.
+- `NiblitCore._cmd_confidence` at line 4961: Return Niblit's live meta-confidence report (additive).
+- `NiblitCore._cmd_swing_status` at line 4989: Return status of the FilteredSwingTraderV3 (additive).
+- `NiblitCore._cmd_swing_legs` at line 4996: Return last *last_n* trade legs as JSON (additive).
+- `NiblitCore._cmd_swing_explain` at line 5003: Explain the last swing entry signal (additive).
+- `NiblitCore._cmd_trainer_status` at line 5010: Return BackgroundTrainer status (additive).
+- `NiblitCore._cmd_ale` at line 5019: ALE persistent-state commands (additive).
+- `NiblitCore._cmd_memory_reset` at line 5105: Flush ALL of Niblit's memory, caches, and state files for a clean start.
+- `NiblitCore._cmd_reload_params` at line 5355: On-demand ParameterManager reload (additive).
+- `NiblitCore._cmd_run_selfheal` at line 5372: Explicit self-heal trigger with notification output (additive).
+- `NiblitCore._cmd_lean` at line 5420: Route a 'lean ...' command to the LeanEngine.
+- `NiblitCore._cmd_lean_deploy` at line 5535: Route 'lean deploy ...' to LeanDeployEngine (QuantConnect REST API).
+- `NiblitCore._cmd_market_data` at line 5655: Route 'market ...' commands to MarketDataProviders.
+- `NiblitCore._cmd_trading_study` at line 5777: Route 'trading study ...' commands to TradingStudy.
+- `NiblitCore._cmd_game` at line 5851: Route a 'game ...' command to the GameEngine.
+- `NiblitCore._cmd_file` at line 5956: Route a 'file ...' command to the UniversalFileManager.
+- `NiblitCore._cmd_hardware` at line 6019: Route 'hardware ...' commands to HardwareScanner.
+- `NiblitCore._cmd_os` at line 6057: Route 'os ...' commands to OSIntegration.
+- `NiblitCore._cmd_bios` at line 6119: Route 'bios ...' commands to BIOSIntegration.
+- `NiblitCore._cmd_krnl` at line 6153: Route 'krnl ...' commands to KernelIntegration.
+- `NiblitCore._cmd_device_ctrl` at line 6207: Route 'cmd exec / device ctrl' commands to DeviceControl.
+- `NiblitCore._cmd_mesh` at line 6265: Route 'mesh ...' commands to DeviceMesh.
+- `NiblitCore._cmd_github_deep` at line 6305: Route 'github-deep ...' commands to GitHubDeepResearch.
+- `NiblitCore._cmd_agents` at line 6347: Inspect and interact with the Phase-2 agent architecture.
+- `NiblitCore._cmd_dev_agent` at line 6426: Inspect NiblitDevAgent runtime/provider/architecture snapshots.
+- `NiblitCore._document_cognition_status` at line 6449: Return the governed document cognition status payload.
+- `NiblitCore._parse_document_cognition_options` at line 6456: Parse ingest arguments while preserving CLI defaults.
+- `NiblitCore._run_document_cognition_direct` at line 6475: Run ingestion directly when RuntimeManager is unavailable.
+- `NiblitCore._submit_document_cognition_task` at line 6489: Queue ingestion through RuntimeManager and return a stable status message.
+- `NiblitCore._pdf_ingestion_runtime_ready` at line 6511: Explanation needed.
+- `NiblitCore._select_pdf_via_native_windows_dialog` at line 6518: Return a selected PDF path using the native Windows OpenFileDialog.
+- `NiblitCore._ingest_pdf_file` at line 6570: Explanation needed.
+- `NiblitCore._cmd_pdf_ingest` at line 6601: Ingest a specific PDF path into the knowledge comprehension pipeline.
+- `NiblitCore._cmd_pdf_select_and_ingest` at line 6605: Select a PDF (Windows picker) and ingest into knowledge.
+- `NiblitCore._cmd_document_cognition` at line 6632: Run governed PDF document cognition through the runtime manager.
+- `NiblitCore._cmd_self_enhance` at line 6658: Trigger an explicit self-enhancement cycle.
+- `NiblitCore._cmd_status` at line 6682: Status command.
+- `NiblitCore._cmd_coherence` at line 6726: Phase 21: Temporal Coherence Layer inspection command.
+- `NiblitCore._cmd_health` at line 6771: Health check command.
+- `NiblitCore._cmd_metrics` at line 6786: Metrics command.
+- `NiblitCore._cmd_time` at line 6797: Time command.
+- `NiblitCore._cmd_slsa_status` at line 6801: SLSA status command.
+- `NiblitCore._cmd_slsa_start` at line 6805: SLSA start command.
+- `NiblitCore._cmd_slsa_stop` at line 6811: SLSA stop command.
+- `NiblitCore._cmd_slsa_restart` at line 6815: SLSA restart command.
+- `NiblitCore._cmd_self_research` at line 6821: Self-research command — uses self_researcher + internet directly, NOT LLM.
+- `NiblitCore._cmd_self_idea` at line 6856: Self-idea command — uses SelfIdeaImplementation directly, NOT LLM.
+- `NiblitCore._cmd_reflect` at line 6885: Reflect command — uses ReflectModule directly, NOT LLM.
+- `NiblitCore._cmd_self_implement` at line 6932: Self-implement command — uses SelfImplementer directly.
+- `NiblitCore._cmd_self_teach` at line 6959: Self-teach command — teaches a topic using SelfTeacher + internet research.
+- `NiblitCore._cmd_idea_implement` at line 6972: Generate and implement an idea using SelfIdeaImplementation.
+- `NiblitCore._cmd_search` at line 6992: Search command (uses internet directly, NOT LLM).
+- `NiblitCore._cmd_summary` at line 7006: Summary command (uses internet directly, NOT LLM).
+- `NiblitCore._cmd_run_diagnostics` at line 7017: Run the full niblit diagnostic suite (run_diagnostics.py) and return
+- `NiblitCore._cmd_run_live_test` at line 7042: Run the live command tester (live_command_tester.py) and return its
+- `NiblitCore._initialize_core` at line 7071: Initialize core components with explicit ordering.
+- `NiblitCore._init_database` at line 7078: Initialize database with fallback chain.
+- `NiblitCore._init_identity_and_security` at line 7099: Initialize identity and security modules.
+- `NiblitCore._init_internet` at line 7118: Initialize internet manager and GitHub Code Search client.
+- `NiblitCore._initialize_modules` at line 7214: Initialize all modules with dependency management.
+- `NiblitCore._verify_unified_loop` at line 7326: Verify that all layers are connected into one unified feedback loop.
+- `NiblitCore._refresh_unified_feedback_status` at line 7440: Refresh runtime status of the whole-system feedback loop.
+- `NiblitCore._arbitrate_turn_quality` at line 7516: Resolve per-turn quality into one domain-scoped runtime authority.
+- `NiblitCore._init_vector_store` at line 7614: Create a shared :class:`~modules.vector_store.VectorStore` singleton
+- `NiblitCore._init_ai_adapters` at line 7691: Initialize AI adapter modules.
+- `NiblitCore._init_brain_and_router` at line 7775: Initialize brain and router.
+- `NiblitCore._init_personality` at line 7886: Initialize NiblitPersonality for conversational responses.
+- `NiblitCore._init_learning_systems` at line 7901: Initialize learning-related systems.
+- `NiblitCore._init_system_services` at line 7960: Initialize system services.
+- `NiblitCore._init_optional_services` at line 7975: Initialize optional heavy modules including all improvements.
+- `NiblitCore._register_phase2_agent_instance` at line 9684: Register a Phase-2 agent on the runtime manager and local registry.
+- `NiblitCore._build_runtime_router_v2` at line 9698: Build the unified runtime router used by runtime-aware agents.
+- `NiblitCore._init_planner_agent` at line 9709: Register PlannerAgent task handlers when available.
+- `NiblitCore._init_research_agent` at line 9725: Register ResearchAgent task handlers when available.
+- `NiblitCore._init_coding_agent` at line 9743: Register CodingAgent task handlers when available.
+- `NiblitCore._init_testing_agent` at line 9760: Register TestingAgent task handlers when available.
+- `NiblitCore._init_reflection_agent` at line 9776: Register ReflectionAgent task handlers when available.
+- `NiblitCore._init_architecture_agent` at line 9792: Register ArchitectureAgent task handlers when available.
+- `NiblitCore._init_document_cognition_agent` at line 9809: Register the governed document cognition agent when available.
+- `NiblitCore._init_niblit_dev_agent` at line 9828: Register NiblitDevAgent with runtime manager and event bus wiring.
+- `NiblitCore._register_phase2_agents` at line 9860: Instantiate and register all available Phase-2 agents.
+- `NiblitCore._init_agents` at line 9878: Initialise the Phase-2 agent architecture (additive).
+- `NiblitCore._init_self_improvements` at line 9919: Initialize 10 self-improvement modules.
+- `NiblitCore._start_background_services` at line 10026: Start background services and loops.
+- `NiblitCore._start_sync_loops` at line 10040: Start synchronous background loops.
+- `NiblitCore._run_async_startup` at line 10065: Submit *coroutine* to the owned event loop and wait for its result.
+- `NiblitCore._start_trading_api` at line 10117: Start the port-8100 trading API from the main Niblit process.
+- `NiblitCore._verify_trading_api_readiness` at line 10175: Poll the trading API health and status endpoints with a bounded timeout.
+- `NiblitCore._start_async_loops` at line 10214: Start asynchronous background loops.
+- `NiblitCore._sleep_with_shutdown` at line 10238: Sleep in short intervals while allowing shutdown to interrupt promptly.
+- `NiblitCore._start_background_loop` at line 10247: Start a background thread and track it.
+- `NiblitCore._dump_monitoring_loop` at line 10268: Monitor dump loop health and log periodically. NO DUMP AT STARTUP.
+- `NiblitCore._async_health_loop` at line 10311: Async version of health loop.
+- `NiblitCore._async_trainer_loop` at line 10325: Async version of trainer loop.
+- `NiblitCore._async_auto_research_loop` at line 10344: Async version of auto research loop.
+- `NiblitCore._async_self_heal_loop` at line 10497: Async version of self heal loop.
+- `NiblitCore._health_loop` at line 10529: Monitor system health periodically.
+- `NiblitCore._trainer_loop` at line 10548: Run training cycles periodically.
+- `NiblitCore._auto_research_loop` at line 10565: Run autonomous research loop periodically.
+- `NiblitCore._self_heal_loop` at line 10754: Run self-healing loop periodically.
+- `NiblitCore._run_audit` at line 10784: Run repository audit via orchestrator tools.
+- `NiblitCore._run_self_heal_orchestrated` at line 10813: Run self-heal via orchestrator tools.
+- `NiblitCore._generate_fix_guide` at line 10826: Generate fix guide via orchestrator tools.
+- `NiblitCore._verify_imports_orchestrated` at line 10843: Verify module imports via orchestrator.
+- `NiblitCore._run_orchestration_pipeline` at line 10883: Run full orchestration pipeline (audit -> self-heal -> fix-guide -> verify).
+- `NiblitCore._hf_task` at line 10912: Execute a HuggingFace task.
+- `NiblitCore._start_slsa_engine` at line 10927: Start SLSA generator engine.
+- `NiblitCore._stop_slsa_engine` at line 10950: Stop SLSA generator engine.
+- `NiblitCore._restart_slsa_engine` at line 10968: Restart SLSA generator engine.
+- `NiblitCore._get_slsa_status` at line 10979: Get SLSA engine status.
+- `NiblitCore._get_memory_count` at line 11000: Return the number of stored memory entries, or 0 if unavailable.
+- `NiblitCore.get_memory_count` at line 11012: Public accessor for the number of stored memory entries.
+- `NiblitCore._trigger_learning` at line 11016: Invoke NiblitLearning on each conversation turn, queue follow-up tasks.
+- `NiblitCore.health_check` at line 11149: Comprehensive system health check.
+- `NiblitCore.handle` at line 11198: Process a user command and return a response.
+- `NiblitCore._handle_impl` at line 11212: Main handler with clean layered architecture.
+- `NiblitCore.help_text` at line 11885: Return the complete Niblit command reference.
+- `NiblitCore.get_loop_errors` at line 12122: Return all loop errors captured by the LoopTracer since startup.
+- `NiblitCore.loop_tracer_summary` at line 12126: Return a human-readable summary of all loop errors.
+- `NiblitCore.store_task_result` at line 12132: Persist a task result via the fused memory backend.
+- `NiblitCore.retrieve_task_result` at line 12162: Load a previously stored task result.
+- `NiblitCore.search_related_tasks` at line 12181: Find task results semantically similar to *embedding*.
+- `NiblitCore.list_all_tasks` at line 12206: Return all stored task results from the fused backend.
+- `NiblitCore.fortress_tick` at line 12220: Execute one complete FortressCycle via the CognitiveGraphKernel.
+- `NiblitCore.shutdown` at line 12243: Gracefully shutdown NiblitCore and all services.
+- Review: empty-body at line 717.
+- Review: empty-body at line 761.
 
 ### niblit_dashboard.py
 
@@ -2183,82 +2440,82 @@ NIBLIT ROUTER MODULE — FULLY ENHANCED WITH SELF-AWARENESS
 - `NiblitRouter._handle_self_teach` at line 1194: Handle self-teach command — uses SelfTeacher directly.
 - `NiblitRouter._handle_idea_implement` at line 1208: Handle idea-implement command — uses SelfIdeaImplementation directly.
 - `NiblitRouter._handle_autonomous_learn` at line 1226: Handle autonomous learning commands.
-- `NiblitRouter._handle_auto_research` at line 1428: Handle auto-research start / stop / status commands.
-- `NiblitRouter._handle_trading` at line 1499: Handle autonomous trading-brain commands.
-- `NiblitRouter._handle_builds_integration` at line 1627: Handle builds/python script integration commands.
-- `NiblitRouter._handle_refresh_topics` at line 1749: Trigger an on-demand dynamic topic refresh via DynamicTopicManager.
-- `NiblitRouter._handle_reload_params` at line 1824: Trigger an on-demand reload of ParameterManager.
-- `NiblitRouter._handle_run_selfheal` at line 1849: Trigger a self-heal / self-repair cycle explicitly.
-- `NiblitRouter._handle_lean` at line 1882: Route 'lean ...' commands to the LeanEngine / LeanDeployEngine / LeanAlgoManager.
-- `NiblitRouter._handle_lean_algo` at line 1922: Route 'lean algo <sub>' to LeanAlgoManager.
-- `NiblitRouter._handle_market_data` at line 2017: Route 'market ...' commands to MarketDataProviders.
-- `NiblitRouter._handle_trading_study` at line 2039: Route 'trading study ...' commands to TradingStudy.
-- `NiblitRouter._handle_hardware` at line 2062: Route 'hardware ...' commands to HardwareScanner.
-- `NiblitRouter._handle_os` at line 2074: Route 'os ...' / 'platform ...' commands to OSIntegration.
-- `NiblitRouter._handle_bios` at line 2086: Route 'bios ...' commands to BIOSIntegration.
-- `NiblitRouter._handle_krnl` at line 2098: Route 'krnl ...' / 'kernel ...' commands to KernelIntegration.
-- `NiblitRouter._handle_device_ctrl` at line 2110: Route 'cmd exec ...' / 'ctrl ...' commands to DeviceControl.
-- `NiblitRouter._handle_mesh` at line 2122: Route 'mesh ...' commands to DeviceMesh.
-- `NiblitRouter._handle_github_deep` at line 2134: Route 'github-deep ...' commands to GitHubDeepResearch.
-- `NiblitRouter._handle_security` at line 2146: Route 'security ...' / 'sec-membrane ...' commands.
-- `NiblitRouter._handle_cyber_membrane` at line 2176: Route 'cyber ...' / 'membrane ...' commands to the advanced CyberMembrane.
-- `NiblitRouter._handle_evolution` at line 2219: Route 'evolution ...' / 'evo ...' commands to the DefensiveEvolutionLoop.
-- `NiblitRouter._handle_cognitive_graph_kernel` at line 2266: Route 'cgk ...' / 'cognitive-graph ...' commands to the CognitiveGraphKernel.
-- `NiblitRouter._handle_fortress` at line 2337: Route 'fortress ...' commands to the FortressCycle / CognitiveGraphKernel.
-- `NiblitRouter._handle_universe` at line 2424: Route 'universe ...' commands to the UniverseRegistry.
-- `NiblitRouter._handle_evolution_queue` at line 2459: Route 'evq ...' / 'evolution-queue ...' commands to the EvolutionQueue.
-- `NiblitRouter._handle_env_state` at line 2501: Route 'env-state ...' commands.
-- `NiblitRouter._handle_env_adapter` at line 2537: Route 'env-adapter ...' commands.
-- `NiblitRouter._handle_niblit_runtime` at line 2570: Route 'niblit-runtime ...' / 'nrt ...' commands.
-- `NiblitRouter._handle_game` at line 2611: Route 'game ...' commands to the GameEngine via NiblitCore._cmd_game().
-- `NiblitRouter._handle_file` at line 2632: Route 'file ...' commands to the UniversalFileManager via NiblitCore._cmd_file().
-- `NiblitRouter._handle_hf_brain` at line 2653: Route 'hf-status/enable/disable/ask ...' commands to HFBrain.
-- `NiblitRouter._handle_llm_provider` at line 2702: Route ``llm-provider ...`` commands.
-- `NiblitRouter._handle_chat_memory` at line 2838: Route 'chat-memory ...' commands to LLMChatMemory.
-- `NiblitRouter._handle_llm_train` at line 2898: Route 'llm-train ...' commands to LLMTrainingAgent.
-- `NiblitRouter._handle_deploy_bridge` at line 2976: Route 'deploy-bridge ...' commands to DeploymentBridge.
-- `NiblitRouter._handle_autonomous_network` at line 3003: Route 'net ...' / 'autonomous-network ...' commands.
-- `NiblitRouter._handle_module_autonomy` at line 3038: Route 'autonomy ...' / 'module-autonomy ...' commands.
-- `NiblitRouter._handle_agents` at line 3068: Route 'agents ...' commands to core._cmd_agents().
-- `NiblitRouter._handle_self_enhance` at line 3083: Route 'self-enhance ...' to core._cmd_self_enhance().
-- `NiblitRouter._handle_confidence` at line 3097: Handle 'confidence [snapshot|tree|rich]' commands.
-- `NiblitRouter._handle_trading_swing` at line 3124: Handle 'trading swing ...' commands for FilteredSwingTraderV3.
-- `NiblitRouter._handle_trainer` at line 3171: Handle 'trainer status' command (additive).
-- `NiblitRouter._handle_curriculum` at line 3185: Handle 'curriculum <sub-command>' for education-system learning progression.
-- `NiblitRouter._handle_civilization` at line 3257: Handle 'civilization <sub-command>' for the STACA multi-agent framework.
-- `NiblitRouter._handle_ale` at line 3384: Handle 'ale <sub-command>' for ALE checkpoint / resume / backtrack.
-- `NiblitRouter._handle_msg_layer` at line 3410: Route 'msg ...' / 'meta-cognition ...' commands to the MSG Layer.
-- `NiblitRouter._handle_brain` at line 3544: Handle 'brain [status|mode <m>]' commands — Hybrid Brain Architecture.
-- `NiblitRouter._handle_qwen` at line 3597: Handle 'qwen <sub-command>' — Qwen local copilot, memory manager, and coach.
-- `NiblitRouter._handle_llama3` at line 3717: Handle 'llama3 <sub-command>' — Llama 3.2 local copilot, memory manager, and coach.
-- `NiblitRouter._handle_local_model` at line 3877: Handle 'local-model' commands — switch between local model presets.
-- `NiblitRouter._handle_backend` at line 3973: Handle 'backend' commands — toggle the active llama-server URL at runtime.
-- `NiblitRouter._handle_heal_kb` at line 4079: Handle 'heal kb' commands — AI-driven KB health repair using tool calling.
-- `NiblitRouter._handle_self_monitor` at line 4235: Handle 'self-monitor <sub>' commands.
-- `NiblitRouter._handle_tools` at line 4261: Handle 'tools <sub>' — introspect and test the Niblit AI tool suite.
-- `NiblitRouter._handle_knowledge` at line 4400: Handle 'knowledge <topic>' — query the Tiered Knowledge System.
-- `NiblitRouter._handle_graph_rag` at line 4560: Handle 'graph-rag <sub>' commands — 3-Tiered Graph-RAG pipeline.
-- `NiblitRouter._handle_chat` at line 4676: Handle 'chat <sub>' commands — conversational chat completions engine.
-- `NiblitRouter._handle_study` at line 4761: Handle 'study <sub>' commands — academic study sessions.
-- `NiblitRouter._handle_kernel` at line 4864: Handle 'kernel <sub>' commands — NiblitKernel cognitive dashboard.
-- `NiblitRouter._handle_hybrid_qdrant` at line 4909: Handle 'hybrid-search <query>' commands.
-- `NiblitRouter._handle_stream` at line 4935: Handle real-time Binance WebSocket stream commands.
-- `NiblitRouter._handle_loops` at line 5072: Explanation needed.
-- `NiblitRouter._handle_routing` at line 5091: Explanation needed.
-- `NiblitRouter._handle_unified_runtime_cmd` at line 5107: Forward unified runtime/retrieval commands to UnifiedRuntime.CommandRuntime.
-- `NiblitRouter._handle_github` at line 5119: Route github sync commands.
-- `NiblitRouter._handle_build` at line 5149: Route build scanner commands.
-- `NiblitRouter._get_chat_response` at line 5209: Generate contextual chat response
-- `NiblitRouter._get_llm_free_response` at line 5240: Generate intelligent response using internet + self-research
-- `NiblitRouter._get_knowledge_share_response` at line 5280: Return a curated digest of what Niblit has actually been learning about.
-- `NiblitRouter._get_kb_response` at line 5422: Search the knowledge base for facts relevant to *query* and compose
-- `NiblitRouter._get_conversational_response` at line 5800: Return a direct, self-composed answer for conversational messages
-- `NiblitRouter._trigger_gap_learning` at line 5916: Called when Niblit has no stored knowledge about *topic*.
-- `NiblitRouter._format_research_response` at line 6077: Format research results into readable response
-- `NiblitRouter.process` at line 6109: Explanation needed.
-- `NiblitRouter._process_inner` at line 6144: Internal routing logic — called by process() with ALE already paused.
-- `NiblitRouter.handle_command` at line 6362: Explanation needed.
-- `NiblitRouter.help_text` at line 7310: Return comprehensive help text covering every command in Niblit.
+- `NiblitRouter._handle_auto_research` at line 1428: Start one governed local evidence cycle, stop owned work, or inspect status.
+- `NiblitRouter._handle_trading` at line 1478: Handle autonomous trading-brain commands.
+- `NiblitRouter._handle_builds_integration` at line 1606: Handle builds/python script integration commands.
+- `NiblitRouter._handle_refresh_topics` at line 1728: Trigger an on-demand dynamic topic refresh via DynamicTopicManager.
+- `NiblitRouter._handle_reload_params` at line 1803: Trigger an on-demand reload of ParameterManager.
+- `NiblitRouter._handle_run_selfheal` at line 1828: Trigger a self-heal / self-repair cycle explicitly.
+- `NiblitRouter._handle_lean` at line 1861: Route 'lean ...' commands to the LeanEngine / LeanDeployEngine / LeanAlgoManager.
+- `NiblitRouter._handle_lean_algo` at line 1901: Route 'lean algo <sub>' to LeanAlgoManager.
+- `NiblitRouter._handle_market_data` at line 1996: Route 'market ...' commands to MarketDataProviders.
+- `NiblitRouter._handle_trading_study` at line 2018: Route 'trading study ...' commands to TradingStudy.
+- `NiblitRouter._handle_hardware` at line 2041: Route 'hardware ...' commands to HardwareScanner.
+- `NiblitRouter._handle_os` at line 2053: Route 'os ...' / 'platform ...' commands to OSIntegration.
+- `NiblitRouter._handle_bios` at line 2065: Route 'bios ...' commands to BIOSIntegration.
+- `NiblitRouter._handle_krnl` at line 2077: Route 'krnl ...' / 'kernel ...' commands to KernelIntegration.
+- `NiblitRouter._handle_device_ctrl` at line 2089: Route 'cmd exec ...' / 'ctrl ...' commands to DeviceControl.
+- `NiblitRouter._handle_mesh` at line 2101: Route 'mesh ...' commands to DeviceMesh.
+- `NiblitRouter._handle_github_deep` at line 2113: Route 'github-deep ...' commands to GitHubDeepResearch.
+- `NiblitRouter._handle_security` at line 2125: Route 'security ...' / 'sec-membrane ...' commands.
+- `NiblitRouter._handle_cyber_membrane` at line 2155: Route 'cyber ...' / 'membrane ...' commands to the advanced CyberMembrane.
+- `NiblitRouter._handle_evolution` at line 2198: Route 'evolution ...' / 'evo ...' commands to the DefensiveEvolutionLoop.
+- `NiblitRouter._handle_cognitive_graph_kernel` at line 2245: Route 'cgk ...' / 'cognitive-graph ...' commands to the CognitiveGraphKernel.
+- `NiblitRouter._handle_fortress` at line 2316: Route 'fortress ...' commands to the FortressCycle / CognitiveGraphKernel.
+- `NiblitRouter._handle_universe` at line 2403: Route 'universe ...' commands to the UniverseRegistry.
+- `NiblitRouter._handle_evolution_queue` at line 2438: Route 'evq ...' / 'evolution-queue ...' commands to the EvolutionQueue.
+- `NiblitRouter._handle_env_state` at line 2480: Route 'env-state ...' commands.
+- `NiblitRouter._handle_env_adapter` at line 2516: Route 'env-adapter ...' commands.
+- `NiblitRouter._handle_niblit_runtime` at line 2549: Route 'niblit-runtime ...' / 'nrt ...' commands.
+- `NiblitRouter._handle_game` at line 2590: Route 'game ...' commands to the GameEngine via NiblitCore._cmd_game().
+- `NiblitRouter._handle_file` at line 2611: Route 'file ...' commands to the UniversalFileManager via NiblitCore._cmd_file().
+- `NiblitRouter._handle_hf_brain` at line 2632: Route 'hf-status/enable/disable/ask ...' commands to HFBrain.
+- `NiblitRouter._handle_llm_provider` at line 2681: Route ``llm-provider ...`` commands.
+- `NiblitRouter._handle_chat_memory` at line 2817: Route 'chat-memory ...' commands to LLMChatMemory.
+- `NiblitRouter._handle_llm_train` at line 2877: Route 'llm-train ...' commands to LLMTrainingAgent.
+- `NiblitRouter._handle_deploy_bridge` at line 2955: Route 'deploy-bridge ...' commands to DeploymentBridge.
+- `NiblitRouter._handle_autonomous_network` at line 2982: Route 'net ...' / 'autonomous-network ...' commands.
+- `NiblitRouter._handle_module_autonomy` at line 3017: Route 'autonomy ...' / 'module-autonomy ...' commands.
+- `NiblitRouter._handle_agents` at line 3047: Route 'agents ...' commands to core._cmd_agents().
+- `NiblitRouter._handle_self_enhance` at line 3062: Route 'self-enhance ...' to core._cmd_self_enhance().
+- `NiblitRouter._handle_confidence` at line 3076: Handle 'confidence [snapshot|tree|rich]' commands.
+- `NiblitRouter._handle_trading_swing` at line 3103: Handle 'trading swing ...' commands for FilteredSwingTraderV3.
+- `NiblitRouter._handle_trainer` at line 3150: Handle 'trainer status' command (additive).
+- `NiblitRouter._handle_curriculum` at line 3164: Handle 'curriculum <sub-command>' for education-system learning progression.
+- `NiblitRouter._handle_civilization` at line 3236: Handle 'civilization <sub-command>' for the STACA multi-agent framework.
+- `NiblitRouter._handle_ale` at line 3363: Handle 'ale <sub-command>' for ALE checkpoint / resume / backtrack.
+- `NiblitRouter._handle_msg_layer` at line 3389: Route 'msg ...' / 'meta-cognition ...' commands to the MSG Layer.
+- `NiblitRouter._handle_brain` at line 3523: Handle 'brain [status|mode <m>]' commands — Hybrid Brain Architecture.
+- `NiblitRouter._handle_qwen` at line 3576: Handle 'qwen <sub-command>' — Qwen local copilot, memory manager, and coach.
+- `NiblitRouter._handle_llama3` at line 3696: Handle 'llama3 <sub-command>' — Llama 3.2 local copilot, memory manager, and coach.
+- `NiblitRouter._handle_local_model` at line 3856: Handle 'local-model' commands — switch between local model presets.
+- `NiblitRouter._handle_backend` at line 3952: Handle 'backend' commands — toggle the active llama-server URL at runtime.
+- `NiblitRouter._handle_heal_kb` at line 4058: Handle 'heal kb' commands — AI-driven KB health repair using tool calling.
+- `NiblitRouter._handle_self_monitor` at line 4214: Handle 'self-monitor <sub>' commands.
+- `NiblitRouter._handle_tools` at line 4240: Handle 'tools <sub>' — introspect and test the Niblit AI tool suite.
+- `NiblitRouter._handle_knowledge` at line 4379: Handle 'knowledge <topic>' — query the Tiered Knowledge System.
+- `NiblitRouter._handle_graph_rag` at line 4539: Handle 'graph-rag <sub>' commands — 3-Tiered Graph-RAG pipeline.
+- `NiblitRouter._handle_chat` at line 4655: Handle 'chat <sub>' commands — conversational chat completions engine.
+- `NiblitRouter._handle_study` at line 4740: Handle 'study <sub>' commands — academic study sessions.
+- `NiblitRouter._handle_kernel` at line 4843: Handle 'kernel <sub>' commands — NiblitKernel cognitive dashboard.
+- `NiblitRouter._handle_hybrid_qdrant` at line 4888: Handle 'hybrid-search <query>' commands.
+- `NiblitRouter._handle_stream` at line 4914: Handle real-time Binance WebSocket stream commands.
+- `NiblitRouter._handle_loops` at line 5051: Explanation needed.
+- `NiblitRouter._handle_routing` at line 5070: Explanation needed.
+- `NiblitRouter._handle_unified_runtime_cmd` at line 5086: Forward unified runtime/retrieval commands to UnifiedRuntime.CommandRuntime.
+- `NiblitRouter._handle_github` at line 5098: Route github sync commands.
+- `NiblitRouter._handle_build` at line 5128: Route build scanner commands.
+- `NiblitRouter._get_chat_response` at line 5188: Generate contextual chat response
+- `NiblitRouter._get_llm_free_response` at line 5219: Generate intelligent response using internet + self-research
+- `NiblitRouter._get_knowledge_share_response` at line 5259: Return a curated digest of what Niblit has actually been learning about.
+- `NiblitRouter._get_kb_response` at line 5401: Search the knowledge base for facts relevant to *query* and compose
+- `NiblitRouter._get_conversational_response` at line 5779: Return a direct, self-composed answer for conversational messages
+- `NiblitRouter._trigger_gap_learning` at line 5895: Called when Niblit has no stored knowledge about *topic*.
+- `NiblitRouter._format_research_response` at line 6056: Format research results into readable response
+- `NiblitRouter.process` at line 6088: Explanation needed.
+- `NiblitRouter._process_inner` at line 6123: Internal routing logic — called by process() with ALE already paused.
+- `NiblitRouter.handle_command` at line 6341: Explanation needed.
+- `NiblitRouter.help_text` at line 7289: Return comprehensive help text covering every command in Niblit.
 
 ### niblit_sensors_full.py
 
@@ -2371,93 +2628,122 @@ Module purpose needs a human explanation.
 
 Module purpose needs a human explanation.
 
-- `_resolve_cors_origins` at line 54: Resolve allowed CORS origins for niblit-ui and other API clients.
-- `bind_core` at line 84: Bind an existing NiblitCore from the main runtime (avoids duplicate init).
-- `get_core` at line 90: Return a shared NiblitCore instance, initializing it on first call.
-- `_get_unified_runtime` at line 98: Explanation needed.
-- `_ts` at line 157: Return a UTC timestamp string matching the NiblitIO format.
-- `_list_threads` at line 162: Return the live thread list as a newline-separated string.
-- `_get_boot_messages` at line 174: Return boot messages, generating them on the first call.
-- `_suggest_command` at line 193: Return close-match command suggestions.
-- `_build_dashboard` at line 1062: Inject COMMANDS and SEARCH_PROVIDERS into the dashboard HTML template.
-- `ChatBody` at line 1080: Explanation needed.
-- `upload_chat_attachment` at line 1088: Explanation needed.
-- `AttachmentContextBody` at line 1101: Explanation needed.
-- `chat_attachment_context` at line 1107: Explanation needed.
-- `_has_project_file_cue` at line 1150: Explanation needed.
-- `_is_project_file_followup` at line 1155: Explanation needed.
-- `_project_file_sources` at line 1181: Explanation needed.
-- `_explicit_project_pdf_path` at line 1195: Explanation needed.
-- `_unsupported_pdf_numbers` at line 1204: Return numeric claims absent from a PDF's extracted text.
-- `_prior_project_file_sources` at line 1231: Explanation needed.
-- `_answer_project_file_question` at line 1245: Run file questions through the same schema-validated governed tool loop.
-- `InferenceMessage` at line 1444: Explanation needed.
-- `InferenceChatBody` at line 1449: Explanation needed.
-- `_is_registered_chat_command` at line 1463: Explanation needed.
-- `_model_backed_chat` at line 1475: Explanation needed.
-- `_configured_openai_models` at line 1523: Explanation needed.
-- `_openai_chat_completion` at line 1531: Explanation needed.
-- `dashboard` at line 1551: Explanation needed.
-- `health` at line 1556: Lightweight liveness probe — does not initialize NiblitCore.
-- `ping` at line 1562: Explanation needed.
-- `chat` at line 1568: Explanation needed.
-- `inference_health` at line 1622: Return live Cloud health through the Core boundary.
-- `inference_budget_status` at line 1636: Explanation needed.
-- `inference_models` at line 1645: Expose Cloud's executable model inventory through Core.
-- `inference_chat` at line 1663: Core-owned inference bridge to the authoritative Cloud runtime.
-- `memory` at line 1769: Explanation needed.
-- `api_boot` at line 1783: Return boot messages (mirrors app.py /api/boot and main.py boot()).
-- `api_commands` at line 1797: Return the sidebar COMMANDS catalogue (mirrors niblit_dashboard.py COMMANDS).
-- `memory_framework_status` at line 1803: Explanation needed.
-- `MemoryQueryBody` at line 1812: Explanation needed.
-- `memory_framework_search` at line 1819: Explanation needed.
-- `api_desktop_section` at line 1833: Read actual subsystem data through Core; this endpoint performs no actions.
-- `CommandExecuteRequest` at line 1849: Explanation needed.
-- `PaperControlBody` at line 1854: Explanation needed.
-- `PaperDecisionBody` at line 1857: Explanation needed.
-- `PaperStepBody` at line 1862: Explanation needed.
-- `PaperReplayBody` at line 1866: Explanation needed.
-- `_paper_operation` at line 1871: Explanation needed.
-- `paper_status` at line 1878: Explanation needed.
-- `paper_control` at line 1881: Explanation needed.
-- `paper_decision` at line 1884: Explanation needed.
-- `paper_advice` at line 1887: Explanation needed.
-- `paper_step` at line 1890: Explanation needed.
-- `paper_replay` at line 1893: Explanation needed.
-- `api_commands_governed` at line 1897: Phase 5E: governed command registry with truthful runtime states.
-- `environment_tool_runs` at line 1910: Explanation needed.
-- `handle_steward_pending` at line 1916: Explanation needed.
-- `start_environment_tool` at line 1927: Explanation needed.
-- `control_environment_tool` at line 1936: Explanation needed.
-- `review_environment_tool` at line 1949: Explicit user-triggered inference; never automatically spends on polling.
-- `OperatorCommandRequest` at line 1975: Explanation needed.
-- `api_operator_commands` at line 1980: Explanation needed.
-- `api_operator_command_execute` at line 1986: Explanation needed.
-- `api_commands_surface` at line 1993: Phase 5G: the COMPLETE original command surface, reconciled.
-- `api_commands_execute` at line 2010: Phase 5E: execute one governed command through the authoritative path.
-- `api_bg_status` at line 2029: Background process telemetry — lightweight, polled every 15 s from UI.
-- `api_status` at line 2063: Detailed system status (mirrors app.py /api/status).
-- `api_suggest` at line 2096: Close-match command suggestions (mirrors app.py /api/suggest).
-- `api_threads` at line 2105: Return the live thread list (mirrors app.py /api/threads).
-- `v1_capabilities` at line 2111: Return Niblit Core capability envelope for UI capability discovery.
-- `api_runtime_state` at line 2164: Unified runtime state envelope for UI/API/runtime interoperability.
-- `api_runtime_events` at line 2182: Replay normalized runtime events from the unified runtime event bus.
-- `api_runtime_episodes` at line 2191: Replay cognitive episodes and governed reflection summaries.
-- `ws_runtime` at line 2210: Live runtime stream for telemetry + events in canonical stream format.
-- `FileRenderRequest` at line 2258: Explanation needed.
-- `api_file_types` at line 2264: Return all supported file types and their renderers.
-- `api_file_render` at line 2271: Render a file and return its structured representation.
-- `api_file_preview` at line 2286: Get file metadata preview without full rendering.
-- `api_file_search` at line 2296: Search within a text file: bounded, real content matches.
-- `FileListRequest` at line 2335: Explanation needed.
-- `api_files_list` at line 2340: List files in a directory.
-- `_get_docker_backend` at line 2373: Return the DockerBackend singleton, or None if unavailable.
-- `v1_runtime_status` at line 2383: Unified runtime status including Docker backend and fallback state.
-- `v1_runtime_models` at line 2403: List all available models across Docker and llama.cpp backends.
-- `v1_runtime_health` at line 2424: Health check across all inference backends.
-- `v1_runtime_model_select` at line 2452: Select the active model on the Docker backend.
-- `v1_runtime_fallback` at line 2466: Return the current fallback chain and active backend.
-- `run_server` at line 2488: Explanation needed.
+- `_resolve_cors_origins` at line 55: Resolve allowed CORS origins for niblit-ui and other API clients.
+- `ResearchDisconnectMiddleware` at line 85: Observe the request channel without Request.is_disconnected's cancelled
+- `bind_core` at line 116: Bind an existing NiblitCore from the main runtime (avoids duplicate init).
+- `get_core` at line 131: Return a shared NiblitCore instance, initializing it on first call.
+- `_get_unified_runtime` at line 164: Explanation needed.
+- `_ts` at line 223: Return a UTC timestamp string matching the NiblitIO format.
+- `_list_threads` at line 228: Return the live thread list as a newline-separated string.
+- `_get_boot_messages` at line 240: Return boot messages, generating them on the first call.
+- `_suggest_command` at line 259: Return close-match command suggestions.
+- `_build_dashboard` at line 1128: Inject COMMANDS and SEARCH_PROVIDERS into the dashboard HTML template.
+- `ChatBody` at line 1146: Explanation needed.
+- `upload_chat_attachment` at line 1155: Explanation needed.
+- `AttachmentContextBody` at line 1168: Explanation needed.
+- `chat_attachment_context` at line 1174: Explanation needed.
+- `_has_project_file_cue` at line 1217: Explanation needed.
+- `_is_project_file_followup` at line 1222: Explanation needed.
+- `_project_file_sources` at line 1248: Explanation needed.
+- `_explicit_project_pdf_path` at line 1262: Explanation needed.
+- `_unsupported_pdf_numbers` at line 1271: Return numeric claims absent from a PDF's extracted text.
+- `_prior_project_file_sources` at line 1298: Explanation needed.
+- `_answer_project_file_question` at line 1312: Run file questions through the same schema-validated governed tool loop.
+- `InferenceMessage` at line 1511: Explanation needed.
+- `InferenceChatBody` at line 1516: Explanation needed.
+- `_is_registered_chat_command` at line 1532: Explanation needed.
+- `_niblit_local_completion` at line 1548: Explanation needed.
+- `_validated_learning_answer` at line 1572: Explanation needed.
+- `_model_backed_chat` at line 1628: Explanation needed.
+- `_configured_openai_models` at line 1738: Explanation needed.
+- `_openai_chat_completion` at line 1746: Explanation needed.
+- `dashboard` at line 1766: Explanation needed.
+- `verify_desktop_instance` at line 1774: Explanation needed.
+- `health` at line 1787: Lightweight liveness probe — does not initialize NiblitCore.
+- `ping` at line 1794: Explanation needed.
+- `_niblit_response_validation` at line 1799: Explanation needed.
+- `_niblit_assistant_chat` at line 1809: Capability-aware read-only conversation over existing routing, memory and Cloud.
+- `ResearchJobBody` at line 1890: Explanation needed.
+- `research_job_receipt` at line 1895: Explanation needed.
+- `cancel_research_job` at line 1906: Explanation needed.
+- `chat` at line 1924: Explanation needed.
+- `_chat_sync` at line 1977: Explanation needed.
+- `inference_health` at line 2037: Return live Cloud health through the Core boundary.
+- `inference_budget_status` at line 2051: Explanation needed.
+- `inference_models` at line 2060: Expose Cloud's executable model inventory through Core.
+- `inference_chat` at line 2082: Core-owned inference bridge to the authoritative Cloud runtime.
+- `memory` at line 2210: Explanation needed.
+- `api_boot` at line 2224: Return boot messages (mirrors app.py /api/boot and main.py boot()).
+- `api_commands` at line 2238: Return the sidebar COMMANDS catalogue (mirrors niblit_dashboard.py COMMANDS).
+- `memory_framework_status` at line 2244: Explanation needed.
+- `MemoryQueryBody` at line 2253: Explanation needed.
+- `memory_framework_search` at line 2260: Explanation needed.
+- `api_desktop_section` at line 2274: Read actual subsystem data through Core; this endpoint performs no actions.
+- `CommandExecuteRequest` at line 2290: Explanation needed.
+- `PaperControlBody` at line 2295: Explanation needed.
+- `PaperDecisionBody` at line 2298: Explanation needed.
+- `PaperStepBody` at line 2303: Explanation needed.
+- `PaperReplayBody` at line 2307: Explanation needed.
+- `_paper_operation` at line 2312: Explanation needed.
+- `CloudTicketConfirmBody` at line 2318: Explanation needed.
+- `cloud_ticket_confirm` at line 2329: Explanation needed.
+- `MarketAnalysisBody` at line 2353: Explanation needed.
+- `shadow_predictions` at line 2360: Explanation needed.
+- `continuous_observation_status` at line 2368: Explanation needed.
+- `market_analysis` at line 2378: Explanation needed.
+- `paper_status` at line 2398: Explanation needed.
+- `paper_control` at line 2401: Explanation needed.
+- `paper_decision` at line 2404: Explanation needed.
+- `paper_advice` at line 2407: Explanation needed.
+- `paper_step` at line 2410: Explanation needed.
+- `paper_replay` at line 2413: Explanation needed.
+- `api_commands_governed` at line 2417: Phase 5E: governed command registry with truthful runtime states.
+- `environment_tool_runs` at line 2430: Explanation needed.
+- `handle_steward_pending` at line 2436: Explanation needed.
+- `start_environment_tool` at line 2447: Explanation needed.
+- `control_environment_tool` at line 2456: Explanation needed.
+- `review_environment_tool` at line 2469: Explicit user-triggered inference; never automatically spends on polling.
+- `OperatorCommandRequest` at line 2495: Explanation needed.
+- `api_operator_commands` at line 2500: Explanation needed.
+- `api_operator_command_execute` at line 2506: Explanation needed.
+- `api_commands_surface` at line 2513: Phase 5G: the COMPLETE original command surface, reconciled.
+- `api_commands_execute` at line 2530: Phase 5E: execute one governed command through the authoritative path.
+- `api_bg_status` at line 2549: Background process telemetry — lightweight, polled every 15 s from UI.
+- `api_status` at line 2598: Detailed system status (mirrors app.py /api/status).
+- `api_suggest` at line 2631: Close-match command suggestions (mirrors app.py /api/suggest).
+- `api_threads` at line 2640: Return the live thread list (mirrors app.py /api/threads).
+- `v1_capabilities` at line 2646: Return Niblit Core capability envelope for UI capability discovery.
+- `api_runtime_state` at line 2699: Unified runtime state envelope for UI/API/runtime interoperability.
+- `api_runtime_events` at line 2717: Replay normalized runtime events from the unified runtime event bus.
+- `api_runtime_episodes` at line 2726: Replay cognitive episodes and governed reflection summaries.
+- `ws_runtime` at line 2745: Live runtime stream for telemetry + events in canonical stream format.
+- `FileRenderRequest` at line 2797: Explanation needed.
+- `api_file_types` at line 2803: Return all supported file types and their renderers.
+- `api_file_render` at line 2810: Render a file and return its structured representation.
+- `api_file_preview` at line 2825: Get file metadata preview without full rendering.
+- `api_file_search` at line 2835: Search within a text file: bounded, real content matches.
+- `FileListRequest` at line 2874: Explanation needed.
+- `api_files_list` at line 2879: List files in a directory.
+- `_get_docker_backend` at line 2912: Return the DockerBackend singleton, or None if unavailable.
+- `v1_runtime_status` at line 2922: Unified runtime status including Docker backend and fallback state.
+- `v1_runtime_models` at line 2942: List all available models across Docker and llama.cpp backends.
+- `v1_runtime_health` at line 2963: Health check across all inference backends.
+- `v1_runtime_model_select` at line 2991: Select the active model on the Docker backend.
+- `v1_runtime_fallback` at line 3005: Return the current fallback chain and active backend.
+- `run_server` at line 3027: Explanation needed.
+- `position_intelligence_status` at line 3038: Explanation needed.
+- `chart_annotation_status` at line 3047: Explanation needed.
+- `_get_learning_control` at line 3066: Explanation needed.
+- `_learning_operator_origin` at line 3078: Explanation needed.
+- `LearningProposalRequest` at line 3086: Explanation needed.
+- `LearningDecisionRequest` at line 3092: Explanation needed.
+- `api_learning_proposals` at line 3098: Explanation needed.
+- `api_learning_propose` at line 3106: Explanation needed.
+- `api_learning_decide` at line 3113: Explanation needed.
+- `_hosted_market_desk_factory` at line 3149: Explanation needed.
+- `stop_hosted_market_desk` at line 3165: Explanation needed.
+- `ResearchDisconnectMiddleware.__init__` at line 88: Explanation needed.
+- `ResearchDisconnectMiddleware.__call__` at line 90: Explanation needed.
 
 ### shared_import_fixer.py
 
@@ -8862,91 +9148,91 @@ core/runtime_manager.py — Top-level runtime coordinator for Niblit.
 
 - `RuntimeManager` at line 67: Facade that wires together EventBus, TaskQueue, and Orchestrator.
 - `RuntimeManager.__init__` at line 76: Explanation needed.
-- `RuntimeManager.register_agent` at line 128: Register an agent handler for a task type.
-- `RuntimeManager.submit_task` at line 138: Create and enqueue a task.
-- `RuntimeManager.dispatch_pending` at line 167: Dispatch all pending tasks (or up to *max_tasks*).
-- `RuntimeManager.start_loop` at line 186: Start the background dispatch loop in a daemon thread.
-- `RuntimeManager.stop_loop` at line 197: Signal the background loop to stop.
-- `RuntimeManager._loop` at line 209: Explanation needed.
-- `RuntimeManager.get_stats` at line 219: Explanation needed.
-- `RuntimeManager.subscribe` at line 229: Shortcut to subscribe an event handler via the runtime.
-- `RuntimeManager._transition_lifecycle` at line 246: Explanation needed.
-- `RuntimeManager.register_extension_point` at line 258: Explanation needed.
-- `RuntimeManager.get_extension_point` at line 262: Explanation needed.
-- `RuntimeManager.register_extension` at line 265: Explanation needed.
-- `RuntimeManager.update_managed_repository_status` at line 276: Explanation needed.
-- `RuntimeManager._record_timeline_event` at line 280: Explanation needed.
-- `RuntimeManager._validate_dependencies` at line 294: Explanation needed.
-- `RuntimeManager.get_dependency_validation` at line 320: Explanation needed.
-- `RuntimeManager.get_startup_warnings` at line 323: Explanation needed.
-- `RuntimeManager.get_runtime_health` at line 340: Explanation needed.
-- `RuntimeManager._attempt_service_recovery` at line 348: Attempt to reinitialise degraded optional services.
-- `RuntimeManager.get_runtime_metrics` at line 382: Explanation needed.
-- `RuntimeManager.get_runtime_services` at line 404: Explanation needed.
-- `RuntimeManager.get_runtime_modules` at line 412: Explanation needed.
-- `RuntimeManager.get_runtime_threads` at line 422: Explanation needed.
-- `RuntimeManager.get_runtime_events` at line 432: Explanation needed.
-- `RuntimeManager.get_runtime_timeline` at line 447: Explanation needed.
-- `RuntimeManager.get_runtime_commands` at line 451: Explanation needed.
-- `RuntimeManager.execute_runtime_command` at line 463: Explanation needed.
-- `RuntimeManager.initialize_runtime_services` at line 483: Initialize core services in a deterministic order.
-- `RuntimeManager._initialize_service` at line 565: Explanation needed.
-- `RuntimeManager._set_service_status` at line 582: Explanation needed.
-- `RuntimeManager._build_persistence_manager` at line 589: Explanation needed.
-- `RuntimeManager.get_persistence_manager` at line 597: Explanation needed.
-- `RuntimeManager._build_knowledge_db` at line 600: Explanation needed.
-- `RuntimeManager._build_provenance_service` at line 605: Explanation needed.
-- `RuntimeManager._build_runtime_architecture_model` at line 612: Explanation needed.
-- `RuntimeManager._build_cognitive_ingress` at line 619: Explanation needed.
-- `RuntimeManager._build_foundation_architecture` at line 632: Explanation needed.
-- `RuntimeManager._build_cognitive_feedback_loop` at line 704: Explanation needed.
-- `RuntimeManager._build_memory_graph` at line 709: Explanation needed.
-- `RuntimeManager._build_memory_router` at line 716: Explanation needed.
-- `RuntimeManager._build_cognitive_memory_layer` at line 721: Explanation needed.
-- `RuntimeManager._build_knowledge_comprehension` at line 729: Explanation needed.
-- `RuntimeManager._build_reasoning_engine` at line 738: Explanation needed.
-- `RuntimeManager._build_cognitive_synthesis_engine` at line 747: Explanation needed.
-- `RuntimeManager._build_local_brain` at line 761: Explanation needed.
-- `RuntimeManager._build_reflection_engine` at line 772: Explanation needed.
-- `RuntimeManager._build_behaviour_engine` at line 781: Explanation needed.
-- `RuntimeManager._build_model_manager` at line 790: Explanation needed.
-- `RuntimeManager._build_llama_server_manager` at line 799: Initialise the managed llama.cpp server service.
-- `RuntimeManager.get_llama_server_manager` at line 827: Return the runtime-owned :class:`~modules.llama_server_manager.LlamaServerManager`.
-- `RuntimeManager._build_docker_backend` at line 835: Initialise the managed Docker-hosted Ollama-compatible backend.
-- `RuntimeManager.get_docker_backend` at line 864: Return the runtime-owned :class:`~modules.docker_backend.DockerBackend`.
-- `RuntimeManager._build_governance_engine` at line 872: Explanation needed.
-- `RuntimeManager._build_structural_awareness` at line 881: Explanation needed.
-- `RuntimeManager._build_ale` at line 890: Explanation needed.
-- `RuntimeManager._build_trading_brain` at line 903: Explanation needed.
-- `RuntimeManager._build_internet_manager` at line 912: Explanation needed.
-- `RuntimeManager._build_repository_manager` at line 921: Explanation needed.
-- `RuntimeManager._load_optional_modules` at line 930: Explanation needed.
-- `RuntimeManager._bind_module_singleton` at line 943: Explanation needed.
-- `RuntimeManager.get_knowledge_db` at line 976: Return the shared KnowledgeDB instance owned by the runtime.
-- `RuntimeManager.get_provenance_service` at line 984: Explanation needed.
-- `RuntimeManager.get_runtime_architecture_model` at line 993: Explanation needed.
-- `RuntimeManager.get_cognitive_ingress` at line 1002: Explanation needed.
-- `RuntimeManager.get_foundation_architecture` at line 1009: Explanation needed.
-- `RuntimeManager.process_cognitive_request` at line 1016: Explanation needed.
-- `RuntimeManager.get_memory_graph` at line 1032: Return the shared MemoryGraph instance owned by the runtime.
-- `RuntimeManager.get_reasoning_engine` at line 1040: Return the shared ReasoningEngine instance owned by the runtime.
-- `RuntimeManager.get_cognitive_synthesis_engine` at line 1057: Return the runtime-owned synthesis layer for final explanation building.
-- `RuntimeManager.get_knowledge_comprehension` at line 1065: Return the shared KnowledgeComprehension instance owned by the runtime.
-- `RuntimeManager.get_cognitive_memory_layer` at line 1080: Return the runtime-owned semantic memory layer.
-- `RuntimeManager.get_memory_router` at line 1088: Return the routing service that decides which memory mode to use.
-- `RuntimeManager.get_local_brain` at line 1096: Return the shared LocalBrain instance owned by the runtime.
-- `RuntimeManager.get_diagnostics` at line 1104: Expose lightweight runtime diagnostics, including service health.
-- `RuntimeManager.get_runtime_report` at line 1170: Return a structured runtime architecture snapshot for operators and tests.
-- `RuntimeManager._resolve_project_root` at line 1205: Explanation needed.
-- `RuntimeManager._sys_path_additions` at line 1213: Explanation needed.
-- `RuntimeManager._attach_runtime_bridges` at line 1217: Best-effort bridge into the canonical modules event stream + UI runtime.
-- `RuntimeManager._lineage_payload` at line 1239: Explanation needed.
-- `RuntimeManager._categorize` at line 1258: Explanation needed.
-- `RuntimeManager._core_to_module_event_type` at line 1275: Explanation needed.
-- `RuntimeManager._module_to_core_event_type` at line 1291: Explanation needed.
-- `RuntimeManager._emit_to_unified_runtime` at line 1306: Explanation needed.
-- `RuntimeManager._mirror_core_event` at line 1316: Explanation needed.
-- `RuntimeManager._mirror_modules_event` at line 1361: Explanation needed.
+- `RuntimeManager.register_agent` at line 130: Register an agent handler for a task type.
+- `RuntimeManager.submit_task` at line 140: Create and enqueue a task.
+- `RuntimeManager.dispatch_pending` at line 169: Dispatch all pending tasks (or up to *max_tasks*).
+- `RuntimeManager.start_loop` at line 188: Start the background dispatch loop in a daemon thread.
+- `RuntimeManager.stop_loop` at line 199: Signal the background loop to stop.
+- `RuntimeManager._loop` at line 211: Explanation needed.
+- `RuntimeManager.get_stats` at line 221: Explanation needed.
+- `RuntimeManager.subscribe` at line 231: Shortcut to subscribe an event handler via the runtime.
+- `RuntimeManager._transition_lifecycle` at line 248: Explanation needed.
+- `RuntimeManager.register_extension_point` at line 260: Explanation needed.
+- `RuntimeManager.get_extension_point` at line 264: Explanation needed.
+- `RuntimeManager.register_extension` at line 267: Explanation needed.
+- `RuntimeManager.update_managed_repository_status` at line 278: Explanation needed.
+- `RuntimeManager._record_timeline_event` at line 282: Explanation needed.
+- `RuntimeManager._validate_dependencies` at line 296: Explanation needed.
+- `RuntimeManager.get_dependency_validation` at line 322: Explanation needed.
+- `RuntimeManager.get_startup_warnings` at line 325: Explanation needed.
+- `RuntimeManager.get_runtime_health` at line 342: Explanation needed.
+- `RuntimeManager._attempt_service_recovery` at line 350: Attempt to reinitialise degraded optional services.
+- `RuntimeManager.get_runtime_metrics` at line 384: Explanation needed.
+- `RuntimeManager.get_runtime_services` at line 406: Explanation needed.
+- `RuntimeManager.get_runtime_modules` at line 414: Explanation needed.
+- `RuntimeManager.get_runtime_threads` at line 424: Explanation needed.
+- `RuntimeManager.get_runtime_events` at line 434: Explanation needed.
+- `RuntimeManager.get_runtime_timeline` at line 449: Explanation needed.
+- `RuntimeManager.get_runtime_commands` at line 453: Explanation needed.
+- `RuntimeManager.execute_runtime_command` at line 465: Explanation needed.
+- `RuntimeManager.initialize_runtime_services` at line 485: Initialize core services in a deterministic order.
+- `RuntimeManager._initialize_service` at line 567: Explanation needed.
+- `RuntimeManager._set_service_status` at line 588: Explanation needed.
+- `RuntimeManager._build_persistence_manager` at line 597: Explanation needed.
+- `RuntimeManager.get_persistence_manager` at line 605: Explanation needed.
+- `RuntimeManager._build_knowledge_db` at line 608: Explanation needed.
+- `RuntimeManager._build_provenance_service` at line 613: Explanation needed.
+- `RuntimeManager._build_runtime_architecture_model` at line 620: Explanation needed.
+- `RuntimeManager._build_cognitive_ingress` at line 627: Explanation needed.
+- `RuntimeManager._build_foundation_architecture` at line 640: Explanation needed.
+- `RuntimeManager._build_cognitive_feedback_loop` at line 712: Explanation needed.
+- `RuntimeManager._build_memory_graph` at line 717: Explanation needed.
+- `RuntimeManager._build_memory_router` at line 724: Explanation needed.
+- `RuntimeManager._build_cognitive_memory_layer` at line 729: Explanation needed.
+- `RuntimeManager._build_knowledge_comprehension` at line 737: Explanation needed.
+- `RuntimeManager._build_reasoning_engine` at line 746: Explanation needed.
+- `RuntimeManager._build_cognitive_synthesis_engine` at line 755: Explanation needed.
+- `RuntimeManager._build_local_brain` at line 769: Explanation needed.
+- `RuntimeManager._build_reflection_engine` at line 780: Explanation needed.
+- `RuntimeManager._build_behaviour_engine` at line 789: Explanation needed.
+- `RuntimeManager._build_model_manager` at line 798: Explanation needed.
+- `RuntimeManager._build_llama_server_manager` at line 807: Initialise the managed llama.cpp server service.
+- `RuntimeManager.get_llama_server_manager` at line 835: Return the runtime-owned :class:`~modules.llama_server_manager.LlamaServerManager`.
+- `RuntimeManager._build_docker_backend` at line 843: Initialise the managed Docker-hosted Ollama-compatible backend.
+- `RuntimeManager.get_docker_backend` at line 872: Return the runtime-owned :class:`~modules.docker_backend.DockerBackend`.
+- `RuntimeManager._build_governance_engine` at line 880: Explanation needed.
+- `RuntimeManager._build_structural_awareness` at line 889: Explanation needed.
+- `RuntimeManager._build_ale` at line 898: Explanation needed.
+- `RuntimeManager._build_trading_brain` at line 913: Explanation needed.
+- `RuntimeManager._build_internet_manager` at line 922: Explanation needed.
+- `RuntimeManager._build_repository_manager` at line 931: Explanation needed.
+- `RuntimeManager._load_optional_modules` at line 940: Explanation needed.
+- `RuntimeManager._bind_module_singleton` at line 953: Explanation needed.
+- `RuntimeManager.get_knowledge_db` at line 986: Return the shared KnowledgeDB instance owned by the runtime.
+- `RuntimeManager.get_provenance_service` at line 994: Explanation needed.
+- `RuntimeManager.get_runtime_architecture_model` at line 1003: Explanation needed.
+- `RuntimeManager.get_cognitive_ingress` at line 1012: Explanation needed.
+- `RuntimeManager.get_foundation_architecture` at line 1019: Explanation needed.
+- `RuntimeManager.process_cognitive_request` at line 1026: Explanation needed.
+- `RuntimeManager.get_memory_graph` at line 1042: Return the shared MemoryGraph instance owned by the runtime.
+- `RuntimeManager.get_reasoning_engine` at line 1050: Return the shared ReasoningEngine instance owned by the runtime.
+- `RuntimeManager.get_cognitive_synthesis_engine` at line 1067: Return the runtime-owned synthesis layer for final explanation building.
+- `RuntimeManager.get_knowledge_comprehension` at line 1075: Return the shared KnowledgeComprehension instance owned by the runtime.
+- `RuntimeManager.get_cognitive_memory_layer` at line 1090: Return the runtime-owned semantic memory layer.
+- `RuntimeManager.get_memory_router` at line 1098: Return the routing service that decides which memory mode to use.
+- `RuntimeManager.get_local_brain` at line 1106: Return the shared LocalBrain instance owned by the runtime.
+- `RuntimeManager.get_diagnostics` at line 1114: Expose lightweight runtime diagnostics, including service health.
+- `RuntimeManager.get_runtime_report` at line 1180: Return a structured runtime architecture snapshot for operators and tests.
+- `RuntimeManager._resolve_project_root` at line 1215: Explanation needed.
+- `RuntimeManager._sys_path_additions` at line 1223: Explanation needed.
+- `RuntimeManager._attach_runtime_bridges` at line 1227: Best-effort bridge into the canonical modules event stream + UI runtime.
+- `RuntimeManager._lineage_payload` at line 1249: Explanation needed.
+- `RuntimeManager._categorize` at line 1268: Explanation needed.
+- `RuntimeManager._core_to_module_event_type` at line 1285: Explanation needed.
+- `RuntimeManager._module_to_core_event_type` at line 1301: Explanation needed.
+- `RuntimeManager._emit_to_unified_runtime` at line 1316: Explanation needed.
+- `RuntimeManager._mirror_core_event` at line 1326: Explanation needed.
+- `RuntimeManager._mirror_modules_event` at line 1371: Explanation needed.
 
 ### core/simulation.py
 
@@ -9180,6 +9466,160 @@ YAML file renderer with syntax highlighting.
 - `YAMLRenderer.can_render` at line 18: Check if this renderer can handle the given file.
 - `YAMLRenderer.get_supported_extensions` at line 24: Return list of file extensions this renderer supports.
 - `YAMLRenderer.render` at line 28: Render a YAML file.
+
+### deploy/freqtrade-lab/NiblitCoreManaged.py
+
+Existing catalog analysis/protections with Core-only bounded entries.
+
+- `NiblitCoreManaged` at line 11: Explanation needed.
+- `NiblitCoreManaged.ft_bot_start` at line 14: Explanation needed.
+- `NiblitCoreManaged.populate_entry_trend` at line 23: Explanation needed.
+- `NiblitCoreManaged.confirm_trade_entry` at line 35: Explanation needed.
+- `NiblitCoreManaged.custom_stake_amount` at line 43: Explanation needed.
+
+### deploy/freqtrade-lab/NiblitLabManager.py
+
+Experimental dry-run-only native strategy catalog; no model or paid APIs.
+
+- `NiblitLabManager` at line 15: Explanation needed.
+- `NiblitLabTrend` at line 132: Explanation needed.
+- `NiblitLabBreakout` at line 133: Explanation needed.
+- `NiblitLabRsiRecovery` at line 134: Explanation needed.
+- `NiblitLabBollingerRecovery` at line 135: Explanation needed.
+- `NiblitLabEmaPullback` at line 136: Explanation needed.
+- `NiblitLabSqueezeBreakout` at line 137: Explanation needed.
+- `NiblitLabManager.plot_annotations` at line 27: Explanation needed.
+- `NiblitLabManager.order_filled` at line 32: Explanation needed.
+- `NiblitLabManager.bars` at line 52: Explanation needed.
+- `NiblitLabManager.populate_indicators` at line 56: Explanation needed.
+- `NiblitLabManager.populate_entry_trend` at line 67: Explanation needed.
+- `NiblitLabManager.populate_exit_trend` at line 75: Explanation needed.
+- `NiblitLabManager.confirm_trade_entry` at line 80: Explanation needed.
+- `NiblitLabManager.leverage` at line 84: Explanation needed.
+- `NiblitLabManager.custom_stake_amount` at line 87: Explanation needed.
+- `NiblitLabManager.custom_exit` at line 96: Explanation needed.
+
+### deploy/freqtrade-lab/NiblitMicroDemo.py
+
+Staged 1m burst experiment. Disabled without an explicit ten-minute session.
+
+- `NiblitMicroDemo` at line 11: Explanation needed.
+- `NiblitMicroDemo.populate_indicators` at line 21: Explanation needed.
+- `NiblitMicroDemo.populate_entry_trend` at line 26: Explanation needed.
+- `NiblitMicroDemo.populate_exit_trend` at line 31: Explanation needed.
+- `NiblitMicroDemo.leverage` at line 35: Explanation needed.
+- `NiblitMicroDemo.confirm_trade_entry` at line 37: Explanation needed.
+- `NiblitMicroDemo.custom_stake_amount` at line 52: Explanation needed.
+- `NiblitMicroDemo.custom_exit` at line 59: Explanation needed.
+
+### deploy/vps-gateway/backup_state.py
+
+Consistent local recovery backup; never copies credentials or rewrites live state.
+
+- `backup` at line 8: Explanation needed.
+
+### deploy/vps-gateway/broker.py
+
+The only MT5 entry point. Runs in a disposable, deadline-bound process.
+
+- `observe` at line 11: Explanation needed.
+- `existing_terminal` at line 104: Require one already-running terminal in this Python user's Windows session.
+
+### deploy/vps-gateway/demo_execution.py
+
+Exness demo transport for the existing Core adapter and durable DemoOrders.
+
+- `load_demo_config` at line 25: Explanation needed.
+- `BoundAPI` at line 46: Explanation needed.
+- `BoundBridge` at line 75: Explanation needed.
+- `DemoService` at line 100: Explanation needed.
+- `BoundAPI.__init__` at line 47: Explanation needed.
+- `BoundAPI.__getattr__` at line 50: Explanation needed.
+- `BoundAPI.order_send` at line 56: Explanation needed.
+- `BoundBridge.__init__` at line 76: Explanation needed.
+- `BoundBridge.verify` at line 84: Explanation needed.
+- `BoundBridge.connect` at line 92: Explanation needed.
+- `DemoService.__init__` at line 101: Explanation needed.
+- `DemoService.symbol` at line 123: Explanation needed.
+- `DemoService.dispatch` at line 135: Explanation needed.
+
+### deploy/vps-gateway/discover_demo.py
+
+Read-only candidate binding discovery; run in the MT5 interactive Windows session.
+
+- `discover` at line 10: Explanation needed.
+- `main` at line 23: Explanation needed.
+
+### deploy/vps-gateway/funded_risk.py
+
+Deterministic funded preflight. A PASS never grants broker authority.
+
+- `decimal` at line 5: Explanation needed.
+- `evaluate` at line 40: Evaluate trusted Core inputs using account-currency decimals.
+- `breaker_after` at line 94: Critical states latch. Monitoring never clears an unresolved incident.
+- `net_costs` at line 106: Normalize explicitly bounded charges; unknowns never become zero.
+
+### deploy/vps-gateway/gateway.py
+
+Account-bound observation gateway. Run on loopback behind Windows OpenSSH.
+
+- `unique_object` at line 30: Explanation needed.
+- `load_config` at line 39: Explanation needed.
+- `Monitor` at line 64: Explanation needed.
+- `poll` at line 241: Explanation needed.
+- `GatewayServer` at line 271: Explanation needed.
+- `Handler` at line 278: Explanation needed.
+- `configure_logging` at line 363: Explanation needed.
+- `main` at line 374: Explanation needed.
+- `Monitor.__init__` at line 65: Explanation needed.
+- `Monitor.db` at line 97: Explanation needed.
+- `Monitor.record` at line 100: Explanation needed.
+- `Monitor.reconcile` at line 104: Explanation needed.
+- `Monitor.history_since` at line 171: Explanation needed.
+- `Monitor.stop` at line 176: Explanation needed.
+- `Monitor.status` at line 185: Explanation needed.
+- `GatewayServer.get_request` at line 272: Explanation needed.
+- `Handler.log_message` at line 279: Explanation needed.
+- `Handler.reply` at line 282: Explanation needed.
+- `Handler.dispatch` at line 299: Explanation needed.
+- `Handler.demo_dispatch` at line 333: Explanation needed.
+- Review: empty-body at line 279.
+
+### deploy/vps-gateway/test_gateway.py
+
+Module purpose needs a human explanation.
+
+- `BrokerDouble` at line 15: Explanation needed.
+- `GatewayTests` at line 53: Explanation needed.
+- `HistoryTests` at line 178: Explanation needed.
+- `BrokerDouble.__init__` at line 16: Explanation needed.
+- `BrokerDouble.initialize` at line 24: Explanation needed.
+- `BrokerDouble.terminal_info` at line 28: Explanation needed.
+- `BrokerDouble.account_info` at line 31: Explanation needed.
+- `BrokerDouble.positions_get` at line 34: Explanation needed.
+- `BrokerDouble.orders_get` at line 37: Explanation needed.
+- `BrokerDouble.symbol_info` at line 40: Explanation needed.
+- `BrokerDouble.history_orders_get` at line 43: Explanation needed.
+- `BrokerDouble.history_deals_get` at line 46: Explanation needed.
+- `BrokerDouble.shutdown` at line 49: Explanation needed.
+- `GatewayTests.setUp` at line 54: Explanation needed.
+- `GatewayTests.snapshot` at line 67: Explanation needed.
+- `GatewayTests.test_discovery_rejects_wrong_terminal_and_disconnect` at line 70: Explanation needed.
+- `GatewayTests.test_identity_swap_during_inventory` at line 78: Explanation needed.
+- `GatewayTests.test_partial_inventory_and_wrong_account_are_rejected` at line 86: Explanation needed.
+- `GatewayTests.test_staleness_and_durable_loss_latch` at line 94: Explanation needed.
+- `GatewayTests.test_positions_and_pending_orders_are_journaled_and_never_adopted` at line 106: Explanation needed.
+- `GatewayTests.test_limit_breach_and_db_binding` at line 119: Explanation needed.
+- `GatewayTests.test_configuration_rejects_duplicates_and_unknown_authority_flags` at line 128: Explanation needed.
+- `GatewayTests.test_http_auth_status_disabled_routes_and_persistent_stop` at line 139: Explanation needed.
+- `HistoryTests.test_idempotent_history_checkpoint_and_restart` at line 181: Explanation needed.
+- `HistoryTests.test_incomplete_history_does_not_advance_checkpoint` at line 196: Explanation needed.
+- `HistoryTests.test_control_replay_and_expiry` at line 203: Explanation needed.
+- `HistoryTests.test_wrong_server_and_ipc_timeout` at line 215: Explanation needed.
+- `HistoryTests.test_structured_operational_log_rotation` at line 224: Explanation needed.
+- `HistoryTests.test_p2_missing_history_does_not_advance_checkpoint` at line 242: Explanation needed.
+- `HistoryTests.test_p2_trigger_survives_valid_inventory_and_restart` at line 249: Explanation needed.
+- `HistoryTests.test_p2_history_replay_and_account_mismatch` at line 262: Explanation needed.
 
 ### distributed_niblit/agent_node/agent_runtime.py
 
@@ -9782,39 +10222,50 @@ ADAPTIVE LEARNING MODULE
 
 Adaptive market cognition integrated into the unified runtime.
 
-- `_clip` at line 41: Explanation needed.
-- `_to_float` at line 48: Explanation needed.
-- `_clamp` at line 55: Explanation needed.
-- `_bucket` at line 59: Explanation needed.
-- `MarketRetrievalBundle` at line 69: Explanation needed.
-- `AdaptiveMarketCognitionLayer` at line 99: Canonical market experience, retrieval, risk, and quality layer.
-- `MarketRetrievalBundle.to_payload` at line 83: Explanation needed.
-- `AdaptiveMarketCognitionLayer.__init__` at line 102: Explanation needed.
-- `AdaptiveMarketCognitionLayer.observe_event` at line 120: Explanation needed.
-- `AdaptiveMarketCognitionLayer.build_market_retrieval_bundle` at line 218: Explanation needed.
-- `AdaptiveMarketCognitionLayer.update_runtime_outcome` at line 329: Explanation needed.
-- `AdaptiveMarketCognitionLayer.status` at line 351: Explanation needed.
-- `AdaptiveMarketCognitionLayer.render_command` at line 369: Explanation needed.
-- `AdaptiveMarketCognitionLayer._finalize_experience` at line 391: Explanation needed.
-- `AdaptiveMarketCognitionLayer._signal_state` at line 480: Explanation needed.
-- `AdaptiveMarketCognitionLayer._risk_state` at line 488: Explanation needed.
-- `AdaptiveMarketCognitionLayer._confidence_state` at line 497: Explanation needed.
-- `AdaptiveMarketCognitionLayer._outcome_state` at line 504: Explanation needed.
-- `AdaptiveMarketCognitionLayer._calculate_risk` at line 512: Explanation needed.
-- `AdaptiveMarketCognitionLayer._build_reflection` at line 532: Explanation needed.
-- `AdaptiveMarketCognitionLayer._derived_confidence` at line 542: Explanation needed.
-- `AdaptiveMarketCognitionLayer._compute_dqi` at line 546: Explanation needed.
-- `AdaptiveMarketCognitionLayer._outcome_label` at line 568: Explanation needed.
-- `AdaptiveMarketCognitionLayer._recall_governed_memories` at line 576: Explanation needed.
-- `AdaptiveMarketCognitionLayer._persist_experience` at line 600: Explanation needed.
-- `AdaptiveMarketCognitionLayer._flush_knowledge_db` at line 660: Explanation needed.
-- `AdaptiveMarketCognitionLayer._build_contradictions` at line 674: Explanation needed.
-- `AdaptiveMarketCognitionLayer._aggregate_risk` at line 692: Explanation needed.
-- `AdaptiveMarketCognitionLayer._confidence_evolution` at line 709: Explanation needed.
-- `AdaptiveMarketCognitionLayer._dqi_snapshot` at line 724: Explanation needed.
-- `AdaptiveMarketCognitionLayer._infer_regime_from_query` at line 735: Explanation needed.
-- `AdaptiveMarketCognitionLayer._infer_volatility_from_query` at line 747: Explanation needed.
-- `AdaptiveMarketCognitionLayer._emit` at line 755: Explanation needed.
+- `_clip` at line 42: Explanation needed.
+- `_to_float` at line 49: Explanation needed.
+- `_clamp` at line 56: Explanation needed.
+- `_optional_clamp` at line 65: Clamp a real 0..1 measurement, or return None when there is no usable evidence.
+- `_bucket` at line 83: Explanation needed.
+- `MarketRetrievalBundle` at line 97: Explanation needed.
+- `AdaptiveMarketCognitionLayer` at line 127: Canonical market experience, retrieval, risk, and quality layer.
+- `MarketRetrievalBundle.to_payload` at line 111: Explanation needed.
+- `AdaptiveMarketCognitionLayer.__init__` at line 130: Explanation needed.
+- `AdaptiveMarketCognitionLayer.observe_event` at line 148: Explanation needed.
+- `AdaptiveMarketCognitionLayer.build_market_retrieval_bundle` at line 250: Explanation needed.
+- `AdaptiveMarketCognitionLayer.update_runtime_outcome` at line 372: Explanation needed.
+- `AdaptiveMarketCognitionLayer.status` at line 394: Explanation needed.
+- `AdaptiveMarketCognitionLayer.render_command` at line 419: Explanation needed.
+- `AdaptiveMarketCognitionLayer._finalize_experience` at line 441: Explanation needed.
+- `AdaptiveMarketCognitionLayer._signal_state` at line 556: Explanation needed.
+- `AdaptiveMarketCognitionLayer._risk_state` at line 564: Explanation needed.
+- `AdaptiveMarketCognitionLayer._confidence_state` at line 575: Explanation needed.
+- `AdaptiveMarketCognitionLayer._outcome_state` at line 582: Explanation needed.
+- `AdaptiveMarketCognitionLayer._calculate_risk` at line 612: Explanation needed.
+- `AdaptiveMarketCognitionLayer._risk_evidence_position` at line 642: Return the evidence state and how many risk inputs it actually covers.
+- `AdaptiveMarketCognitionLayer._risk_evidence_label` at line 657: Describe a risk score together with the evidence it rests on.
+- `AdaptiveMarketCognitionLayer._verified_outcome_label` at line 678: Explanation needed.
+- `AdaptiveMarketCognitionLayer._reflection_sections` at line 704: Split a reflection into its labelled sections.
+- `AdaptiveMarketCognitionLayer._mentions_value` at line 725: True when the section reports one of the supplied recorded values.
+- `AdaptiveMarketCognitionLayer._reasoning_quality` at line 730: Score what a reflection asserts, not how much text it contains.
+- `AdaptiveMarketCognitionLayer._build_reflection` at line 839: Compose a reflection that labels what kind of statement each part makes.
+- `AdaptiveMarketCognitionLayer._derived_confidence` at line 879: Derive confidence from recorded evidence, charging explicit gaps.
+- `AdaptiveMarketCognitionLayer._risk_evidence_coverage` at line 912: Weighted share of the documented risk inputs that carry a measurement.
+- `AdaptiveMarketCognitionLayer._risk_awareness_credit` at line 934: Credit the DQI risk term actually earns, with its evidence state.
+- `AdaptiveMarketCognitionLayer._dqi_breakdown` at line 965: Compute the DQI and the terms it is made of.
+- `AdaptiveMarketCognitionLayer._compute_dqi` at line 1029: Return the decision-quality score; see :meth:`_dqi_breakdown`.
+- `AdaptiveMarketCognitionLayer._outcome_label` at line 1041: Explanation needed.
+- `AdaptiveMarketCognitionLayer._recall_governed_memories` at line 1049: Explanation needed.
+- `AdaptiveMarketCognitionLayer._persist_experience` at line 1073: Explanation needed.
+- `AdaptiveMarketCognitionLayer._flush_knowledge_db` at line 1169: Explanation needed.
+- `AdaptiveMarketCognitionLayer._build_contradictions` at line 1183: Explanation needed.
+- `AdaptiveMarketCognitionLayer._aggregate_evidence_state` at line 1202: Explanation needed.
+- `AdaptiveMarketCognitionLayer._aggregate_risk` at line 1209: Explanation needed.
+- `AdaptiveMarketCognitionLayer._confidence_evolution` at line 1256: Explanation needed.
+- `AdaptiveMarketCognitionLayer._dqi_snapshot` at line 1271: Explanation needed.
+- `AdaptiveMarketCognitionLayer._infer_regime_from_query` at line 1323: Explanation needed.
+- `AdaptiveMarketCognitionLayer._infer_volatility_from_query` at line 1335: Explanation needed.
+- `AdaptiveMarketCognitionLayer._emit` at line 1343: Explanation needed.
 
 ### modules/adaptive_retrieval_cognition.py
 
@@ -10029,105 +10480,107 @@ AUTONOMOUS LEARNING ENGINE
 - `_truncate_at_word_boundary` at line 123: Truncate *text* without cutting through a word when possible.
 - `_get_topic_constructor` at line 138: Return a shared TopicConstructor instance, constructing it on first call.
 - `AutonomousLearningEngine` at line 150: Orchestrates autonomous learning across ALL Niblit modules.
-- `get_autonomous_engine` at line 6874: Get singleton instance
-- `initialize_autonomous_engine` at line 6880: Initialize and return singleton engine
+- `get_autonomous_engine` at line 6990: Get singleton instance
+- `initialize_autonomous_engine` at line 6996: Initialize and return singleton engine
 - `AutonomousLearningEngine.__init__` at line 218: Args:
 - `AutonomousLearningEngine._build_curriculum_topics` at line 548: Return the research-topic list from the GradedCurriculum.
 - `AutonomousLearningEngine.refresh_curriculum_topics` at line 596: Re-sync research_topics with the current curriculum grade.
 - `AutonomousLearningEngine._build_code_research_topics` at line 608: Return code research topics appropriate for the current grade.
-- `AutonomousLearningEngine.is_idle` at line 675: Check if system is idle (no recent user interaction)
-- `AutonomousLearningEngine.update_last_interaction` at line 684: Called when user interacts with system
-- `AutonomousLearningEngine._select_next_topic` at line 691: Select the next research topic for this cycle.
-- `AutonomousLearningEngine._select_next_code_topic` at line 740: Rotate through code_research_topics sequentially (one per cycle).
-- `AutonomousLearningEngine._autonomous_research` at line 749: Step 1: Autonomously research the current cycle topic.
-- `AutonomousLearningEngine._autonomous_idea_generation` at line 958: Step 2: Generate ideas based on research using SelfIdeaImplementation when available.
-- `AutonomousLearningEngine._autonomous_implementation` at line 1027: Step 3: Implement pending ideas using SelfImplementer when available.
-- `AutonomousLearningEngine._autonomous_reflection` at line 1089: Step 4: Reflect on the actual research content and store as memory.
-- `AutonomousLearningEngine._autonomous_slsa_run` at line 1257: Step 5: Run SLSA engine to generate knowledge artifacts
-- `AutonomousLearningEngine._autonomous_learning` at line 1298: Step 6: Feed learning to self-teacher with spaced review, active-recall test, and richer logging.
-- `AutonomousLearningEngine._lazy_bind_tks` at line 1388: Ensure the TieredKnowledgeSystem has a live knowledge_db reference.
-- `AutonomousLearningEngine._autonomous_tiered_research` at line 1399: Tiered research step: research the next uncovered topic for the
-- `AutonomousLearningEngine._get_internet` at line 1649: Return internet manager — pull from core lazily if not set at init.
-- `AutonomousLearningEngine._get_code_generator` at line 1655: Lazily resolve CodeGenerator from core.
-- `AutonomousLearningEngine._get_code_compiler` at line 1661: Lazily resolve CodeCompiler from core.
-- `AutonomousLearningEngine._get_llm` at line 1667: Lazily resolve LLM adapter from core.
-- `AutonomousLearningEngine._get_local_copilot` at line 1673: Lazily resolve Qwen local copilot from core.
-- `AutonomousLearningEngine._qwen_code_brief` at line 1683: Ask local Qwen copilot for a concise coding brief from gathered research snippets.
-- `AutonomousLearningEngine._qwen_fix_syntax` at line 1721: Use local Qwen copilot as a fallback syntax fixer after built-in CodeErrorFixer fails.
-- `AutonomousLearningEngine._get_github_code_search` at line 1770: Lazily resolve GitHubCodeSearch from core.
-- `AutonomousLearningEngine._get_stackoverflow_search` at line 1776: Lazily resolve StackOverflowSearch from core.
-- `AutonomousLearningEngine._get_pypi_search` at line 1782: Lazily resolve PyPISearch from core.
-- `AutonomousLearningEngine._get_searchcode_search` at line 1788: Lazily resolve SearchcodeSearch from core.
-- `AutonomousLearningEngine._get_serpex_agent` at line 1794: Lazily resolve or construct the niblit_agents.ResearchAgent (Serpex-backed).
-- `AutonomousLearningEngine._autonomous_serpex_research` at line 1823: Step 27: Use niblit_agents.ResearchAgent (Serpex + relevance filter) for validated research.
-- `AutonomousLearningEngine._get_scrapy_agent` at line 1953: Lazily resolve or construct the niblit_agents.ScrapyResearchAgent.
-- `AutonomousLearningEngine._autonomous_scrapy_research` at line 1980: ScrapyResearch step: use ScrapyResearchAgent for direct DuckDuckGo research.
-- `AutonomousLearningEngine._phased_research` at line 2081: Evidence-driven sequential research for the current cycle topic.
-- `AutonomousLearningEngine._emit_sync_artifact` at line 2169: Best-effort emit of a SyncArtifact to the process-wide SyncEngine.
-- `AutonomousLearningEngine._unified_research` at line 2184: Unified research step — internal-first, external only for gaps.
-- `AutonomousLearningEngine._get_semantic_agent` at line 2549: Lazily resolve SemanticAgent from core.
-- `AutonomousLearningEngine._generate_subtopics` at line 2559: Return a list of more specific research subtopics derived from *topic*.
-- `AutonomousLearningEngine.prioritize_research_topic` at line 2605: Insert *topic* at the FRONT of the research queue.
-- `AutonomousLearningEngine._get_claude_engine` at line 2642: Lazily resolve ClaudeEngine from core.
-- `AutonomousLearningEngine._get_software_studier` at line 2648: Lazily resolve SoftwareStudier from core.
-- `AutonomousLearningEngine._get_reasoning_engine` at line 2654: Lazily resolve ReasoningEngine from core.
-- `AutonomousLearningEngine._get_metacognition` at line 2660: Lazily resolve Metacognition from core.
-- `AutonomousLearningEngine._get_cognition_core` at line 2666: Lazily resolve CognitionCore singleton.
-- `AutonomousLearningEngine._get_improvement_integrator` at line 2675: Lazily resolve ImprovementIntegrator from core.
-- `AutonomousLearningEngine._autonomous_improvement_cycle` at line 2685: Step 18: Run the full 10-module improvement cycle via ImprovementIntegrator.
-- `AutonomousLearningEngine._autonomous_code_research` at line 2746: Step 8: Researcher + Internet + Serpex fetch real programming-language data.
-- `AutonomousLearningEngine._autonomous_code_generation` at line 2947: Step 9: Generate real code from research, using LLM when available.
-- `AutonomousLearningEngine._autonomous_code_compilation` at line 3092: Step 10: Syntax-test then compile generated code; store results.
-- `AutonomousLearningEngine._autonomous_code_reflection` at line 3267: Step 11: ReflectModule studies compiled output and stores actionable learnings.
-- `AutonomousLearningEngine._autonomous_software_study` at line 3358: Step 12: SoftwareStudier analyzes code functions/patterns via internet data.
-- `AutonomousLearningEngine._get_structural_awareness` at line 3435: Lazily resolve StructuralAwareness from core.
-- `AutonomousLearningEngine._autonomous_command_awareness` at line 3441: Step 13: Study all registered commands, understand their purpose, store in KB.
-- `AutonomousLearningEngine._autonomous_command_execution` at line 3511: Step 14: Autonomously execute a selection of safe diagnostic commands.
-- `AutonomousLearningEngine._derive_topics_from_kb` at line 3593: Extract fresh topic candidates from recent KnowledgeDB facts.
-- `AutonomousLearningEngine._autonomous_topic_seeding` at line 3669: Step 15: Derive new topics from knowledge and feed them to every
-- `AutonomousLearningEngine._autonomous_reasoning` at line 3759: Step 16: Advanced LLM-level reasoning using chain-of-thought, multi-hop
-- `AutonomousLearningEngine._resolve_contradictions` at line 3936: Read stored contradiction flags and act on them.
-- `AutonomousLearningEngine._autonomous_metacognition` at line 4034: Step 17: Use Metacognition to evaluate Niblit's own knowledge,
-- `AutonomousLearningEngine._autonomous_cognition_cycle` at line 4160: Step 17b: Run one CognitionCore cycle after Metacognition.
-- `AutonomousLearningEngine._run_step_with_timeout` at line 4210: Run a single ALE step in a thread pool with a timeout.
-- `AutonomousLearningEngine._interruptible_sleep` at line 4282: Sleep for *seconds* but wake up immediately if stop() is called.
-- `AutonomousLearningEngine.pause` at line 4305: Pause all ALE background work (e.g. while the user is chatting).
-- `AutonomousLearningEngine.resume` at line 4316: Resume normal ALE background work after the user response is sent.
-- `AutonomousLearningEngine._cognitive_cycle_services` at line 4321: Explanation needed.
-- `AutonomousLearningEngine._record_cognitive_cycle_contract` at line 4345: Explanation needed.
-- `AutonomousLearningEngine.run_self_learn_sequence` at line 4403: On-demand self-learn sequence: study architecture → study commands →
-- `AutonomousLearningEngine.run_evolve_sequence` at line 4494: Structured evolve sequence: study architecture and all commands →
-- `AutonomousLearningEngine._autonomous_evolve_step` at line 4583: Explanation needed.
-- `AutonomousLearningEngine._autonomous_self_scan` at line 4625: Step 19: BuildScanner reads Niblit's own source files for self-knowledge.
-- `AutonomousLearningEngine._autonomous_github_push` at line 4688: Step 20: GitHubSync pushes autonomously-generated files to GitHub.
-- `AutonomousLearningEngine._autonomous_binary_study` at line 4725: Step 21: Binary domain study — seeds KB with binary/hex/firmware/kernel topics.
-- `AutonomousLearningEngine._autonomous_builds_update` at line 4858: Step 22: Index the builds/ directory into KB each cycle.
-- `AutonomousLearningEngine._autonomous_evolve_deploy` at line 4943: Step 23: Read, understand, and hot-reload evolution improvements.
-- `AutonomousLearningEngine._autonomous_brain_training` at line 5077: Step 24: Autonomous brain trainer — fine-tune brain on research data.
-- `AutonomousLearningEngine._run_llm_training_agent` at line 5135: Run the LLMTrainingAgent to generate structured training data
-- `AutonomousLearningEngine._run_governed_training_pipeline` at line 5173: Run the GovernedTrainingPipeline for detected knowledge gaps.
-- `AutonomousLearningEngine._autonomous_cognitive_enhancement` at line 5283: Step 25: Cognitive enhancement — research language, communication,
-- `AutonomousLearningEngine._autonomous_github_code_discovery` at line 5428: Step 26: GitHub Code Search — patterns, training data, refactoring.
-- `AutonomousLearningEngine._autonomous_searchcode_discovery` at line 5572: Step 28: Searchcode.com — code-pattern discovery via REST API and/or MCP.
-- `AutonomousLearningEngine._autonomous_builds_integration` at line 5657: Step 29: Run all available builds/python scripts and ingest their output.
-- `AutonomousLearningEngine._autonomous_self_maintenance` at line 5759: Step 31: Run SelfHealer + SelfMaintenance to keep the knowledge base healthy.
-- `AutonomousLearningEngine._get_llm_architect` at line 5825: Lazy-load the LLMArchitectEngine singleton.
-- `AutonomousLearningEngine._autonomous_llm_architect` at line 5844: Step 32: LLM Architect Cycle — data curation → SFT → DPO → eval.
-- `AutonomousLearningEngine._run_autonomous_cycle` at line 5888: Execute one complete autonomous learning cycle (32 steps).
-- `AutonomousLearningEngine.background_loop` at line 6395: Main background loop - runs autonomously, continuously.
-- `AutonomousLearningEngine.start` at line 6487: Start one owned worker; optionally stop after a finite cycle count.
-- `AutonomousLearningEngine._owned_background_loop` at line 6514: Always release the running flag, including on unexpected worker exit.
-- `AutonomousLearningEngine.lifecycle_status` at line 6525: Observe this worker without constructing modules or invoking a model.
-- `AutonomousLearningEngine.stop` at line 6543: Request stop and report whether owned work has actually finished.
-- `AutonomousLearningEngine.get_current_topic` at line 6557: Return the research topic pinned to the current (or last) cycle.
-- `AutonomousLearningEngine.get_research_ingest_wait` at line 6561: Return the configured ingestion-wait duration in seconds.
-- `AutonomousLearningEngine.get_learning_stats` at line 6566: Get learning statistics
-- `AutonomousLearningEngine.add_research_topic` at line 6630: Add *topic* to the autonomous research list.
-- `AutonomousLearningEngine.add_research_topics` at line 6670: Add multiple topics
-- `AutonomousLearningEngine.update_research_topics` at line 6679: Replace (or extend) the active research-topic list with *new_topics*.
-- `AutonomousLearningEngine.detect_knowledge_gaps` at line 6699: Scan the KnowledgeDB for under-covered topics using knowledge_health().
-- `AutonomousLearningEngine.submit_agent_tasks_for_gaps` at line 6798: Additive: submit research tasks for detected knowledge gaps.
-- `AutonomousLearningEngine.self_improve_via_agents` at line 6844: Additive: submit a full self-improvement plan to the Phase-2 agents.
+- `AutonomousLearningEngine.prepare_learning_opportunity` at line 675: Explanation needed.
+- `AutonomousLearningEngine.is_idle` at line 682: Check if system is idle (no recent user interaction)
+- `AutonomousLearningEngine.update_last_interaction` at line 692: Called when user interacts with system
+- `AutonomousLearningEngine._select_next_topic` at line 699: Select the next research topic for this cycle.
+- `AutonomousLearningEngine._select_next_code_topic` at line 748: Rotate through code_research_topics sequentially (one per cycle).
+- `AutonomousLearningEngine._autonomous_research` at line 757: Step 1: Autonomously research the current cycle topic.
+- `AutonomousLearningEngine._autonomous_idea_generation` at line 966: Step 2: Generate ideas based on research using SelfIdeaImplementation when available.
+- `AutonomousLearningEngine._autonomous_implementation` at line 1037: Step 3: Implement pending ideas using SelfImplementer when available.
+- `AutonomousLearningEngine._has_research_findings` at line 1099: Guard every producer, including ModuleAutonomy's out-of-cycle call.
+- `AutonomousLearningEngine._autonomous_reflection` at line 1111: Step 4: Reflect on the actual research content and store as memory.
+- `AutonomousLearningEngine._autonomous_slsa_run` at line 1286: Step 5: Run SLSA engine to generate knowledge artifacts
+- `AutonomousLearningEngine._autonomous_learning` at line 1327: Step 6: Feed learning to self-teacher with spaced review, active-recall test, and richer logging.
+- `AutonomousLearningEngine._lazy_bind_tks` at line 1419: Ensure the TieredKnowledgeSystem has a live knowledge_db reference.
+- `AutonomousLearningEngine._autonomous_tiered_research` at line 1430: Tiered research step: research the next uncovered topic for the
+- `AutonomousLearningEngine._get_internet` at line 1680: Return internet manager — pull from core lazily if not set at init.
+- `AutonomousLearningEngine._get_code_generator` at line 1686: Lazily resolve CodeGenerator from core.
+- `AutonomousLearningEngine._get_code_compiler` at line 1692: Lazily resolve CodeCompiler from core.
+- `AutonomousLearningEngine._get_llm` at line 1698: Lazily resolve LLM adapter from core.
+- `AutonomousLearningEngine._get_local_copilot` at line 1704: Lazily resolve Qwen local copilot from core.
+- `AutonomousLearningEngine._qwen_code_brief` at line 1714: Ask local Qwen copilot for a concise coding brief from gathered research snippets.
+- `AutonomousLearningEngine._qwen_fix_syntax` at line 1752: Use local Qwen copilot as a fallback syntax fixer after built-in CodeErrorFixer fails.
+- `AutonomousLearningEngine._get_github_code_search` at line 1801: Lazily resolve GitHubCodeSearch from core.
+- `AutonomousLearningEngine._get_stackoverflow_search` at line 1807: Lazily resolve StackOverflowSearch from core.
+- `AutonomousLearningEngine._get_pypi_search` at line 1813: Lazily resolve PyPISearch from core.
+- `AutonomousLearningEngine._get_searchcode_search` at line 1819: Lazily resolve SearchcodeSearch from core.
+- `AutonomousLearningEngine._get_serpex_agent` at line 1825: Lazily resolve or construct the niblit_agents.ResearchAgent (Serpex-backed).
+- `AutonomousLearningEngine._autonomous_serpex_research` at line 1854: Step 27: Use niblit_agents.ResearchAgent (Serpex + relevance filter) for validated research.
+- `AutonomousLearningEngine._get_scrapy_agent` at line 1984: Lazily resolve or construct the niblit_agents.ScrapyResearchAgent.
+- `AutonomousLearningEngine._autonomous_scrapy_research` at line 2011: ScrapyResearch step: use ScrapyResearchAgent for direct DuckDuckGo research.
+- `AutonomousLearningEngine._phased_research` at line 2112: Evidence-driven sequential research for the current cycle topic.
+- `AutonomousLearningEngine._emit_sync_artifact` at line 2211: Best-effort emit of a SyncArtifact to the process-wide SyncEngine.
+- `AutonomousLearningEngine._unified_research` at line 2226: Unified research step — internal-first, external only for gaps.
+- `AutonomousLearningEngine._get_semantic_agent` at line 2591: Lazily resolve SemanticAgent from core.
+- `AutonomousLearningEngine._generate_subtopics` at line 2601: Return a list of more specific research subtopics derived from *topic*.
+- `AutonomousLearningEngine.prioritize_research_topic` at line 2647: Insert *topic* at the FRONT of the research queue.
+- `AutonomousLearningEngine._get_claude_engine` at line 2684: Lazily resolve ClaudeEngine from core.
+- `AutonomousLearningEngine._get_software_studier` at line 2690: Lazily resolve SoftwareStudier from core.
+- `AutonomousLearningEngine._get_reasoning_engine` at line 2696: Lazily resolve ReasoningEngine from core.
+- `AutonomousLearningEngine._get_metacognition` at line 2702: Lazily resolve Metacognition from core.
+- `AutonomousLearningEngine._get_cognition_core` at line 2708: Lazily resolve CognitionCore singleton.
+- `AutonomousLearningEngine._get_improvement_integrator` at line 2717: Lazily resolve ImprovementIntegrator from core.
+- `AutonomousLearningEngine._autonomous_improvement_cycle` at line 2727: Step 18: Run the full 10-module improvement cycle via ImprovementIntegrator.
+- `AutonomousLearningEngine._autonomous_code_research` at line 2788: Step 8: Researcher + Internet + Serpex fetch real programming-language data.
+- `AutonomousLearningEngine._autonomous_code_generation` at line 2989: Step 9: Generate real code from research, using LLM when available.
+- `AutonomousLearningEngine._autonomous_code_compilation` at line 3134: Step 10: Syntax-test then compile generated code; store results.
+- `AutonomousLearningEngine._autonomous_code_reflection` at line 3309: Step 11: ReflectModule studies compiled output and stores actionable learnings.
+- `AutonomousLearningEngine._autonomous_software_study` at line 3400: Step 12: SoftwareStudier analyzes code functions/patterns via internet data.
+- `AutonomousLearningEngine._get_structural_awareness` at line 3477: Lazily resolve StructuralAwareness from core.
+- `AutonomousLearningEngine._autonomous_command_awareness` at line 3483: Step 13: Study all registered commands, understand their purpose, store in KB.
+- `AutonomousLearningEngine._autonomous_command_execution` at line 3553: Step 14: Autonomously execute a selection of safe diagnostic commands.
+- `AutonomousLearningEngine._derive_topics_from_kb` at line 3635: Extract fresh topic candidates from recent KnowledgeDB facts.
+- `AutonomousLearningEngine._autonomous_topic_seeding` at line 3711: Step 15: Derive new topics from knowledge and feed them to every
+- `AutonomousLearningEngine._autonomous_reasoning` at line 3801: Step 16: Advanced LLM-level reasoning using chain-of-thought, multi-hop
+- `AutonomousLearningEngine._resolve_contradictions` at line 3978: Read stored contradiction flags and act on them.
+- `AutonomousLearningEngine._autonomous_metacognition` at line 4076: Step 17: Use Metacognition to evaluate Niblit's own knowledge,
+- `AutonomousLearningEngine._autonomous_cognition_cycle` at line 4202: Step 17b: Run one CognitionCore cycle after Metacognition.
+- `AutonomousLearningEngine._run_step_with_timeout` at line 4252: Run a single ALE step in a thread pool with a timeout.
+- `AutonomousLearningEngine._interruptible_sleep` at line 4353: Sleep for *seconds* but wake up immediately if stop() is called.
+- `AutonomousLearningEngine.pause` at line 4376: Pause all ALE background work (e.g. while the user is chatting).
+- `AutonomousLearningEngine.resume` at line 4387: Resume normal ALE background work after the user response is sent.
+- `AutonomousLearningEngine._cognitive_cycle_services` at line 4392: Explanation needed.
+- `AutonomousLearningEngine._record_cognitive_cycle_contract` at line 4416: Explanation needed.
+- `AutonomousLearningEngine.run_self_learn_sequence` at line 4474: On-demand self-learn sequence: study architecture → study commands →
+- `AutonomousLearningEngine.run_evolve_sequence` at line 4565: Structured evolve sequence: study architecture and all commands →
+- `AutonomousLearningEngine._autonomous_evolve_step` at line 4654: Explanation needed.
+- `AutonomousLearningEngine._autonomous_self_scan` at line 4696: Step 19: BuildScanner reads Niblit's own source files for self-knowledge.
+- `AutonomousLearningEngine._autonomous_github_push` at line 4759: Step 20: GitHubSync pushes autonomously-generated files to GitHub.
+- `AutonomousLearningEngine._autonomous_binary_study` at line 4796: Step 21: Binary domain study — seeds KB with binary/hex/firmware/kernel topics.
+- `AutonomousLearningEngine._autonomous_builds_update` at line 4929: Step 22: Index the builds/ directory into KB each cycle.
+- `AutonomousLearningEngine._autonomous_evolve_deploy` at line 5014: Step 23: Read, understand, and hot-reload evolution improvements.
+- `AutonomousLearningEngine._autonomous_brain_training` at line 5148: Step 24: Autonomous brain trainer — fine-tune brain on research data.
+- `AutonomousLearningEngine._run_llm_training_agent` at line 5206: Run the LLMTrainingAgent to generate structured training data
+- `AutonomousLearningEngine._run_governed_training_pipeline` at line 5244: Run the GovernedTrainingPipeline for detected knowledge gaps.
+- `AutonomousLearningEngine._autonomous_cognitive_enhancement` at line 5354: Step 25: Cognitive enhancement — research language, communication,
+- `AutonomousLearningEngine._autonomous_github_code_discovery` at line 5499: Step 26: GitHub Code Search — patterns, training data, refactoring.
+- `AutonomousLearningEngine._autonomous_searchcode_discovery` at line 5643: Step 28: Searchcode.com — code-pattern discovery via REST API and/or MCP.
+- `AutonomousLearningEngine._autonomous_builds_integration` at line 5728: Step 29: Run all available builds/python scripts and ingest their output.
+- `AutonomousLearningEngine._autonomous_self_maintenance` at line 5830: Step 31: Run SelfHealer + SelfMaintenance to keep the knowledge base healthy.
+- `AutonomousLearningEngine._get_llm_architect` at line 5896: Lazy-load the LLMArchitectEngine singleton.
+- `AutonomousLearningEngine._autonomous_llm_architect` at line 5915: Step 32: LLM Architect Cycle — data curation → SFT → DPO → eval.
+- `AutonomousLearningEngine._run_autonomous_cycle` at line 5959: Execute one configured cycle: local evidence, or legacy 32 steps.
+- `AutonomousLearningEngine.background_loop` at line 6489: Main background loop - runs autonomously, continuously.
+- `AutonomousLearningEngine.start` at line 6584: Start one owned worker; optionally stop after a finite cycle count.
+- `AutonomousLearningEngine._owned_background_loop` at line 6618: Always release the running flag, including on unexpected worker exit.
+- `AutonomousLearningEngine.lifecycle_status` at line 6634: Observe this worker without constructing modules or invoking a model.
+- `AutonomousLearningEngine.stop` at line 6655: Request stop and report whether owned work has actually finished.
+- `AutonomousLearningEngine.get_current_topic` at line 6673: Return the research topic pinned to the current (or last) cycle.
+- `AutonomousLearningEngine.get_research_ingest_wait` at line 6677: Return the configured ingestion-wait duration in seconds.
+- `AutonomousLearningEngine.get_learning_stats` at line 6682: Get learning statistics
+- `AutonomousLearningEngine.add_research_topic` at line 6746: Add *topic* to the autonomous research list.
+- `AutonomousLearningEngine.add_research_topics` at line 6786: Add multiple topics
+- `AutonomousLearningEngine.update_research_topics` at line 6795: Replace (or extend) the active research-topic list with *new_topics*.
+- `AutonomousLearningEngine.detect_knowledge_gaps` at line 6815: Scan the KnowledgeDB for under-covered topics using knowledge_health().
+- `AutonomousLearningEngine.submit_agent_tasks_for_gaps` at line 6914: Additive: submit research tasks for detected knowledge gaps.
+- `AutonomousLearningEngine.self_improve_via_agents` at line 6960: Additive: submit a full self-improvement plan to the Phase-2 agents.
 
 ### modules/autonomous_network.py
 
@@ -10331,6 +10784,14 @@ modules/brain_router.py — Intelligent Multi-Brain Router (Niblit Hybrid Brain 
 - `BrainRouter.set_mode` at line 307: Change the routing mode at runtime.
 - `BrainRouter.stats` at line 315: Return routing decision statistics.
 
+### modules/broker_observation.py
+
+Versioned read-only broker observation consumed by Core and both Desk shells.
+
+- `number` at line 9: Explanation needed.
+- `BrokerObservation` at line 19: Explanation needed.
+- `normalize` at line 41: Explanation needed.
+
 ### modules/build_scanner.py
 
 BUILD SCANNER MODULE
@@ -10394,6 +10855,35 @@ Phase Ω.5 Causal Temporal Engine.
 - `CausalTemporalEngine._emit_temporal_contradiction` at line 178: Explanation needed.
 - `CausalTemporalEngine._save_state` at line 202: Explanation needed.
 - `CausalTemporalEngine._load_state` at line 217: Explanation needed.
+
+### modules/chart_annotations.py
+
+Views of existing Core decisions. No strategy, order or model authority.
+
+- `digest` at line 7: Explanation needed.
+- `Anchor` at line 10: Explanation needed.
+- `ChartScope` at line 15: Explanation needed.
+- `Annotation` at line 23: Explanation needed.
+- `build_annotations` at line 62: Map measured fields only. A signal is not permission or a drawn forecast.
+- `ChartAnnotations` at line 136: Derived head in the SAME ledger; immutable changes use the original outbox.
+- `record_chart_annotations` at line 186: Explanation needed.
+- `Annotation.coordinates` at line 53: Explanation needed.
+- `ChartAnnotations.__init__` at line 138: Explanation needed.
+- `ChartAnnotations.publish` at line 141: Explanation needed.
+- `ChartAnnotations.read` at line 170: Explanation needed.
+
+### modules/chart_views.py
+
+Platform views of the original Core chart contract. No execution methods.
+
+- `freqtrade_annotations` at line 5: Installed Freqtrade2026.9 line/point/area view shapes.
+- `pine_export` at line 19: Snapshot-only supported Pine drawings. Never remote-control native tools.
+- `mt5_tsv` at line 41: Only exact broker-scoped observations can enter the MT5 local channel.
+- `ChartView` at line 55: Explanation needed.
+- `ChartView.__init__` at line 56: Explanation needed.
+- `ChartView.snapshot` at line 58: Explanation needed.
+- `ChartView.safe_symbol` at line 138: Explanation needed.
+- `ChartView.native_clock` at line 139: Explanation needed.
 
 ### modules/chat_attachments.py
 
@@ -10597,6 +11087,15 @@ Phase Ω.6 cognitive budget enforcement and recursion caps.
 - `CognitiveBudgetManager._rationale` at line 127: Explanation needed.
 - `CognitiveBudgetManager._emit` at line 132: Explanation needed.
 
+### modules/cognitive_chat.py
+
+Bounded Chat admission adapter over the existing Core tool authority.
+
+- `inference_snapshot` at line 13: Observe the configured authenticated gateway; never start a model.
+- `admission` at line 37: Conservative interpretation; ambiguous actions do not execute.
+- `execute_readonly` at line 137: Explanation needed.
+- `evidence_reply` at line 181: Runtime claims come from observations, never probabilistic self-report.
+
 ### modules/cognitive_coherence_engine.py
 
 Phase Ω.5 Cognitive Coherence Engine.
@@ -10728,23 +11227,24 @@ Phase Ω.5 Cognitive Immune System.
 Mandatory canonical cognitive ingress path for additive rollout.
 
 - `CognitiveIngress` at line 23: Thin canonical path above existing specialist modules.
-- `get_cognitive_ingress` at line 286: Explanation needed.
+- `get_cognitive_ingress` at line 348: Explanation needed.
 - `CognitiveIngress.__init__` at line 26: Explanation needed.
 - `CognitiveIngress.ingest` at line 45: Explanation needed.
-- `CognitiveIngress.resume_checkpoint` at line 157: Explanation needed.
-- `CognitiveIngress.get_metrics` at line 164: Explanation needed.
-- `CognitiveIngress._intent_engine` at line 168: Explanation needed.
-- `CognitiveIngress._router` at line 173: Explanation needed.
-- `CognitiveIngress._graph` at line 178: Explanation needed.
-- `CognitiveIngress._recall` at line 183: Explanation needed.
-- `CognitiveIngress._authorize` at line 197: Explanation needed.
-- `CognitiveIngress._execution_errors` at line 206: Explanation needed.
-- `CognitiveIngress._record_knowledge` at line 210: Explanation needed.
-- `CognitiveIngress._save_checkpoint` at line 238: Explanation needed.
-- `CognitiveIngress._record_provenance` at line 244: Explanation needed.
-- `CognitiveIngress._architecture_observe` at line 258: Explanation needed.
-- `CognitiveIngress._record_metric` at line 262: Explanation needed.
-- `CognitiveIngress._resolve_runtime_dependency` at line 266: Explanation needed.
+- `CognitiveIngress.resume_checkpoint` at line 164: Explanation needed.
+- `CognitiveIngress.get_metrics` at line 171: Explanation needed.
+- `CognitiveIngress._intent_engine` at line 175: Explanation needed.
+- `CognitiveIngress._router` at line 180: Explanation needed.
+- `CognitiveIngress._graph` at line 185: Explanation needed.
+- `CognitiveIngress._recall` at line 190: Explanation needed.
+- `CognitiveIngress._authorize` at line 204: Explanation needed.
+- `CognitiveIngress._execution_errors` at line 213: Explanation needed.
+- `CognitiveIngress._record_market_analysis` at line 217: Use Core's existing authorized outbox; no new store or worker.
+- `CognitiveIngress._record_knowledge` at line 272: Explanation needed.
+- `CognitiveIngress._save_checkpoint` at line 300: Explanation needed.
+- `CognitiveIngress._record_provenance` at line 306: Explanation needed.
+- `CognitiveIngress._architecture_observe` at line 320: Explanation needed.
+- `CognitiveIngress._record_metric` at line 324: Explanation needed.
+- `CognitiveIngress._resolve_runtime_dependency` at line 328: Explanation needed.
 
 ### modules/cognitive_journal.py
 
@@ -10780,6 +11280,13 @@ Runtime-owned semantic memory layer for Niblit.
 - `CognitiveMemoryLayer.ingest_document` at line 135: Explanation needed.
 - `CognitiveMemoryLayer.retrieve` at line 157: Explanation needed.
 - `CognitiveMemoryLayer.synthesize_response` at line 198: Explanation needed.
+
+### modules/cognitive_observation_runtime.py
+
+Core-owned reads, existing broker adapters and canonical memory; no orders.
+
+- `episode_sink` at line 13: Explanation needed.
+- `install` at line 41: Restart resumes reads only; explicit identity configuration is mandatory.
 
 ### modules/cognitive_router.py
 
@@ -10832,6 +11339,12 @@ COLLABORATIVE LEARNING MODULE
 - `CollaborativeLearner.share_knowledge` at line 88: Share knowledge with a peer system.
 - `CollaborativeLearner.get_collaboration_status` at line 131: Get status of collaborative learning
 - `CollaborativeLearner._store` at line 148: Persist a fact to niblit_memory (any backend that has add_fact/store_learning).
+
+### modules/command_effects.py
+
+Read-only postconditions for existing lifecycle command handlers; never an executor.
+
+- `observe` at line 2: Explanation needed.
 
 ### modules/command_registry.py
 
@@ -10968,32 +11481,82 @@ Copilot-safe refactor intelligence layer for NRR-v2.
 
 modules/core_tool_runtime.py - Phase 5C governed tool runtime for Core.
 
-- `_get_singleton_core` at line 88: Resolve Core through the provider most recently supplied by the host.
-- `_clamped_budget` at line 100: Explanation needed.
-- `run_research_capability` at line 108: Governed run_research trigger (single-flight, hard-capped).
-- `register_workspace_tools` at line 326: Register the governed workspace capabilities on the loop.
-- `_safe_db` at line 491: Return the real KnowledgeDB (``core.db``) or None — never a substitute.
-- `knowledge_recall_capability` at line 500: Restored original ``recall`` — db.recall(query, limit=8).
-- `knowledge_acquired_data_capability` at line 526: Restored original ``acquired data`` — db.get_acquired_data(cat, 20).
-- `knowledge_stats_capability` at line 550: Restored original ``knowledge stats`` — db.get_knowledge_summary().
-- `memory_recent_capability` at line 561: Restored original ``memory`` — db.recent_interactions(50).
-- `register_knowledge_tools` at line 575: Register the restored original knowledge commands on the governed loop.
-- `_original_availability` at line 847: Availability predicate for one promoted original command.
-- `original_availability_reason` at line 870: Truthful reason used when a promoted command's dependency is missing.
-- `_original_function_schema` at line 880: Explanation needed.
-- `original_command_capability` at line 894: Bridge one promoted ORIGINAL command onto the governed capability shape.
-- `register_original_readonly_tools` at line 937: Phase 5G-F: expose the evidence-traced ORIGINAL read-only commands.
-- `build_governed_tool_loop` at line 966: Compose the governed loop: existing loop + existing capabilities.
-- `get_governed_tool_loop` at line 997: Process-level configured loop (Core server runtime).
-- `reset_governed_tool_loop` at line 1008: Test hook: drop the process-level singleton.
-- `resolve_command_alias` at line 1235: Map an original Niblit command name to its canonical governed name.
-- `_emit_command_event` at line 1248: Publish one command.* event; event failures never abort execution.
-- `_permission_manager` at line 1260: Existing PermissionManager authority (file-backed check/ask store).
-- `_command_state` at line 1267: Truthful runtime state: EXECUTABLE | REQUIRES_AUTHORIZATION |
-- `list_governed_commands` at line 1287: Registry for the Command tab, derived from the governed loop itself.
-- `promoted_audit_map` at line 1359: The Phase 5G promotion table in the shape the audit layer consumes.
-- `list_original_command_surface` at line 1380: Reconcile the ORIGINAL command surface with the governed one.
-- `execute_governed_command` at line 1416: Validation chain -> governed dispatch -> real result -> EventBus.
+- `LearningRequestJob` at line 109: Request lifecycle for the existing single-flight learner; not a worker.
+- `_learning_scope` at line 165: Explanation needed.
+- `_learning_owner` at line 171: Explanation needed.
+- `begin_learning_job` at line 177: Explanation needed.
+- `learning_job_status` at line 198: Explanation needed.
+- `learning_job_context` at line 233: Explanation needed.
+- `run_learning_capability` at line 239: Explanation needed.
+- `recall_learning_capability` at line 264: Explanation needed.
+- `_get_singleton_core` at line 278: Resolve Core through the provider most recently supplied by the host.
+- `_clamped_budget` at line 290: Explanation needed.
+- `run_research_capability` at line 298: Governed run_research trigger (single-flight, hard-capped).
+- `register_workspace_tools` at line 516: Register the governed workspace capabilities on the loop.
+- `_safe_db` at line 681: Return the real KnowledgeDB (``core.db``) or None — never a substitute.
+- `knowledge_recall_capability` at line 690: Restored original ``recall`` — db.recall(query, limit=8).
+- `knowledge_acquired_data_capability` at line 716: Restored original ``acquired data`` — db.get_acquired_data(cat, 20).
+- `knowledge_stats_capability` at line 740: Restored original ``knowledge stats`` — db.get_knowledge_summary().
+- `memory_recent_capability` at line 751: Restored original ``memory`` — db.recent_interactions(50).
+- `register_knowledge_tools` at line 765: Register the restored original knowledge commands on the governed loop.
+- `_original_availability` at line 1037: Availability predicate for one promoted original command.
+- `original_availability_reason` at line 1060: Truthful reason used when a promoted command's dependency is missing.
+- `_original_function_schema` at line 1070: Explanation needed.
+- `original_command_capability` at line 1084: Bridge one promoted ORIGINAL command onto the governed capability shape.
+- `register_original_readonly_tools` at line 1127: Phase 5G-F: expose the evidence-traced ORIGINAL read-only commands.
+- `build_governed_tool_loop` at line 1156: Compose the governed loop: existing loop + existing capabilities.
+- `get_governed_tool_loop` at line 1222: Process-level configured loop (Core server runtime).
+- `reset_governed_tool_loop` at line 1233: Test hook: drop the process-level singleton.
+- `resolve_command_alias` at line 1484: Map an original Niblit command name to its canonical governed name.
+- `_emit_command_event` at line 1497: Publish one command.* event; event failures never abort execution.
+- `_permission_manager` at line 1509: Existing PermissionManager authority (file-backed check/ask store).
+- `_command_state` at line 1516: Truthful runtime state: EXECUTABLE | REQUIRES_AUTHORIZATION |
+- `list_governed_commands` at line 1536: Registry for the Command tab, derived from the governed loop itself.
+- `promoted_audit_map` at line 1608: The Phase 5G promotion table in the shape the audit layer consumes.
+- `list_original_command_surface` at line 1629: Reconcile the ORIGINAL command surface with the governed one.
+- `execute_governed_command` at line 1665: Validation chain -> governed dispatch -> real result -> EventBus.
+- `LearningRequestJob.__init__` at line 111: Explanation needed.
+- `LearningRequestJob.public` at line 121: Explanation needed.
+- `LearningRequestJob.record` at line 129: Explanation needed.
+- `LearningRequestJob.request_cancel` at line 134: Explanation needed.
+- `LearningRequestJob.stage` at line 144: Explanation needed.
+- `LearningRequestJob.finish` at line 153: Explanation needed.
+
+### modules/core_trading_sessions.py
+
+Core session integration for the existing DemoAutotrader worker.
+
+- `number` at line 25: Explanation needed.
+- `digest` at line 31: Explanation needed.
+- `configured_limits` at line 35: Explanation needed.
+- `scoped_limits` at line 53: Explanation needed.
+- `CoreTradingSessions` at line 77: Registration/API/risk integration; DemoAutotrader remains the worker.
+- `load_execution_cost_profile` at line 852: Explanation needed.
+- `configured_demo_profile` at line 862: Select the explicit MT5 demo profile, falling back past empty aliases.
+- `install_core_trading` at line 867: Register the existing worker with Core; boot never activates execution.
+- `CoreTradingSessions.__init__` at line 79: Explanation needed.
+- `CoreTradingSessions.emit` at line 123: Event and original memory outbox are committed together before send.
+- `CoreTradingSessions.remote_status` at line 139: Commit state transitions through the existing canonical memory outbox.
+- `CoreTradingSessions.start_remote_observer` at line 196: One read-only observer, independent of inference and UI request timing.
+- `CoreTradingSessions.observe` at line 212: Explanation needed.
+- `CoreTradingSessions.observe_many` at line 232: Run one independent read-only observer per explicitly selected symbol.
+- `CoreTradingSessions.propose` at line 246: Explanation needed.
+- `CoreTradingSessions.session` at line 298: Explanation needed.
+- `CoreTradingSessions.activate` at line 304: Explanation needed.
+- `CoreTradingSessions.stop` at line 339: Explanation needed.
+- `CoreTradingSessions.shutdown` at line 353: Explanation needed.
+- `CoreTradingSessions.refresh_mt5_account` at line 363: Explanation needed.
+- `CoreTradingSessions._refresh_mt5_account` at line 370: Explanation needed.
+- `CoreTradingSessions.mt5_account_status` at line 416: Explanation needed.
+- `CoreTradingSessions.status` at line 426: Explanation needed.
+- `CoreTradingSessions.funded_preflight` at line 451: Record a funded engineering decision without granting or delivering.
+- `CoreTradingSessions.acknowledge_alert` at line 470: Explanation needed.
+- `CoreTradingSessions.validate_snapshot` at line 473: Explanation needed.
+- `CoreTradingSessions.risk` at line 494: Explanation needed.
+- `CoreTradingSessions.native_entry_receipt` at line 536: Consume one already-sending Freqtrade claim. Never grants a session.
+- `CoreTradingSessions._reconcile` at line 568: Explanation needed.
+- `CoreTradingSessions._record_owned_positions` at line 605: Explanation needed.
+- `CoreTradingSessions.cycle` at line 637: One existing worker tick: observe -> reconcile -> consensus -> risk -> ticket.
 
 ### modules/counter_active_membrane.py
 
@@ -11002,6 +11565,18 @@ Module purpose needs a human explanation.
 - `CounterActiveMembrane` at line 3: Explanation needed.
 - `CounterActiveMembrane.__init__` at line 4: Explanation needed.
 - `CounterActiveMembrane.monitor` at line 7: Explanation needed.
+
+### modules/crypto_stops.py
+
+Deterministic Exness DEMO protection from native completed M5 bars.
+
+- `policy` at line 23: Explanation needed.
+- `finite` at line 29: Explanation needed.
+- `grid` at line 35: Explanation needed.
+- `specification` at line 41: Explanation needed.
+- `levels` at line 54: Explanation needed.
+- `fixed_levels` at line 102: Revalidate reviewed levels on a fresh quote; never widen or move them.
+- `from_mt5` at line 122: Explanation needed.
 
 ### modules/dashboard.py
 
@@ -11050,6 +11625,33 @@ modules/deliberative_planner.py — Phase 21 Deliberative Planning Layer
 - `DeliberativePlanner._context_biased_pool` at line 250: Return an action pool biased by context intent/mode.
 - `DeliberativePlanner._trivial_plan` at line 278: Explanation needed.
 - `DeliberativePlanner.status` at line 289: Explanation needed.
+
+### modules/demo_autotrader.py
+
+Bounded MT5 demo sessions using durable order tickets and a decision journal.
+
+- `DemoAutotrader` at line 23: Explanation needed.
+- `DemoAutotrader.__init__` at line 24: Explanation needed.
+- `DemoAutotrader.db` at line 48: Explanation needed.
+- `DemoAutotrader.record` at line 54: Explanation needed.
+- `DemoAutotrader.start` at line 58: Explanation needed.
+- `DemoAutotrader.stop` at line 99: Explanation needed.
+- `DemoAutotrader.run` at line 103: Explanation needed.
+- `DemoAutotrader.outcomes` at line 120: Record complete broker positions, including entry/exit commissions.
+- `DemoAutotrader.step` at line 163: Explanation needed.
+- `DemoAutotrader._step` at line 171: Explanation needed.
+- `DemoAutotrader.entry_body` at line 345: The same sizing/spread policy serves alerts and execution candidates.
+- `DemoAutotrader.status` at line 363: Explanation needed.
+
+### modules/demo_strategy.py
+
+Deterministic, inspectable demo hypotheses. No paid models or live-order path.
+
+- `ema` at line 24: Explanation needed.
+- `rsi` at line 29: Explanation needed.
+- `evaluate` at line 35: Explanation needed.
+- `risk_budget` at line 107: Grow only the absolute budget with equity, never the risk percentage.
+- `position_volume` at line 117: Round down to broker steps; skip when minimum lot exceeds the budget.
 
 ### modules/dependency_injection.py
 
@@ -11113,6 +11715,14 @@ modules/deployment_bridge.py — Cross-deployment checkpoint bridge for Niblit.
 - `DeploymentBridge.start_autosave` at line 264: Start a background daemon thread that saves snapshots periodically.
 - `DeploymentBridge.stop_autosave` at line 284: Explanation needed.
 
+### modules/desktop_dependencies.py
+
+Locate existing desktop prerequisites without downloads or configuration edits.
+
+- `docker_desktop_path` at line 9: Docker supports both per-user and all-users Windows installations.
+- `docker_ready` at line 19: Explanation needed.
+- `ensure_docker` at line 29: Bounded startup only. Never install, rebuild, reset or remove volumes.
+
 ### modules/desktop_diagnostics.py
 
 Read-only desktop views of the governing Core and its real service layers.
@@ -11120,6 +11730,17 @@ Read-only desktop views of the governing Core and its real service layers.
 - `service_snapshot` at line 10: Explanation needed.
 - `_call` at line 24: Explanation needed.
 - `desktop_snapshot` at line 34: Explanation needed.
+
+### modules/desktop_market_intelligence.py
+
+Bound desktop observation using the existing MT5 adapter, six rules and Core ingress.
+
+- `DesktopMarketIntelligence` at line 10: Explanation needed.
+- `analyze_snapshot` at line 49: One shared evidence/strategy ingress for independent terminal sources.
+- `component_inventory` at line 86: Bounded metadata inventory; compiled internals and execution are unavailable.
+- `DesktopMarketIntelligence.__init__` at line 11: Explanation needed.
+- `DesktopMarketIntelligence.binding` at line 17: Explanation needed.
+- `DesktopMarketIntelligence.observe` at line 20: Explanation needed.
 
 ### modules/desktop_runtime_shell.py
 
@@ -11576,20 +12197,29 @@ modules/execution_graph.py — Phase 21 Execution Graph Engine
 
 - `StepResult` at line 70: Result of a single execution graph step.
 - `ExecutionResult` at line 80: Full result of a completed execution graph run.
-- `ExecutionGraph` at line 117: Compositional plan graph executor.
-- `get_execution_graph` at line 387: Return the module-level :class:`ExecutionGraph` singleton.
-- `ExecutionResult.to_dict` at line 97: Explanation needed.
-- `ExecutionGraph.__init__` at line 126: Explanation needed.
-- `ExecutionGraph.run` at line 134: Execute the full graph for *text* and return an :class:`ExecutionResult`.
-- `ExecutionGraph._build_steps` at line 236: Return ordered (name, fn) step list for *mode*.
-- `ExecutionGraph._run_step` at line 266: Explanation needed.
-- `ExecutionGraph._step_retrieve_memory` at line 276: Pull relevant KB facts and attach them to context.
-- `ExecutionGraph._step_run_forecast` at line 289: Consult the ForecastArbitrator or TFT adapter.
-- `ExecutionGraph._step_validate_risk` at line 309: Basic safety/risk check.
-- `ExecutionGraph._step_generate_response` at line 318: Assemble the final response string from context.
-- `ExecutionGraph._step_reflect` at line 346: Write a brief reflection note for the learning loop.
-- `ExecutionGraph._estimate_quality` at line 356: Explanation needed.
-- `ExecutionGraph.status` at line 371: Explanation needed.
+- `ExecutionGraph` at line 119: Compositional plan graph executor.
+- `get_execution_graph` at line 436: Return the module-level :class:`ExecutionGraph` singleton.
+- `ExecutionResult.to_dict` at line 98: Explanation needed.
+- `ExecutionGraph.__init__` at line 128: Explanation needed.
+- `ExecutionGraph.run` at line 136: Execute the full graph for *text* and return an :class:`ExecutionResult`.
+- `ExecutionGraph._build_steps` at line 265: Return ordered (name, fn) step list for *mode*.
+- `ExecutionGraph._run_step` at line 295: Explanation needed.
+- `ExecutionGraph._step_retrieve_memory` at line 305: Pull relevant KB facts and attach them to context.
+- `ExecutionGraph._step_run_forecast` at line 318: Consult existing rules for structured data, otherwise legacy forecasts.
+- `ExecutionGraph._step_validate_risk` at line 344: Record analysis limits without granting specialist order authority.
+- `ExecutionGraph._step_generate_response` at line 359: Assemble the final response string from context.
+- `ExecutionGraph._step_reflect` at line 395: Write a brief reflection note for the learning loop.
+- `ExecutionGraph._estimate_quality` at line 405: Explanation needed.
+- `ExecutionGraph.status` at line 420: Explanation needed.
+
+### modules/execution_venue_router.py
+
+Pure venue/account route descriptors for deterministic execution plans.
+
+- `VenueBinding` at line 16: Explanation needed.
+- `resolve_route` at line 37: Return an immutable, content-addressed route description.
+- `route_difference` at line 79: Explain which exact binding dimensions separate two proposed routes.
+- `VenueBinding.__post_init__` at line 25: Explanation needed.
 
 ### modules/federation_foundation.py
 
@@ -11710,12 +12340,54 @@ Niblit Phase 2 — Cognitive Foundation Architecture.
 - `FoundationArchitecture._persist` at line 1043: Persist event data to JSONL using boot-time buffering.
 - `FoundationArchitecture.mark_boot_complete` at line 1084: Signal that boot is complete and flush all buffered events.
 
+### modules/freqtrade_chart_adapter.py
+
+Read-only FreqUI callback adapter for Core-generated plot snapshots.
+
+- `read_plot_annotations` at line 5: Explanation needed.
+
+### modules/freqtrade_core_claim.py
+
+Native Freqtrade confirmation of an already-authorized Core claim.
+
+- `account_binding` at line 25: Explanation needed.
+- `core_receipt` at line 41: Only an explicitly configured local Core callback; never follow redirects.
+- `confirm_core_entry` at line 70: Explanation needed.
+- `NoRedirect.redirect_request` at line 61: Explanation needed.
+
+### modules/freqtrade_native_analysis.py
+
+Read-only invocation of the installed Freqtrade catalog; no bot/exchange/DB.
+
+- `evaluate_native` at line 29: Explanation needed.
+- `NativeAnalysisCache` at line 52: One bounded analysis job; polling never queues a backlog or reuses other bars.
+- `NativeAnalysisCache.__init__` at line 54: Explanation needed.
+- `NativeAnalysisCache.snapshot` at line 62: Explanation needed.
+
 ### modules/freqtrade_operator.py
 
 Explicit human Freqtrade commands; never registered as assistant tools.
 
 - `_request` at line 12: Explanation needed.
 - `handle_freqtrade_command` at line 28: Explanation needed.
+
+### modules/freqtrade_research.py
+
+Read-only Freqtrade parity for the shared strategy/prediction laboratory.
+
+- `FreqtradeResearch` at line 16: Explanation needed.
+- `FreqtradeResearch.__init__` at line 17: Explanation needed.
+- `FreqtradeResearch.recall_analysis` at line 29: Recall an immutable local research decision, including after restart.
+- `FreqtradeResearch.snapshot` at line 35: Explanation needed.
+
+### modules/funded_risk.py
+
+Deterministic funded preflight. A PASS never grants broker authority.
+
+- `decimal` at line 5: Explanation needed.
+- `evaluate` at line 40: Evaluate trusted Core inputs using account-currency decimals.
+- `breaker_after` at line 94: Critical states latch. Monitoring never clears an unresolved incident.
+- `net_costs` at line 106: Normalize explicitly bounded charges; unknowns never become zero.
 
 ### modules/game_engine.py
 
@@ -11925,12 +12597,18 @@ modules/governed_research.py - Phase 5A governed web.search / web.fetch.
 
 - `_url_allowed` at line 29: Explanation needed.
 - `_PublicRedirects` at line 51: Explanation needed.
-- `governed_fetch` at line 59: Fetch public HTTP(S) text with SSRF/size/timeout guards. Structured
-- `GovernedSearch` at line 99: Stable web.search contract over pluggable providers.
-- `_PublicRedirects.redirect_request` at line 52: Explanation needed.
-- `GovernedSearch.__init__` at line 102: Explanation needed.
-- `GovernedSearch._resolve_provider` at line 106: Explanation needed.
-- `GovernedSearch.search` at line 124: Explanation needed.
+- `governed_fetch` at line 65: Fetch public HTTP(S) text with SSRF/size/timeout guards. Structured
+- `_article_text` at line 124: Extract visible article text before capping evidence; never execute HTML.
+- `GovernedSearch` at line 143: Stable web.search contract over pluggable providers.
+- `_PublicRedirects.__init__` at line 52: Explanation needed.
+- `_PublicRedirects.redirect_request` at line 56: Explanation needed.
+- `GovernedSearch.__init__` at line 146: Explanation needed.
+- `GovernedSearch._resolve_provider` at line 150: Explanation needed.
+- `GovernedSearch.search` at line 168: Explanation needed.
+- `Article.__init__` at line 128: Explanation needed.
+- `Article.handle_starttag` at line 131: Explanation needed.
+- `Article.handle_endtag` at line 134: Explanation needed.
+- `Article.handle_data` at line 137: Explanation needed.
 
 ### modules/governed_training_pipeline.py
 
@@ -11970,7 +12648,7 @@ modules/graded_curriculum.py
 - `GradeLevel` at line 44: A single grade (learning stage) with its curriculum topics and pass threshold.
 - `GradeExam` at line 170: Evaluates whether Niblit has learned enough to pass the current grade.
 - `GradedCurriculum` at line 241: Orchestrates Niblit's education-system-style learning progression.
-- `get_graded_curriculum` at line 514: Return (and lazily create) the process-level GradedCurriculum singleton.
+- `get_graded_curriculum` at line 521: Return (and lazily create) the process-level GradedCurriculum singleton.
 - `GradeExam.__init__` at line 179: Explanation needed.
 - `GradeExam._count_facts_for_topic` at line 183: Return how many stored facts are relevant to *topic*.
 - `GradeExam.run` at line 203: Run the exam and return a result dict.
@@ -11981,13 +12659,13 @@ modules/graded_curriculum.py
 - `GradedCurriculum._teach_grade_topics` at line 371: Run SelfTeacher outside readiness and retain visible task status.
 - `GradedCurriculum.shutdown` at line 417: Prevent queued curriculum teaching from starting more topics.
 - `GradedCurriculum.start_teaching` at line 421: Release startup deferral and schedule learning under Core ownership.
-- `GradedCurriculum.current_grade` at line 429: Explanation needed.
-- `GradedCurriculum.status` at line 432: Return a status dict suitable for display.
-- `GradedCurriculum.run_exam` at line 452: Run the exam for the current grade and advance if passed.
-- `GradedCurriculum._advance_grade` at line 476: Move up one grade level and seed the new topics.
-- `GradedCurriculum.advance_manual` at line 488: Force-advance one grade (for testing / admin use).
-- `GradedCurriculum.maybe_run_exam` at line 496: Run the exam only if the exam interval has elapsed.
-- `GradedCurriculum.start` at line 502: Seed the starting grade and schedule optional SelfTeacher work.
+- `GradedCurriculum.current_grade` at line 436: Explanation needed.
+- `GradedCurriculum.status` at line 439: Return a status dict suitable for display.
+- `GradedCurriculum.run_exam` at line 459: Run the exam for the current grade and advance if passed.
+- `GradedCurriculum._advance_grade` at line 483: Move up one grade level and seed the new topics.
+- `GradedCurriculum.advance_manual` at line 495: Force-advance one grade (for testing / admin use).
+- `GradedCurriculum.maybe_run_exam` at line 503: Run the exam only if the exam interval has elapsed.
+- `GradedCurriculum.start` at line 509: Seed the starting grade and schedule optional SelfTeacher work.
 
 ### modules/graph_rag.py
 
@@ -12143,20 +12821,23 @@ modules/hybrid_qdrant_manager.py — Multi-Model Qdrant Inference Manager
 - `_is_long` at line 168: Return True when *text* exceeds *threshold* characters.
 - `RoutedQdrantPoint` at line 174: Explanation needed.
 - `HybridQdrantManager` at line 184: Multi-model Qdrant inference manager.
-- `get_hybrid_manager` at line 761: Return the process-wide :class:`HybridQdrantManager` singleton.
+- `get_hybrid_manager` at line 819: Return the process-wide :class:`HybridQdrantManager` singleton.
 - `HybridQdrantManager.__init__` at line 199: Explanation needed.
-- `HybridQdrantManager._get_client` at line 226: Return (or lazily create) QdrantClient.
-- `HybridQdrantManager._prefixed` at line 249: HARD-STANDARDIZED collection naming system.
-- `HybridQdrantManager._ensure_collection` at line 268: Create *full_name* in Qdrant if it does not already exist.
-- `HybridQdrantManager._embed` at line 325: Produce an embedding for *text* using the model identified by *model_key*.
-- `HybridQdrantManager.select_models` at line 358: Return the list of model keys best suited for *text*.
-- `HybridQdrantManager.route_to_collection` at line 413: Route a write request into the canonical prefixed collection.
-- `HybridQdrantManager.insert` at line 425: Single controlled write path into Qdrant.
-- `HybridQdrantManager.upsert` at line 462: Upsert *text* into *collection* using each model in *models*.
-- `HybridQdrantManager.query` at line 576: Query *collection* with *text* using each model in *models*.
-- `HybridQdrantManager.upsert_knowledge_item` at line 667: Convenience wrapper for dict-based knowledge items.
-- `HybridQdrantManager.get_stats` at line 720: Return per-model operation counters.
-- `HybridQdrantManager.model_stats` at line 732: Return a formatted multi-line string report of per-model stats.
+- `HybridQdrantManager._remote_legacy_allowed` at line 227: Explanation needed.
+- `HybridQdrantManager.canonical_request` at line 233: Existing remote manager transport; no embedding or ID remapping.
+- `HybridQdrantManager.canonical_project` at line 252: Explanation needed.
+- `HybridQdrantManager._get_client` at line 281: Return (or lazily create) QdrantClient.
+- `HybridQdrantManager._prefixed` at line 304: HARD-STANDARDIZED collection naming system.
+- `HybridQdrantManager._ensure_collection` at line 323: Create *full_name* in Qdrant if it does not already exist.
+- `HybridQdrantManager._embed` at line 380: Produce an embedding for *text* using the model identified by *model_key*.
+- `HybridQdrantManager.select_models` at line 413: Return the list of model keys best suited for *text*.
+- `HybridQdrantManager.route_to_collection` at line 468: Route a write request into the canonical prefixed collection.
+- `HybridQdrantManager.insert` at line 480: Single controlled write path into Qdrant.
+- `HybridQdrantManager.upsert` at line 518: Upsert *text* into *collection* using each model in *models*.
+- `HybridQdrantManager.query` at line 633: Query *collection* with *text* using each model in *models*.
+- `HybridQdrantManager.upsert_knowledge_item` at line 725: Convenience wrapper for dict-based knowledge items.
+- `HybridQdrantManager.get_stats` at line 778: Return per-model operation counters.
+- `HybridQdrantManager.model_stats` at line 790: Return a formatted multi-line string report of per-model stats.
 
 ### modules/hypothesis_engine.py
 
@@ -12630,6 +13311,13 @@ modules/lean_engine.py — LEAN CLI / QuantConnect integration for Niblit.
 - `_NopQueue.push` at line 65: Explanation needed.
 - Review: empty-body at line 65.
 
+### modules/learning_commands.py
+
+Explicit operator learning activation through the existing scoped task authority.
+
+- `start` at line 5: Explanation needed.
+- `stop` at line 41: Explanation needed.
+
 ### modules/learning_status.py
 
 Pure ownership checks shared by Core's sync/async research workers.
@@ -12847,19 +13535,20 @@ modules/llm_provider_manager.py — Runtime LLM provider selector for Niblit.
 
 modules/llm_tool_loop.py - governed Core-side LLM tool execution loop.
 
-- `make_runtime_status_tool` at line 37: Explanation needed.
-- `ToolCallError` at line 52: A tool call was invalid or not permitted.
-- `ToolAuthorizationError` at line 56: A capability is registered but requires an operator permission grant.
-- `LlmToolLoop` at line 60: Explanation needed.
-- `LlmToolLoop.__init__` at line 62: Explanation needed.
-- `LlmToolLoop.allowed_tool_names` at line 72: Explanation needed.
-- `LlmToolLoop.register_capability` at line 75: Governed capability registration (Phase 5A): expose one additional
-- `LlmToolLoop.prevalidate` at line 82: Phase 5E: schema-validate a call WITHOUT dispatching it.
-- `LlmToolLoop.invoke` at line 101: Phase 5E: direct governed invocation of one registered capability.
-- `LlmToolLoop._validate_call` at line 143: Explanation needed.
-- `LlmToolLoop._require_authorization` at line 167: Apply command-surface permission metadata to direct LLM tool calls.
-- `LlmToolLoop._cloud_chat` at line 186: Explanation needed.
-- `LlmToolLoop.chat` at line 213: Explanation needed.
+- `make_runtime_status_tool` at line 39: Explanation needed.
+- `ToolCallError` at line 54: A tool call was invalid or not permitted.
+- `ToolAuthorizationError` at line 58: A capability is registered but requires an operator permission grant.
+- `LlmToolLoop` at line 62: Explanation needed.
+- `LlmToolLoop.__init__` at line 64: Explanation needed.
+- `LlmToolLoop.tool_schemas` at line 74: Narrow this request to existing registrations; never grant a capability.
+- `LlmToolLoop.allowed_tool_names` at line 82: Explanation needed.
+- `LlmToolLoop.register_capability` at line 85: Governed capability registration (Phase 5A): expose one additional
+- `LlmToolLoop.prevalidate` at line 92: Phase 5E: schema-validate a call WITHOUT dispatching it.
+- `LlmToolLoop.invoke` at line 111: Phase 5E: direct governed invocation of one registered capability.
+- `LlmToolLoop._validate_call` at line 153: Explanation needed.
+- `LlmToolLoop._require_authorization` at line 177: Apply command-surface permission metadata to direct LLM tool calls.
+- `LlmToolLoop._cloud_chat` at line 196: Explanation needed.
+- `LlmToolLoop.chat` at line 224: Explanation needed.
 
 ### modules/llm_training_agent.py
 
@@ -12882,59 +13571,60 @@ modules/llm_training_agent.py — LLM-assisted training agent for Niblit.
 
 modules/local_brain.py — LocalBrain Runtime Gateway.
 
-- `getenv_int` at line 30: Return an int from the environment, falling back to *default* on bad input.
-- `getenv_float` at line 41: Return a float from the environment, falling back to *default* on bad input.
-- `getenv_str` at line 52: Return a str from the environment, falling back to *default* on bad input.
-- `LocalBrainGateway` at line 194: Runtime Gateway for CloudRuntime.
-- `get_local_brain` at line 608: Return the process-wide LocalBrainGateway singleton.
-- `reset_local_brain` at line 617: Discard the current singleton so the next get_local_brain() creates fresh.
-- `QwenLocalBrain` at line 628: DEPRECATED: Legacy compatibility shim.
-- `BrainTrainer` at line 714: DEPRECATED: Legacy compatibility shim.
-- `NiblitCloudBrain` at line 744: DEPRECATED: Legacy compatibility shim.
-- `swap_local_brain` at line 771: DEPRECATED: Return a compatibility shim.
-- `set_backend_url` at line 784: DEPRECATED: No-op.
-- `get_backend_info` at line 796: DEPRECATED: Return legacy backend info.
-- `acquire_model_lock` at line 806: DEPRECATED: No-op lock for backwards compatibility.
-- `release_model_lock` at line 812: DEPRECATED: No-op lock release for backwards compatibility.
-- `_build_gguf_prompt` at line 828: DEPRECATED: Legacy prompt builder. CloudRuntime handles templating.
-- `_clean_subprocess_output` at line 834: DEPRECATED: Legacy output cleaner.
-- `_resolve_portable_model_path` at line 840: DEPRECATED: Return empty string.
-- `_LocalBrainConfig` at line 846: DEPRECATED: Legacy config singleton.
-- `_cfg` at line 866: DEPRECATED: Return legacy config singleton.
-- `LocalBrainGateway.__init__` at line 210: Explanation needed.
-- `LocalBrainGateway.discover` at line 235: Locate all required runtime components.
-- `LocalBrainGateway._discover_cloud_runtime` at line 253: Discover CloudRuntime executable.
-- `LocalBrainGateway._discover_llama_server` at line 262: Discover llama-server binary.
-- `LocalBrainGateway._discover_gguf_models` at line 284: Discover available GGUF models.
-- `LocalBrainGateway.validate` at line 299: Validate all runtime prerequisites.
-- `LocalBrainGateway.launch` at line 329: Launch CloudRuntime and wait for READY state.
-- `LocalBrainGateway._spawn_cloud_runtime` at line 379: Spawn CloudRuntime as a subprocess.
-- `LocalBrainGateway._wait_for_ready` at line 395: Wait for CloudRuntime to reach READY state.
-- `LocalBrainGateway.monitor` at line 418: Monitor CloudRuntime health.
-- `LocalBrainGateway._check_health` at line 459: Check if a URL is reachable.
-- `LocalBrainGateway._http_get_json` at line 468: Make HTTP GET request and parse JSON response.
-- `LocalBrainGateway.status` at line 477: Get unified runtime status.
-- `LocalBrainGateway.recover` at line 501: Attempt to recover CloudRuntime if unhealthy.
-- `LocalBrainGateway.shutdown` at line 578: Gracefully shutdown CloudRuntime.
-- `QwenLocalBrain.__init__` at line 638: Explanation needed.
-- `QwenLocalBrain.generate` at line 646: DEPRECATED: Delegate to CloudRuntime.
-- `QwenLocalBrain.chat` at line 655: DEPRECATED: Delegate to CloudRuntime via HTTP.
-- `QwenLocalBrain.ask` at line 669: DEPRECATED: Convenience wrapper.
-- `QwenLocalBrain.generate_with_tools` at line 674: DEPRECATED: Tool-calling wrapper.
-- `QwenLocalBrain._call_cloud_runtime` at line 687: Call CloudRuntime HTTP API.
-- `BrainTrainer.__init__` at line 721: Explanation needed.
-- `BrainTrainer.record_exchange` at line 731: DEPRECATED: No-op.
-- `BrainTrainer.ingest_research` at line 735: DEPRECATED: No-op.
-- `BrainTrainer.get_training_context` at line 739: DEPRECATED: Return empty context.
-- `NiblitCloudBrain.__init__` at line 751: Explanation needed.
-- `NiblitCloudBrain.chat` at line 759: DEPRECATED: Delegate to CloudRuntime.
-- `NiblitCloudBrain.ask` at line 764: DEPRECATED: Delegate to chat().
-- `_LocalBrainConfig.__init__` at line 853: Explanation needed.
-- `_LocalBrainConfig.get` at line 856: Explanation needed.
-- `_LocalBrainConfig.set` at line 859: Explanation needed.
-- `_LocalBrainConfig.as_dict` at line 862: Explanation needed.
-- Review: empty-body at line 731.
-- Review: empty-body at line 735.
+- `getenv_int` at line 31: Return an int from the environment, falling back to *default* on bad input.
+- `getenv_float` at line 42: Return a float from the environment, falling back to *default* on bad input.
+- `getenv_str` at line 53: Return a str from the environment, falling back to *default* on bad input.
+- `LocalBrainGateway` at line 195: Runtime Gateway for CloudRuntime.
+- `get_local_brain` at line 648: Return the process-wide LocalBrainGateway singleton.
+- `reset_local_brain` at line 657: Discard the current singleton so the next get_local_brain() creates fresh.
+- `QwenLocalBrain` at line 668: DEPRECATED: Legacy compatibility shim.
+- `BrainTrainer` at line 754: DEPRECATED: Legacy compatibility shim.
+- `NiblitCloudBrain` at line 784: DEPRECATED: Legacy compatibility shim.
+- `swap_local_brain` at line 811: DEPRECATED: Return a compatibility shim.
+- `set_backend_url` at line 824: DEPRECATED: No-op.
+- `get_backend_info` at line 836: DEPRECATED: Return legacy backend info.
+- `acquire_model_lock` at line 846: DEPRECATED: No-op lock for backwards compatibility.
+- `release_model_lock` at line 852: DEPRECATED: No-op lock release for backwards compatibility.
+- `_build_gguf_prompt` at line 868: DEPRECATED: Legacy prompt builder. CloudRuntime handles templating.
+- `_clean_subprocess_output` at line 874: DEPRECATED: Legacy output cleaner.
+- `_resolve_portable_model_path` at line 880: DEPRECATED: Return empty string.
+- `_LocalBrainConfig` at line 886: DEPRECATED: Legacy config singleton.
+- `_cfg` at line 906: DEPRECATED: Return legacy config singleton.
+- `LocalBrainGateway.__init__` at line 211: Explanation needed.
+- `LocalBrainGateway.discover` at line 236: Locate all required runtime components.
+- `LocalBrainGateway._discover_cloud_runtime` at line 254: Discover CloudRuntime executable.
+- `LocalBrainGateway._discover_llama_server` at line 263: Discover llama-server binary.
+- `LocalBrainGateway._discover_gguf_models` at line 285: Discover available GGUF models.
+- `LocalBrainGateway.validate` at line 300: Validate all runtime prerequisites.
+- `LocalBrainGateway.launch` at line 330: Launch CloudRuntime and wait for READY state.
+- `LocalBrainGateway._spawn_cloud_runtime` at line 380: Spawn CloudRuntime as a subprocess.
+- `LocalBrainGateway._wait_for_ready` at line 396: Wait for CloudRuntime to reach READY state.
+- `LocalBrainGateway.monitor` at line 419: Monitor CloudRuntime health.
+- `LocalBrainGateway._check_health` at line 460: Check if a URL is reachable.
+- `LocalBrainGateway._http_get_json` at line 469: Make HTTP GET request and parse JSON response.
+- `LocalBrainGateway.route_inference` at line 479: Restore the router contract without loading or launching a model.
+- `LocalBrainGateway.status` at line 517: Get unified runtime status.
+- `LocalBrainGateway.recover` at line 541: Attempt to recover CloudRuntime if unhealthy.
+- `LocalBrainGateway.shutdown` at line 618: Gracefully shutdown CloudRuntime.
+- `QwenLocalBrain.__init__` at line 678: Explanation needed.
+- `QwenLocalBrain.generate` at line 686: DEPRECATED: Delegate to CloudRuntime.
+- `QwenLocalBrain.chat` at line 695: DEPRECATED: Delegate to CloudRuntime via HTTP.
+- `QwenLocalBrain.ask` at line 709: DEPRECATED: Convenience wrapper.
+- `QwenLocalBrain.generate_with_tools` at line 714: DEPRECATED: Tool-calling wrapper.
+- `QwenLocalBrain._call_cloud_runtime` at line 727: Call CloudRuntime HTTP API.
+- `BrainTrainer.__init__` at line 761: Explanation needed.
+- `BrainTrainer.record_exchange` at line 771: DEPRECATED: No-op.
+- `BrainTrainer.ingest_research` at line 775: DEPRECATED: No-op.
+- `BrainTrainer.get_training_context` at line 779: DEPRECATED: Return empty context.
+- `NiblitCloudBrain.__init__` at line 791: Explanation needed.
+- `NiblitCloudBrain.chat` at line 799: DEPRECATED: Delegate to CloudRuntime.
+- `NiblitCloudBrain.ask` at line 804: DEPRECATED: Delegate to chat().
+- `_LocalBrainConfig.__init__` at line 893: Explanation needed.
+- `_LocalBrainConfig.get` at line 896: Explanation needed.
+- `_LocalBrainConfig.set` at line 899: Explanation needed.
+- `_LocalBrainConfig.as_dict` at line 902: Explanation needed.
+- Review: empty-body at line 771.
+- Review: empty-body at line 775.
 
 ### modules/local_brain_patch.py
 
@@ -12946,6 +13636,13 @@ Minimal safe LocalBrain wrapper for routing through NRR-v2.
 - `LocalBrainRouterV2Wrapper.__init__` at line 14: Explanation needed.
 - `LocalBrainRouterV2Wrapper.generate` at line 18: Explanation needed.
 - `LocalBrainRouterV2Wrapper.local_brain` at line 22: Explanation needed.
+
+### modules/local_large_inference.py
+
+Explicit 14B desktop inference via verified separate Niblit Cloud service.
+
+- `selected_cloud_brain` at line 12: Explanation needed.
+- `additional_local_models` at line 18: Advertise large model only when the verified Cloud names it.
 
 ### modules/local_llm_adapter.py
 
@@ -12960,38 +13657,98 @@ Module purpose needs a human explanation.
 - `LocalLLMAdapter.background_learning` at line 48: Explanation needed.
 - `LocalLLMAdapter.chat` at line 55: Explanation needed.
 
+### modules/market_counterfactual_lab.py
+
+Broker-quote shadow counterfactual evaluation (never order execution).
+
+- `_number` at line 14: Explanation needed.
+- `_hash` at line 23: Explanation needed.
+- `shadow_compare` at line 28: Evaluate registered alternatives including WAIT, with no hindsight selection.
+
 ### modules/market_data_providers.py
 
 modules/market_data_providers.py — Multi-provider free market data for Niblit.
 
 - `MarketDataProviders` at line 131: Unified free-tier market data gateway for Niblit.
-- `get_market_data_providers` at line 740: Return global :class:`MarketDataProviders` singleton.
+- `get_market_data_providers` at line 789: Return global :class:`MarketDataProviders` singleton.
 - `MarketDataProviders.__init__` at line 139: Explanation needed.
 - `MarketDataProviders.status` at line 151: Explanation needed.
 - `MarketDataProviders.fetch` at line 170: Fetch OHLCV bars for *symbol* via the chosen provider.
 - `MarketDataProviders.yfinance_bars` at line 222: Fetch OHLCV bars from Yahoo Finance (no API key required).
 - `MarketDataProviders.yfinance_info` at line 265: Return fundamental info dict for *symbol* from Yahoo Finance.
 - `MarketDataProviders.ccxt_bars` at line 276: Fetch OHLCV data from a CCXT-supported exchange.
-- `MarketDataProviders.ccxt_exchanges` at line 309: Return list of all exchange IDs available in CCXT.
-- `MarketDataProviders.ccxt_tickers` at line 315: Fetch all tickers from *exchange* (no API key required).
-- `MarketDataProviders.twelvedata_bars` at line 330: Fetch OHLCV bars from Twelve Data.
-- `MarketDataProviders._get_oanda_client` at line 373: Lazy-initialize the OANDA REST v20 client.
-- `MarketDataProviders.oanda_candles` at line 389: Fetch forex / CFD / index candles from OANDA REST v20.
-- `MarketDataProviders.oanda_account_summary` at line 434: Return OANDA account summary (requires OANDA_ACCOUNT_ID env var).
-- `MarketDataProviders.oanda_place_order` at line 450: Place a market order via OANDA (requires credentials + OANDA_ACCOUNT_ID).
-- `MarketDataProviders.oanda_open_trades` at line 486: List open trades on the OANDA account.
-- `MarketDataProviders._get_alpaca_stock_client` at line 504: Explanation needed.
-- `MarketDataProviders._get_alpaca_trading_client` at line 519: Explanation needed.
-- `MarketDataProviders.alpaca_bars` at line 534: Fetch historical bars from Alpaca.
-- `MarketDataProviders.alpaca_place_order` at line 596: Place a market order via Alpaca.
-- `MarketDataProviders.alpaca_account` at line 627: Return Alpaca account info.
-- `MarketDataProviders.fetch_multi` at line 641: Fetch bars for multiple symbols at once.
-- `MarketDataProviders.available_instruments_oanda` at line 655: List OANDA tradeable instruments (forex, CFDs, indices, metals).
-- `MarketDataProviders.available_instruments_ccxt` at line 674: List trading pairs available on a CCXT exchange.
-- `MarketDataProviders.market_overview` at line 689: Return a quick text summary of latest prices for a basket of symbols.
-- `MarketDataProviders._store_in_kb` at line 719: Store a market data snippet in KnowledgeDB for RAG access.
+- `MarketDataProviders.ccxt_quote` at line 309: Public top-of-book evidence, never a candle/last-price substitute.
+- `MarketDataProviders.ccxt_exchanges` at line 358: Return list of all exchange IDs available in CCXT.
+- `MarketDataProviders.ccxt_tickers` at line 364: Fetch all tickers from *exchange* (no API key required).
+- `MarketDataProviders.twelvedata_bars` at line 379: Fetch OHLCV bars from Twelve Data.
+- `MarketDataProviders._get_oanda_client` at line 422: Lazy-initialize the OANDA REST v20 client.
+- `MarketDataProviders.oanda_candles` at line 438: Fetch forex / CFD / index candles from OANDA REST v20.
+- `MarketDataProviders.oanda_account_summary` at line 483: Return OANDA account summary (requires OANDA_ACCOUNT_ID env var).
+- `MarketDataProviders.oanda_place_order` at line 499: Place a market order via OANDA (requires credentials + OANDA_ACCOUNT_ID).
+- `MarketDataProviders.oanda_open_trades` at line 535: List open trades on the OANDA account.
+- `MarketDataProviders._get_alpaca_stock_client` at line 553: Explanation needed.
+- `MarketDataProviders._get_alpaca_trading_client` at line 568: Explanation needed.
+- `MarketDataProviders.alpaca_bars` at line 583: Fetch historical bars from Alpaca.
+- `MarketDataProviders.alpaca_place_order` at line 645: Place a market order via Alpaca.
+- `MarketDataProviders.alpaca_account` at line 676: Return Alpaca account info.
+- `MarketDataProviders.fetch_multi` at line 690: Fetch bars for multiple symbols at once.
+- `MarketDataProviders.available_instruments_oanda` at line 704: List OANDA tradeable instruments (forex, CFDs, indices, metals).
+- `MarketDataProviders.available_instruments_ccxt` at line 723: List trading pairs available on a CCXT exchange.
+- `MarketDataProviders.market_overview` at line 738: Return a quick text summary of latest prices for a basket of symbols.
+- `MarketDataProviders._store_in_kb` at line 768: Store a market data snippet in KnowledgeDB for RAG access.
 - `_NopQueue.push` at line 110: Explanation needed.
 - Review: empty-body at line 110.
+
+### modules/market_decision_trace.py
+
+Versioned, reproducible explanation of a trading decision.
+
+- `decision_trace` at line 11: Explanation needed.
+- `outcome_attribution` at line 65: Link a reconciled broker outcome to original point-in-time decision.
+
+### modules/market_events.py
+
+Source-stamped research context, never executable instructions or sentiment.
+
+- `MarketEvents` at line 20: Explanation needed.
+- `MarketEvents.__init__` at line 21: Explanation needed.
+- `MarketEvents.db` at line 29: Explanation needed.
+- `MarketEvents.ingest` at line 32: Explanation needed.
+- `MarketEvents.refresh` at line 59: Explanation needed.
+- `MarketEvents.context` at line 78: Explanation needed.
+- `MarketEvents.snapshot` at line 85: Explanation needed.
+
+### modules/market_evidence.py
+
+Versioned deterministic observations, never votes, forecasts or order authority.
+
+- `closed_rows` at line 10: Explanation needed.
+- `recognize` at line 27: Explanation needed.
+
+### modules/market_prediction.py
+
+Shadow forecasts and causal outcome evaluation; never execution authority.
+
+- `stable` at line 15: Explanation needed.
+- `wilson` at line 19: Explanation needed.
+- `metrics` at line 28: Scores only genuine probability forecasts; directional rules remain uncalibrated.
+- `forecast` at line 50: Explanation needed.
+- `PredictionLedger` at line 78: Additive tables in the existing scoped canonical ledger, with durable NUCM links.
+- `walk_forward` at line 159: Purged expanding-window research baseline, no simulated fills or net-profit claim.
+- `PredictionLedger.__init__` at line 80: Explanation needed.
+- `PredictionLedger.observe` at line 89: Explanation needed.
+- `PredictionLedger.status` at line 141: Explanation needed.
+
+### modules/market_regime_evidence.py
+
+Point-in-time market regime evidence: no signals, no broker actions.
+
+- `_finite` at line 18: Explanation needed.
+- `_ema` at line 27: Explanation needed.
+- `_rsi` at line 37: Explanation needed.
+- `_atr_adx` at line 46: Explanation needed.
+- `_one_timeframe` at line 74: Explanation needed.
+- `observe_regime` at line 129: Classify primary M5 context from completed multi-timeframe broker bars.
 
 ### modules/market_researcher.py
 
@@ -13002,6 +13759,12 @@ Module purpose needs a human explanation.
 - `MarketResearcher._fake_trend` at line 15: Explanation needed.
 - `MarketResearcher.analyze_market` at line 23: Try a live data fetch if requests available, else fallback to fake trends.
 - `MarketResearcher.summary` at line 48: Explanation needed.
+
+### modules/market_thesis.py
+
+Evidence-linked, observation-only thesis for registered strategy votes.
+
+- `build_market_thesis` at line 13: Describe agreement, opposition, invalidation and provenance without trading.
 
 ### modules/mcp_server.py
 
@@ -13242,6 +14005,49 @@ Metrics & Observability - Prometheus integration
 - `TelemetryCollector.export_prometheus` at line 135: Export metrics in Prometheus format.
 - `TelemetryCollector.get_stats` at line 156: Get all statistics.
 
+### modules/mobile_portal_session.py
+
+Portal-backed individual mobile sign-in.
+
+- `_request` at line 15: Explanation needed.
+- `portal_signup` at line 24: Explanation needed.
+- `portal_login` at line 38: Explanation needed.
+- `portal_session` at line 52: Explanation needed.
+- `portal_logout` at line 72: Explanation needed.
+
+### modules/mobile_runtime_service.py
+
+Niblit mobile control service: loopback-only, Client-Portal-authenticated.
+
+- `require_local` at line 28: Explanation needed.
+- `authorized` at line 33: Explanation needed.
+- `core_url` at line 41: Explanation needed.
+- `core_json` at line 48: Explanation needed.
+- `Credentials` at line 77: Explanation needed.
+- `Signup` at line 83: Explanation needed.
+- `ChatMessage` at line 87: Explanation needed.
+- `Chat` at line 93: Explanation needed.
+- `DemoConfiguration` at line 100: Explanation needed.
+- `Activation` at line 111: Explanation needed.
+- `StopSession` at line 117: Explanation needed.
+- `validated_scope` at line 122: Explanation needed.
+- `health` at line 138: Explanation needed.
+- `signup` at line 145: Explanation needed.
+- `login` at line 151: Explanation needed.
+- `me` at line 157: Explanation needed.
+- `logout` at line 162: Explanation needed.
+- `system` at line 168: Explanation needed.
+- `models` at line 183: Explanation needed.
+- `chat` at line 198: Explanation needed.
+- `observations` at line 222: Explanation needed.
+- `sessions` at line 240: Explanation needed.
+- `readiness` at line 256: Explanation needed.
+- `propose` at line 267: Explanation needed.
+- `activate` at line 276: Explanation needed.
+- `stop` at line 286: Explanation needed.
+- `apk` at line 293: Explanation needed.
+- `start_mobile_gateway` at line 302: Start packaged Portal + mobile API under the same desktop Core process.
+
 ### modules/model_ecology.py
 
 modules/model_ecology.py — Phase Ω Unified Model Ecology
@@ -13325,32 +14131,51 @@ Monitoring & Alerting - Prometheus integration
 - `AlertManager.get_history` at line 155: Get alert history.
 - `AlertManager.get_stats` at line 159: Get alert manager statistics.
 
+### modules/mt5_adoption_lease.py
+
+Durable single-owner lease contract for a future demo-position handover.
+
+- `_fingerprint` at line 16: Explanation needed.
+- `review_handover` at line 21: Produce a deterministic review only; never authorize execution.
+- `StagingLeaseRegistry` at line 70: Atomic SQLite owner mutex for simulations, not a broker authority.
+- `StagingLeaseRegistry.__init__` at line 78: Explanation needed.
+- `StagingLeaseRegistry._db` at line 89: Explanation needed.
+- `StagingLeaseRegistry.acquire` at line 94: Explanation needed.
+- `StagingLeaseRegistry.release` at line 118: Explanation needed.
+- `StagingLeaseRegistry.status` at line 128: Explanation needed.
+
 ### modules/mt5_bridge.py
 
 Official desktop MT5 IPC adapter for observation and demo preflight.
 
-- `MT5Unavailable` at line 17: Explanation needed.
-- `MT5Bridge` at line 21: Explanation needed.
-- `MT5Bridge.__init__` at line 22: Explanation needed.
-- `MT5Bridge.connect` at line 26: Explanation needed.
-- `MT5Bridge.identity` at line 43: Explanation needed.
-- `MT5Bridge.tick` at line 47: Explanation needed.
-- `MT5Bridge.snapshot` at line 65: Explanation needed.
-- `MT5Bridge.check_order` at line 110: Explanation needed.
-- Review: empty-body at line 17.
+- `summarize_completed` at line 21: Summarize native closed bars as of a timestamp in the broker clock.
+- `MT5Unavailable` at line 54: Explanation needed.
+- `MT5Bridge` at line 58: Explanation needed.
+- `MT5Bridge.__init__` at line 59: Explanation needed.
+- `MT5Bridge.connect` at line 64: Explanation needed.
+- `MT5Bridge.identity` at line 81: Explanation needed.
+- `MT5Bridge.account_record` at line 85: Explanation needed.
+- `MT5Bridge.connection_record` at line 99: Explanation needed.
+- `MT5Bridge.tick` at line 103: Explanation needed.
+- `MT5Bridge.snapshot` at line 121: Explanation needed.
+- `MT5Bridge.check_order` at line 200: Explanation needed.
+- Review: empty-body at line 54.
 
 ### modules/mt5_orders.py
 
-Human-only demo order tickets. No live-account or automatic retry path.
+Demo order delivery through the MT5 terminal. Live accounts are rejected; automatic retry is disabled.
 
-- `DemoOrders` at line 15: Explanation needed.
-- `DemoOrders.__init__` at line 16: Explanation needed.
-- `DemoOrders.db` at line 24: Explanation needed.
-- `DemoOrders.build` at line 31: Explanation needed.
-- `DemoOrders.preview` at line 90: Explanation needed.
-- `DemoOrders.confirm` at line 100: Explanation needed.
-- `DemoOrders.history` at line 134: Explanation needed.
-- `DemoOrders.reconcile` at line 138: Explanation needed.
+- `require_exclusive_demo_core` at line 17: Refuse this runtime's broker delivery while another configured Core is listening.
+- `require_selected_mt5_symbol` at line 66: Pin this installation's broker demo actions to an explicit symbol set.
+- `DemoOrders` at line 75: Explanation needed.
+- `DemoOrders.__init__` at line 76: Explanation needed.
+- `DemoOrders.db` at line 102: Explanation needed.
+- `DemoOrders.build` at line 109: Explanation needed.
+- `DemoOrders.inspect` at line 205: Non-delivering broker preflight for opportunity alerts; no ticket created.
+- `DemoOrders.preview` at line 213: Explanation needed.
+- `DemoOrders.confirm` at line 223: Explanation needed.
+- `DemoOrders.history` at line 293: Explanation needed.
+- `DemoOrders.reconcile` at line 297: Explanation needed.
 
 ### modules/multi_agent_consciousness.py
 
@@ -13424,10 +14249,10 @@ Niblit Multi-Repository Runtime Orchestrator.
 - `_publish_layer_event` at line 519: Publish a layer status event through the module event bus.
 - `_publish_repo_event` at line 557: Publish a repository discovery event through the module event bus.
 - `RepositorySupervisor` at line 597: Best-effort process supervision for managed repositories.
-- `_build_boot_layers` at line 779: Return the canonical ordered list of boot layers.
-- `MultiRepoOrchestrator` at line 835: Single authoritative startup orchestrator for the Niblit ecosystem.
-- `_publish_runtime_ready` at line 1128: Explanation needed.
-- `get_multi_repo_orchestrator` at line 1162: Return the process-level MultiRepoOrchestrator singleton.
+- `_build_boot_layers` at line 812: Return the canonical ordered list of boot layers.
+- `MultiRepoOrchestrator` at line 868: Single authoritative startup orchestrator for the Niblit ecosystem.
+- `_publish_runtime_ready` at line 1161: Explanation needed.
+- `get_multi_repo_orchestrator` at line 1195: Return the process-level MultiRepoOrchestrator singleton.
 - `RepositoryManifest.to_dict` at line 128: Explanation needed.
 - `BootLayer.duration_ms` at line 149: Explanation needed.
 - `BootLayer.to_dict` at line 154: Explanation needed.
@@ -13445,25 +14270,25 @@ Niblit Multi-Repository Runtime Orchestrator.
 - `RepositorySupervisor._existing_service_ready` at line 608: Explanation needed.
 - `RepositorySupervisor.register` at line 626: Explanation needed.
 - `RepositorySupervisor.start` at line 647: Explanation needed.
-- `RepositorySupervisor.check_health` at line 700: Explanation needed.
-- `RepositorySupervisor.stop` at line 733: Explanation needed.
-- `RepositorySupervisor.snapshot` at line 754: Explanation needed.
-- `RepositorySupervisor._publish` at line 758: Explanation needed.
-- `MultiRepoOrchestrator.__init__` at line 851: Explanation needed.
-- `MultiRepoOrchestrator.boot` at line 869: Execute the deterministic 8-layer boot sequence (Layers 0–7).
-- `MultiRepoOrchestrator.get_runtime_status` at line 917: Return a structured snapshot of the current runtime state.
-- `MultiRepoOrchestrator.get_layer` at line 931: Return the BootLayer for a given layer ID, or None.
-- `MultiRepoOrchestrator.get_repo_manifest` at line 938: Return the discovered manifest for a managed repository, or None.
-- `MultiRepoOrchestrator.start_managed_repositories` at line 942: Start selected managed repositories under supervision.
-- `MultiRepoOrchestrator.monitor_managed_repositories` at line 955: Run one health-check pass over all supervised repositories.
-- `MultiRepoOrchestrator.stop_managed_repositories` at line 964: Gracefully stop all supervised managed repositories.
-- `MultiRepoOrchestrator.get_supervision_status` at line 975: Explanation needed.
-- `MultiRepoOrchestrator._boot_layer` at line 982: Initialise one boot layer, reporting status through the Event Bus.
-- `MultiRepoOrchestrator._boot_internal_layer` at line 999: Boot an internal Niblit layer (Layers 0–5).
-- `MultiRepoOrchestrator._boot_managed_repo_layer` at line 1015: Boot a layer backed by a managed external repository (Layers 6–7).
-- `MultiRepoOrchestrator._probe_internal_layer` at line 1046: Probe whether an internal layer's key components are importable.
-- `MultiRepoOrchestrator._register_repo_services` at line 1069: Register Event Bus endpoints and extension points for a managed repo.
-- `MultiRepoOrchestrator._detect_root` at line 1100: Detect the Niblit repository root from the call stack.
+- `RepositorySupervisor.check_health` at line 708: Explanation needed.
+- `RepositorySupervisor.stop` at line 746: Explanation needed.
+- `RepositorySupervisor.snapshot` at line 787: Explanation needed.
+- `RepositorySupervisor._publish` at line 791: Explanation needed.
+- `MultiRepoOrchestrator.__init__` at line 884: Explanation needed.
+- `MultiRepoOrchestrator.boot` at line 902: Execute the deterministic 8-layer boot sequence (Layers 0–7).
+- `MultiRepoOrchestrator.get_runtime_status` at line 950: Return a structured snapshot of the current runtime state.
+- `MultiRepoOrchestrator.get_layer` at line 964: Return the BootLayer for a given layer ID, or None.
+- `MultiRepoOrchestrator.get_repo_manifest` at line 971: Return the discovered manifest for a managed repository, or None.
+- `MultiRepoOrchestrator.start_managed_repositories` at line 975: Start selected managed repositories under supervision.
+- `MultiRepoOrchestrator.monitor_managed_repositories` at line 988: Run one health-check pass over all supervised repositories.
+- `MultiRepoOrchestrator.stop_managed_repositories` at line 997: Gracefully stop all supervised managed repositories.
+- `MultiRepoOrchestrator.get_supervision_status` at line 1008: Explanation needed.
+- `MultiRepoOrchestrator._boot_layer` at line 1015: Initialise one boot layer, reporting status through the Event Bus.
+- `MultiRepoOrchestrator._boot_internal_layer` at line 1032: Boot an internal Niblit layer (Layers 0–5).
+- `MultiRepoOrchestrator._boot_managed_repo_layer` at line 1048: Boot a layer backed by a managed external repository (Layers 6–7).
+- `MultiRepoOrchestrator._probe_internal_layer` at line 1079: Probe whether an internal layer's key components are importable.
+- `MultiRepoOrchestrator._register_repo_services` at line 1102: Register Event Bus endpoints and extension points for a managed repo.
+- `MultiRepoOrchestrator._detect_root` at line 1133: Detect the Niblit repository root from the call stack.
 
 ### modules/multimodal_intelligence.py
 
@@ -13485,6 +14310,32 @@ MULTIMODAL INTELLIGENCE MODULE
 - `MultimodalIntelligence._detect_code_language` at line 236: Detect programming language from code snippet.
 - `MultimodalIntelligence._extract_keywords` at line 252: Extract simple keyword list from text.
 - `MultimodalIntelligence.get_status` at line 274: Return module status overview.
+
+### modules/native_evidence_learning.py
+
+One local-only native ALE question; candidates never become verified facts.
+
+- `UnsupportedLocalResearchTopic` at line 12: The reviewed two-file local study cannot establish this objective.
+- `_validate_local_topic` at line 16: Explanation needed.
+- `NativeMemoryBridge` at line 24: Use the running gateway; never load another embedding model here.
+- `local_safe_profile` at line 40: Explanation needed.
+- `research_local_evidence` at line 45: Original governed workspace capability, not a second research executor.
+- `run_cycle` at line 74: Explanation needed.
+- `NativeMemoryBridge.request` at line 26: Explanation needed.
+- `NativeMemoryBridge.retrieve` at line 34: Explanation needed.
+- `NativeMemoryBridge.ingest` at line 36: Explanation needed.
+
+### modules/native_learning_gateway.py
+
+Core-owned local learning transport. Reuses the canonical gateway and worker.
+
+- `install` at line 10: Explanation needed.
+
+### modules/native_runtime_readiness.py
+
+Read-only checks before starting the bounded native learning profile.
+
+- `check_readiness` at line 11: Explanation needed.
 
 ### modules/niblit_cognitive_graph_kernel.py
 
@@ -14025,32 +14876,59 @@ modules/niblit_tool_executor.py — Full Niblit tool suite for function-calling 
 
 Desktop UI Launcher for Niblit.
 
-- `UiLaunchResult` at line 66: Stable result object returned by :func:`launch_primary_ui`.
-- `_coerce_ui_launch_result` at line 179: Coerce a legacy ``dict`` (or stray object) into a :class:`UiLaunchResult`.
-- `RuntimeState` at line 215: Mutable runtime-state object shared between launcher sub-steps.
-- `get_runtime_state` at line 225: Return the singleton :class:`RuntimeState` used across launcher helpers.
-- `reset_runtime_state` at line 236: Reset the singleton RuntimeState (primarily for tests).
-- `_status_emitter` at line 242: Return a function that emits a status line to *io* and/or *on_status*.
-- `ui_launch_supported` at line 277: Return True when a desktop UI can be launched in this environment.
-- `_inspect_trading_runtime` at line 292: Safely extract trading-runtime status from *manager*.
-- `_wait_for_http_ready` at line 349: Poll *url* until it returns HTTP 200 or *timeout_seconds* elapses.
-- `_niblit_api_port` at line 371: Resolve the Niblit Core API port (default **5000**).
-- `_cloud_url` at line 383: Resolve the Niblit Cloud inference base URL.
-- `_start_api_server_thread` at line 394: Start the Niblit Core API (``server.py``) in a daemon thread.
-- `_resolve_npm_executable` at line 443: Resolve the npm executable path for Windows.
-- `_validate_ui_repository` at line 473: Validate the UI repository structure and return metadata.
-- `_build_child_env` at line 527: Build a child process environment that preserves PATH and adds Node/Cargo bins.
-- `_launch_tauri_dev_process` at line 561: Launch the Tauri dev UI as a long-lived subprocess.
-- `_wait_for_process_stabilisation` at line 605: Wait *window_seconds* and verify the process is still alive.
-- `launch_primary_ui` at line 653: Launch the Niblit desktop runtime.
-- `_wait_for_cloud_ready` at line 927: Poll the Niblit Cloud inference server until it reports ready.
-- `_find_cloud_server_root` at line 979: Locate the Niblit-cloud-server repository root.
-- `_maybe_start_cloud_server` at line 997: Best-effort start the local Niblit-cloud-server if it is not already healthy.
-- `_open_primary_ui_url` at line 1057: Return the desktop UI base URL / path, or ``None`` when absent.
-- `UiLaunchResult.wait` at line 105: Block until the UI process exits.
-- `UiLaunchResult.terminate` at line 138: Cleanly terminate any processes / threads owned by this launch.
-- `UiLaunchResult.is_trading_enabled` at line 171: Explanation needed.
-- `RuntimeState.__init__` at line 218: Explanation needed.
+- `UiLaunchResult` at line 67: Stable result object returned by :func:`launch_primary_ui`.
+- `_coerce_ui_launch_result` at line 208: Coerce a legacy ``dict`` (or stray object) into a :class:`UiLaunchResult`.
+- `RuntimeState` at line 244: Mutable runtime-state object shared between launcher sub-steps.
+- `get_runtime_state` at line 254: Return the singleton :class:`RuntimeState` used across launcher helpers.
+- `reset_runtime_state` at line 265: Reset the singleton RuntimeState (primarily for tests).
+- `_status_emitter` at line 271: Return a function that emits a status line to *io* and/or *on_status*.
+- `ui_launch_supported` at line 306: Return True when a desktop UI can be launched in this environment.
+- `_inspect_trading_runtime` at line 321: Safely extract trading-runtime status from *manager*.
+- `_wait_for_http_ready` at line 378: Poll *url* until it returns HTTP 200 or *timeout_seconds* elapses.
+- `_api_owned_by_current_process` at line 400: A healthy foreign Core must never be silently adopted by this UI.
+- `_niblit_api_port` at line 413: Resolve the Niblit Core API port (default **5000**).
+- `_cloud_url` at line 425: Resolve the Niblit Cloud inference base URL.
+- `_start_api_server_thread` at line 436: Start the Niblit Core API (``server.py``) in a daemon thread.
+- `_resolve_npm_executable` at line 502: Resolve the npm executable path for Windows.
+- `_validate_ui_repository` at line 532: Validate the UI repository structure and return metadata.
+- `finish_failed_packaged_ui` at line 586: A packaged desktop failure must not leave a hidden interactive shell.
+- `_build_child_env` at line 598: Build a child process environment that preserves PATH and adds Node/Cargo bins.
+- `_launch_tauri_dev_process` at line 632: Launch the Tauri dev UI as a long-lived subprocess.
+- `_wait_for_process_stabilisation` at line 676: Wait *window_seconds* and verify the process is still alive.
+- `launch_primary_ui` at line 724: Launch the Niblit desktop runtime.
+- `_wait_for_cloud_ready` at line 1017: Poll the Niblit Cloud inference server until it reports ready.
+- `_find_cloud_server_root` at line 1069: Locate the Niblit-cloud-server repository root.
+- `_maybe_start_cloud_server` at line 1087: Best-effort start the local Niblit-cloud-server if it is not already healthy.
+- `_open_primary_ui_url` at line 1166: Return the desktop UI base URL / path, or ``None`` when absent.
+- `UiLaunchResult.wait` at line 106: Block until the UI process exits.
+- `UiLaunchResult.terminate` at line 154: Cleanly terminate any processes / threads owned by this launch.
+- `UiLaunchResult.is_trading_enabled` at line 200: Explanation needed.
+- `RuntimeState.__init__` at line 247: Explanation needed.
+
+### modules/observation_supervisor.py
+
+Bounded read-only source scheduling. No execution, account discovery or failover.
+
+- `ObservationJob` at line 14: Explanation needed.
+- `ObservationSupervisor` at line 31: Explanation needed.
+- `ObservationJob.__post_init__` at line 22: Explanation needed.
+- `ObservationSupervisor.__init__` at line 32: Explanation needed.
+- `ObservationSupervisor.poll_source` at line 43: One bounded pass, oldest due job first; independent source lanes.
+- `ObservationSupervisor.status` at line 75: Explanation needed.
+- `ObservationSupervisor.compare_sources` at line 92: Exact-symbol, aligned quote evidence only; never an arbitrage vote.
+- `ObservationSupervisor.start` at line 120: Explanation needed.
+- `ObservationSupervisor.stop` at line 132: Explanation needed.
+
+### modules/online_market_study.py
+
+Prequential market comparer. Forecast first; score only later observations.
+
+- `forecasts` at line 18: Explanation needed.
+- `choose` at line 24: Select on an older prefix; require improvement on a later suffix.
+- `OnlineMarketStudy` at line 47: Explanation needed.
+- `OnlineMarketStudy.__init__` at line 48: Explanation needed.
+- `OnlineMarketStudy.observe` at line 54: Explanation needed.
+- `OnlineMarketStudy._observe` at line 59: Explanation needed.
 
 ### modules/openai_adapter.py
 
@@ -14092,8 +14970,8 @@ Desktop operator access to original handlers, separate from LLM tools.
 - `_inventory` at line 91: Explanation needed.
 - `_permission_actions` at line 118: Explanation needed.
 - `_command_outcome` at line 125: Normalize legacy diagnostics without treating stopped status as failure.
-- `list_operator_commands` at line 148: Explanation needed.
-- `execute_operator_command` at line 194: Explanation needed.
+- `list_operator_commands` at line 153: Explanation needed.
+- `execute_operator_command` at line 199: Explanation needed.
 
 ### modules/orphan_imports.py
 
@@ -14150,20 +15028,27 @@ os_integration.py — Niblit OS Integration & Service Ownership Layer
 
 Operator paper trading through Core; execution authority stays in the runtime.
 
-- `PaperTradingError` at line 11: Explanation needed.
-- `PaperTradingController` at line 15: Explanation needed.
-- `get_paper_trading_controller` at line 133: Explanation needed.
-- `PaperTradingError.__init__` at line 12: Explanation needed.
-- `PaperTradingController.__init__` at line 16: Explanation needed.
-- `PaperTradingController._call` at line 20: Explanation needed.
-- `PaperTradingController._paper` at line 45: Explanation needed.
-- `PaperTradingController.status` at line 51: Explanation needed.
-- `PaperTradingController.control` at line 58: Explanation needed.
-- `PaperTradingController.load` at line 62: Explanation needed.
-- `PaperTradingController.decision` at line 69: Explanation needed.
-- `PaperTradingController.step` at line 83: Explanation needed.
-- `PaperTradingController.advice` at line 112: Explanation needed.
-- `PaperTradingController.advise` at line 127: Explanation needed.
+- `_replay_scope` at line 14: Explanation needed.
+- `_replay_manifest` at line 25: Only trusted deployment configuration selects code, data or state paths.
+- `_paper_run_id` at line 53: Explanation needed.
+- `_isolated_episode` at line 60: Explanation needed.
+- `_isolated_replay` at line 92: Reuse Lean's adapter/coordinator, persisting operational memory in Core.
+- `PaperTradingError` at line 198: Explanation needed.
+- `PaperTradingController` at line 202: Explanation needed.
+- `get_paper_trading_controller` at line 327: Explanation needed.
+- `PaperTradingError.__init__` at line 199: Explanation needed.
+- `PaperTradingController.__init__` at line 203: Explanation needed.
+- `PaperTradingController.evaluate_replay` at line 207: Bounded offline integration client; never calls the service bridge.
+- `PaperTradingController.replay_episode` at line 211: Explanation needed.
+- `PaperTradingController._call` at line 214: Explanation needed.
+- `PaperTradingController._paper` at line 239: Explanation needed.
+- `PaperTradingController.status` at line 245: Explanation needed.
+- `PaperTradingController.control` at line 252: Explanation needed.
+- `PaperTradingController.load` at line 256: Explanation needed.
+- `PaperTradingController.decision` at line 263: Explanation needed.
+- `PaperTradingController.step` at line 277: Explanation needed.
+- `PaperTradingController.advice` at line 306: Explanation needed.
+- `PaperTradingController.advise` at line 321: Explanation needed.
 
 ### modules/parallel_learner.py
 
@@ -14216,47 +15101,76 @@ Module purpose needs a human explanation.
 
 - `PermissionManager` at line 17: Explanation needed.
 - `PermissionManager.__init__` at line 18: Explanation needed.
-- `PermissionManager._load` at line 23: Explanation needed.
-- `PermissionManager.save` at line 31: Explanation needed.
-- `PermissionManager.ask` at line 35: Explanation needed.
-- `PermissionManager.check` at line 44: Explanation needed.
+- `PermissionManager._load` at line 27: Explanation needed.
+- `PermissionManager.save` at line 35: Explanation needed.
+- `PermissionManager.ask` at line 39: Explanation needed.
+- `PermissionManager.check` at line 48: Explanation needed.
+- `PermissionManager.learning_spec` at line 51: Explanation needed.
+- `PermissionManager._learning_schema` at line 63: Explanation needed.
+- `PermissionManager._learning_hash` at line 70: Explanation needed.
+- `PermissionManager.propose_learning` at line 74: Explanation needed.
+- `PermissionManager.learning_requests` at line 90: Explanation needed.
+- `PermissionManager.decide_learning` at line 101: Explanation needed.
+- `PermissionManager.bind_learning` at line 116: Explanation needed.
+- `PermissionManager.authorize_learning_stage` at line 131: Explanation needed.
+- `PermissionManager.finish_learning` at line 148: Explanation needed.
+- `PermissionManager.trading_schema` at line 159: Trading scopes use this permission manager and the canonical ledger.
+- `PermissionManager.propose_trading` at line 174: Explanation needed.
+- `PermissionManager.activate_trading` at line 189: Explanation needed.
+- `PermissionManager.check_trading` at line 216: Explanation needed.
+- `PermissionManager.stop_trading` at line 239: Explanation needed.
+
+### modules/phase6_preflight.py
+
+Offline packaged acceptance: temporary ledger and broker doubles only.
+
+- `main` at line 12: Explanation needed.
+- `Offline.__init__` at line 14: Explanation needed.
+- `Offline.close` at line 15: Explanation needed.
+- `Offline.embed` at line 16: Explanation needed.
+- Review: empty-body at line 15.
 
 ### modules/phased_research_engine.py
 
 modules/phased_research_engine.py — Sequential research for Niblit.
 
-- `_expand_topic_queries` at line 137: Generate up to 3 focused search queries from a single topic string.
-- `_gap_queries_from_snippets` at line 193: Derive targeted gap-filling queries from Phase 1 findings.
-- `_score_snippet_quality` at line 248: Score a snippet by relevance and information density.
-- `PhaseResult` at line 287: Results from a single research phase.
-- `ResearchMemoryArtifact` at line 311: Standardised knowledge record produced for every completed research topic.
-- `PhasedResearchResult` at line 347: Combined result of all research phases for one topic.
-- `PhasedResearchEngine` at line 385: Sequential 3-phase research engine.
-- `_is_code_topic` at line 1341: Return True when *topic* is code/software-related.
-- `get_phased_research_engine` at line 1360: Return (and lazily create) the process-wide PhasedResearchEngine singleton.
-- `PhaseResult.success` at line 302: Explanation needed.
-- `PhaseResult.best_snippet` at line 306: Explanation needed.
-- `ResearchMemoryArtifact.to_dict` at line 330: Explanation needed.
-- `PhasedResearchResult.summary` at line 362: Explanation needed.
-- `PhasedResearchEngine.__init__` at line 420: Explanation needed.
-- `PhasedResearchEngine.research` at line 445: Research *topic* through up to 4 sequential phases (0-3).
-- `PhasedResearchEngine._phase0_internal` at line 571: Phase 0: Internal-first local knowledge recall.
-- `PhasedResearchEngine._phase1_basic` at line 690: Phase 1: Basic understanding via expanded queries to Internet + DuckDuckGo.
-- `PhasedResearchEngine._phase2_advanced` at line 770: Phase 2: Gap-driven deep knowledge via SerpAPI + Serpex + Qdrant.
-- `PhasedResearchEngine._phase3_code` at line 907: Phase 3: Real code from GitHub REST API (code topics only).
-- `PhasedResearchEngine._store_phase_results` at line 962: Store phase snippets in KnowledgeDB and GraphRAGPipeline.
-- `PhasedResearchEngine._build_research_artifact` at line 1084: Construct a ResearchMemoryArtifact from all completed phase results.
-- `PhasedResearchEngine._persist_research_artifact` at line 1128: Persist a ResearchMemoryArtifact to KB and governed memory.
-- `PhasedResearchEngine._run_phase_with_timeout` at line 1174: Run *fn(topic)* in a daemon thread with a per-phase timeout.
-- `PhasedResearchEngine._get_internet` at line 1231: Explanation needed.
-- `PhasedResearchEngine._get_scrapy` at line 1241: Explanation needed.
-- `PhasedResearchEngine._get_serpex` at line 1252: Explanation needed.
-- `PhasedResearchEngine._get_serpapi` at line 1263: Explanation needed.
-- `PhasedResearchEngine._get_github_code_search` at line 1266: Explanation needed.
-- `PhasedResearchEngine._get_hybrid_manager` at line 1276: Get the Qdrant HybridManager if available.
-- `PhasedResearchEngine._get_language_module` at line 1284: Explanation needed.
-- `PhasedResearchEngine._extract_snippets` at line 1299: Convert a raw search result into a list of clean text strings.
-- `PhasedResearchEngine._item_to_text` at line 1321: Extract a single best text string from a search result item.
+- `ResearchCancelled` at line 59: A research owner or phase deadline cancelled further work.
+- `research_checkpoint` at line 63: Check cooperative cancellation and bound I/O inside a research phase.
+- `_expand_topic_queries` at line 157: Generate up to 3 focused search queries from a single topic string.
+- `_gap_queries_from_snippets` at line 213: Derive targeted gap-filling queries from Phase 1 findings.
+- `_score_snippet_quality` at line 268: Score a snippet by relevance and information density.
+- `PhaseResult` at line 307: Results from a single research phase.
+- `ResearchMemoryArtifact` at line 331: Standardised knowledge record produced for every completed research topic.
+- `PhasedResearchResult` at line 371: Combined result of all research phases for one topic.
+- `PhasedResearchEngine` at line 410: Sequential 3-phase research engine.
+- `_is_code_topic` at line 1724: Return True when *topic* is code/software-related.
+- `get_phased_research_engine` at line 1743: Return (and lazily create) the process-wide PhasedResearchEngine singleton.
+- `PhaseResult.success` at line 322: Explanation needed.
+- `PhaseResult.best_snippet` at line 326: Explanation needed.
+- `ResearchMemoryArtifact.to_dict` at line 353: Explanation needed.
+- `PhasedResearchResult.summary` at line 386: Explanation needed.
+- `PhasedResearchEngine.__init__` at line 445: Explanation needed.
+- `PhasedResearchEngine.research` at line 470: Research *topic* through up to 4 sequential phases (0-3).
+- `PhasedResearchEngine.research_governed` at line 613: Bounded structured-source entry to the existing research engine.
+- `PhasedResearchEngine._learning_tool` at line 755: Explanation needed.
+- `PhasedResearchEngine._research_public_sources` at line 767: Approved-source extractive research using the existing learning ledger.
+- `PhasedResearchEngine._phase0_internal` at line 913: Phase 0: Internal-first local knowledge recall.
+- `PhasedResearchEngine._phase1_basic` at line 1032: Phase 1: Basic understanding via expanded queries to Internet + DuckDuckGo.
+- `PhasedResearchEngine._phase2_advanced` at line 1113: Phase 2: Gap-driven deep knowledge via SerpAPI + Serpex + Qdrant.
+- `PhasedResearchEngine._phase3_code` at line 1255: Phase 3: Real code from GitHub REST API (code topics only).
+- `PhasedResearchEngine._store_phase_results` at line 1311: Store phase snippets in KnowledgeDB and GraphRAGPipeline.
+- `PhasedResearchEngine._build_research_artifact` at line 1437: Construct a ResearchMemoryArtifact from all completed phase results.
+- `PhasedResearchEngine._persist_research_artifact` at line 1498: Persist a ResearchMemoryArtifact to KB and governed memory.
+- `PhasedResearchEngine._run_phase_with_timeout` at line 1545: Cancel the phase cooperatively and join its owned executor.
+- `PhasedResearchEngine._get_internet` at line 1614: Explanation needed.
+- `PhasedResearchEngine._get_scrapy` at line 1624: Explanation needed.
+- `PhasedResearchEngine._get_serpex` at line 1635: Explanation needed.
+- `PhasedResearchEngine._get_serpapi` at line 1646: Explanation needed.
+- `PhasedResearchEngine._get_github_code_search` at line 1649: Explanation needed.
+- `PhasedResearchEngine._get_hybrid_manager` at line 1659: Get the Qdrant HybridManager if available.
+- `PhasedResearchEngine._get_language_module` at line 1667: Explanation needed.
+- `PhasedResearchEngine._extract_snippets` at line 1682: Convert a raw search result into a list of clean text strings.
+- `PhasedResearchEngine._item_to_text` at line 1704: Extract a single best text string from a search result item.
 
 ### modules/platform_bootstrap.py
 
@@ -14343,6 +15257,65 @@ modules/policy_optimizer.py — Policy Learning Layer for Niblit.
 - `PolicyOptimizer._update_uncertainty` at line 455: Update rolling variance for *advisor* using Welford's online algorithm.
 - `PolicyOptimizer._learn_from_episodes` at line 476: Recompute per-context policies from the rolling episode log.
 
+### modules/portal_learning.py
+
+Bounded local tutor: recall -> question -> local answer -> evidence report.
+
+- `LocalTutor` at line 25: Explanation needed.
+- `LocalTutor.__init__` at line 26: Explanation needed.
+- `LocalTutor.enabled` at line 44: Explanation needed.
+- `LocalTutor.require` at line 50: Explanation needed.
+- `LocalTutor.status` at line 56: Explanation needed.
+- `LocalTutor.start` at line 62: Explanation needed.
+- `LocalTutor.stop` at line 89: Explanation needed.
+- `LocalTutor.recall` at line 94: Explanation needed.
+- `LocalTutor.remember` at line 112: Explanation needed.
+- `LocalTutor.tick` at line 124: Explanation needed.
+- `LocalTutor.finish` at line 176: Explanation needed.
+
+### modules/portal_model.py
+
+Explicit free local model transport. No paid/cloud fallback or user-selected URL.
+
+- `runtime_facts` at line 11: Explanation needed.
+- `factual_reply` at line 21: Explanation needed.
+- `settings` at line 30: Explanation needed.
+- `readiness` at line 52: Explanation needed.
+- `reply` at line 67: Explanation needed.
+- `research_reply` at line 93: Small-model JSON planner. Host validates every request; no eval or shell.
+
+### modules/portal_notifications.py
+
+Client Portal approval email delivery.
+
+- `review_url` at line 17: Explanation needed.
+- `smtp_settings` at line 31: Explanation needed.
+- `send_registration_notice` at line 47: Explanation needed.
+- `notify_pending_signup` at line 69: Attempt once and persist delivery outcome. Signup remains pending.
+
+### modules/portal_remote.py
+
+Explicit remote-client boundary. Proxy headers never grant trust.
+
+- `remote_origin` at line 6: Explanation needed.
+- `client_path` at line 16: Explanation needed.
+
+### modules/portal_tools.py
+
+Owner research tools: bounded evidence, official docs and inert proposals.
+
+- `PageText` at line 37: Explanation needed.
+- `initialize` at line 51: Explanation needed.
+- `ResearchTools` at line 64: Explanation needed.
+- `PageText.__init__` at line 38: Explanation needed.
+- `PageText.handle_starttag` at line 41: Explanation needed.
+- `PageText.handle_endtag` at line 44: Explanation needed.
+- `PageText.handle_data` at line 47: Explanation needed.
+- `ResearchTools.__init__` at line 65: Explanation needed.
+- `ResearchTools.authorized` at line 69: Explanation needed.
+- `ResearchTools.invoke` at line 77: Explanation needed.
+- `ResearchTools.execute` at line 100: Explanation needed.
+
 ### modules/portal_workspaces.py
 
 Server-enforced workspace membership and manually assigned pilot entitlements.
@@ -14356,6 +15329,47 @@ Server-enforced workspace membership and manually assigned pilot entitlements.
 - `Workspaces.set_plan` at line 75: Explanation needed.
 - `Workspaces.member` at line 89: Explanation needed.
 - `Workspaces.reserve_turn` at line 112: Explanation needed.
+
+### modules/position_cognition_record.py
+
+Observation-only, broker-evidence-backed position cognition.
+
+- `_canonical` at line 17: Explanation needed.
+- `_num` at line 21: Explanation needed.
+- `PositionIdentity` at line 31: Explanation needed.
+- `PositionCognitionLedger` at line 47: SQLite immutable event store; caller controls DB path and access.
+- `PositionIdentity.__post_init__` at line 37: Explanation needed.
+- `PositionIdentity.key` at line 43: Explanation needed.
+- `PositionCognitionLedger.__init__` at line 50: Explanation needed.
+- `PositionCognitionLedger._db` at line 61: Explanation needed.
+- `PositionCognitionLedger.record` at line 66: Explanation needed.
+- `PositionCognitionLedger._validate` at line 95: Explanation needed.
+- `PositionCognitionLedger.replay` at line 145: Explanation needed.
+
+### modules/position_exit_policy.py
+
+Explainable demo exits. Quotes manage profit; completed bars invalidate a thesis.
+
+- `assess_exit` at line 11: Explanation needed.
+- `assess_reversal` at line 65: Evidence-based early-profit exit evaluation; no order submission.
+
+### modules/position_intelligence.py
+
+Read-only position intelligence. Core authorizes analysis; existing outbox owns evidence.
+
+- `digest` at line 6: Explanation needed.
+- `strategy_ownership` at line 9: Historical native attribution cannot mint a Core execution claim.
+- `number` at line 27: Explanation needed.
+- `reconcile_position` at line 33: Explanation needed.
+- `assess_position` at line 56: Explanation needed.
+- `assess_entry_thesis` at line 93: Adapt the original exit evaluator; its close condition is not a grant.
+- `PositionIntelligence` at line 147: One Core-scheduler job; existing Desk reads and Core memory contracts only.
+- `PositionIntelligence.__init__` at line 149: Explanation needed.
+- `PositionIntelligence.cache` at line 157: Explanation needed.
+- `PositionIntelligence.closed_outcomes` at line 164: Explanation needed.
+- `PositionIntelligence.scan` at line 195: Explanation needed.
+- `PositionIntelligence.start` at line 263: Explanation needed.
+- `PositionIntelligence.stop` at line 289: Explanation needed.
 
 ### modules/position_sizer.py
 
@@ -14675,24 +15689,74 @@ modules/reflection_engine.py — Phase Ω Unified Reflection Layer
 - `ReflectionEngine._propagate` at line 293: Feed reflection outputs back into other subsystems.
 - `ReflectionEngine._store_governed_memory` at line 306: Explanation needed.
 
+### modules/release_preflight.py
+
+Offline release inspection: no environment loading, imports or processes.
+
+- `inspect_bundle` at line 26: Explanation needed.
+- `main` at line 40: Explanation needed.
+
+### modules/remote_broker_gateway.py
+
+Governed observation client for a verified SSH loopback forward.
+
+- `GatewayProfile` at line 20: Explanation needed.
+- `RemoteBrokerGateway` at line 65: Explanation needed.
+- `configured_gateway` at line 167: Explanation needed.
+- `GatewayProfile.load` at line 29: Explanation needed.
+- `RemoteBrokerGateway.__init__` at line 66: Explanation needed.
+- `RemoteBrokerGateway.status` at line 76: Explanation needed.
+- `RemoteBrokerGateway.normalized_status` at line 159: Explanation needed.
+
+### modules/remote_demo_adapter.py
+
+Pinned SSH transport for Core's existing bounded demo sessions.
+
+- `RemoteDemoAdapter` at line 12: Explanation needed.
+- `RemoteDemoAdapter.__init__` at line 13: Explanation needed.
+- `RemoteDemoAdapter.call` at line 35: Explanation needed.
+- `RemoteDemoAdapter.status` at line 56: Explanation needed.
+- `RemoteDemoAdapter.checked` at line 68: Explanation needed.
+- `RemoteDemoAdapter.snapshot` at line 75: Explanation needed.
+- `RemoteDemoAdapter.reconciliation_identity` at line 77: Explanation needed.
+- `RemoteDemoAdapter.market` at line 83: Explanation needed.
+- `RemoteDemoAdapter.prepare` at line 92: Explanation needed.
+- `RemoteDemoAdapter.submit` at line 97: Explanation needed.
+- `RemoteDemoAdapter.resume` at line 104: Explanation needed.
+- `RemoteDemoAdapter.reconcile` at line 122: Explanation needed.
+- `RemoteDemoAdapter.cancel_prepared` at line 123: Explanation needed.
+
+### modules/remote_market_intelligence.py
+
+Observation-only wrapper around the existing pinned demo market transport.
+
+- `RemoteMarketIntelligence` at line 9: Explanation needed.
+- `RemoteMarketIntelligence.__init__` at line 10: Explanation needed.
+- `RemoteMarketIntelligence.observe` at line 13: Explanation needed.
+
 ### modules/research_contracts.py
 
 modules/research_contracts.py - Phase 5A supervised-research contracts.
 
-- `TopicAssessment` at line 18: Explanation needed.
-- `InternalFinding` at line 34: Explanation needed.
-- `ResearchPlan` at line 42: Explanation needed.
-- `EvidenceItem` at line 63: Explanation needed.
-- `EvidenceAudit` at line 83: Explanation needed.
-- `EvidenceBundle` at line 99: Explanation needed.
-- `KnowledgeCandidate` at line 112: Explanation needed.
-- `PromotionDecision` at line 125: Explanation needed.
-- `evaluate_promotion` at line 135: Deterministic memory-promotion gate. The model cannot bypass this:
-- `ResearchPlan.to_dict` at line 53: Explanation needed.
-- `EvidenceItem.has_provenance` at line 78: Explanation needed.
-- `EvidenceAudit.applied_to` at line 94: Explanation needed.
-- `EvidenceBundle.audited_items` at line 106: Explanation needed.
-- `PromotionDecision.__init__` at line 129: Explanation needed.
+- `source_identity` at line 17: Known official documentation identities; unknown paths stay unknown.
+- `attributed_claims` at line 33: Bounded catalog from canonical facts, never from generated responses.
+- `validate_comparison_proposal` at line 50: Accept source selection only. Free model conclusions cannot pass this gate.
+- `render_source_comparison` at line 76: Render only canonical excerpts and bounded, explicitly evidenced comparisons.
+- `learning_outcome` at line 111: Versioned, conservative outcome shared by existing ALE research paths.
+- `TopicAssessment` at line 162: Explanation needed.
+- `InternalFinding` at line 178: Explanation needed.
+- `ResearchPlan` at line 186: Explanation needed.
+- `EvidenceItem` at line 207: Explanation needed.
+- `EvidenceAudit` at line 228: Explanation needed.
+- `EvidenceBundle` at line 244: Explanation needed.
+- `KnowledgeCandidate` at line 257: Explanation needed.
+- `PromotionDecision` at line 270: Explanation needed.
+- `evaluate_promotion` at line 280: Deterministic memory-promotion gate. The model cannot bypass this:
+- `ResearchPlan.to_dict` at line 197: Explanation needed.
+- `EvidenceItem.has_provenance` at line 223: Explanation needed.
+- `EvidenceAudit.applied_to` at line 239: Explanation needed.
+- `EvidenceBundle.audited_items` at line 251: Explanation needed.
+- `PromotionDecision.__init__` at line 274: Explanation needed.
 
 ### modules/research_orchestrator.py
 
@@ -14703,21 +15767,21 @@ modules/research_orchestrator.py - Phase 5B LLM-supervised research cycle.
 - `_as_str_list` at line 91: Explanation needed.
 - `_as_unit_float` at line 101: Explanation needed.
 - `_as_bounded_int` at line 108: Explanation needed.
-- `ResearchRunResult` at line 151: Everything one research run produced; also the artifact payload.
-- `ResearchOrchestrator` at line 193: Bounded LLM-supervised research cycle over governed retrieval.
-- `register_research_tools` at line 579: Wire web_search (real DuckDuckGo adapter) + web_fetch into the loop.
-- `ResearchRunResult.artifact` at line 167: Explanation needed.
-- `ResearchOrchestrator.__init__` at line 196: Explanation needed.
-- `ResearchOrchestrator._emit` at line 221: Explanation needed.
-- `ResearchOrchestrator._ask_json` at line 235: Explanation needed.
-- `ResearchOrchestrator.assess_topic` at line 257: Explanation needed.
-- `ResearchOrchestrator.internal_first` at line 282: Inspect the tiered knowledge store BEFORE any web retrieval.
-- `ResearchOrchestrator.plan_research` at line 307: Explanation needed.
-- `ResearchOrchestrator._gather` at line 354: Explanation needed.
-- `ResearchOrchestrator.audit_evidence` at line 393: Explanation needed.
-- `ResearchOrchestrator._persist` at line 428: Store approved knowledge ONLY through the tiered KB public API.
-- `ResearchOrchestrator._recall_proof` at line 445: Verify the just-stored entry is actually retrievable.
-- `ResearchOrchestrator.run` at line 470: Execute one full bounded LLM-supervised research cycle.
+- `ResearchRunResult` at line 152: Everything one research run produced; also the artifact payload.
+- `ResearchOrchestrator` at line 194: Bounded LLM-supervised research cycle over governed retrieval.
+- `register_research_tools` at line 610: Wire web_search (real DuckDuckGo adapter) + web_fetch into the loop.
+- `ResearchRunResult.artifact` at line 168: Explanation needed.
+- `ResearchOrchestrator.__init__` at line 197: Explanation needed.
+- `ResearchOrchestrator._emit` at line 222: Explanation needed.
+- `ResearchOrchestrator._ask_json` at line 236: Explanation needed.
+- `ResearchOrchestrator.assess_topic` at line 258: Explanation needed.
+- `ResearchOrchestrator.internal_first` at line 283: Inspect the tiered knowledge store BEFORE any web retrieval.
+- `ResearchOrchestrator.plan_research` at line 308: Explanation needed.
+- `ResearchOrchestrator._gather` at line 355: Explanation needed.
+- `ResearchOrchestrator.audit_evidence` at line 423: Explanation needed.
+- `ResearchOrchestrator._persist` at line 459: Store approved knowledge ONLY through the tiered KB public API.
+- `ResearchOrchestrator._recall_proof` at line 476: Verify the just-stored entry is actually retrievable.
+- `ResearchOrchestrator.run` at line 501: Execute one full bounded LLM-supervised research cycle.
 
 ### modules/research_provider_adapter.py
 
@@ -14728,22 +15792,22 @@ NIBLIT PHASE 5B — TASK 1: REAL SEARCH PROVIDER ADAPTER.
 - `DuckDuckGoSearchProvider` at line 60: GovernedSearch-compatible provider over the existing research engine.
 - `DuckDuckGoSearchProvider.__init__` at line 65: Explanation needed.
 - `DuckDuckGoSearchProvider._resolve_engine` at line 69: Instantiate the real engine once (key-free; Qdrant optional).
-- `DuckDuckGoSearchProvider.search` at line 77: Run the real provider. Raises on provider failure (callers decide policy).
+- `DuckDuckGoSearchProvider.search` at line 80: Run the real provider. Raises on provider failure (callers decide policy).
 
 ### modules/researcher_engine.py
 
 Module purpose needs a human explanation.
 
 - `ResearcherEngine` at line 23: Web research engine with optional Qdrant-backed result caching.
-- `run` at line 389: Explanation needed.
+- `run` at line 400: Explanation needed.
 - `ResearcherEngine.__init__` at line 40: Explanation needed.
-- `ResearcherEngine.clean` at line 77: Explanation needed.
-- `ResearcherEngine.serpex_search` at line 80: Search via SerpEx API and return the best text snippet.
-- `ResearcherEngine.web_search` at line 119: Search the web for *topic* and return the best text snippet found.
-- `ResearcherEngine.web_search_hits` at line 181: Structured variant of :meth:`web_search` (Phase 5B).
-- `ResearcherEngine._check_cache` at line 298: Return a cached summary from the vector store, or None.
-- `ResearcherEngine._store_result` at line 313: Persist a research summary to the vector store and niblit_memory.
-- `ResearcherEngine.run` at line 345: Research *topic* and return ``{"topic": str, "summary": str}``.
+- `ResearcherEngine.clean` at line 80: Explanation needed.
+- `ResearcherEngine.serpex_search` at line 83: Search via SerpEx API and return the best text snippet.
+- `ResearcherEngine.web_search` at line 122: Search the web for *topic* and return the best text snippet found.
+- `ResearcherEngine.web_search_hits` at line 184: Structured variant of :meth:`web_search` (Phase 5B).
+- `ResearcherEngine._check_cache` at line 309: Return a cached summary from the vector store, or None.
+- `ResearcherEngine._store_result` at line 324: Persist a research summary to the vector store and niblit_memory.
+- `ResearcherEngine.run` at line 356: Research *topic* and return ``{"topic": str, "summary": str}``.
 
 ### modules/resilience_wrapper.py
 
@@ -14766,9 +15830,9 @@ Resilient boot helpers for Niblit main.py — environment, deps, and status.
 
 - `BootStatus` at line 27: Structured boot-time state for the final status report.
 - `load_environment` at line 46: Load ``.env`` from project root and cwd before subsystem imports.
-- `scan_optional_dependencies` at line 106: Return package names that are not importable; log degraded-mode warnings.
-- `probe_event_bus_health` at line 126: Exercise the core EventBus with enum and string event types.
-- `print_boot_status_report` at line 158: Print the structured post-boot summary.
+- `scan_optional_dependencies` at line 122: Return package names that are not importable; log degraded-mode warnings.
+- `probe_event_bus_health` at line 142: Exercise the core EventBus with enum and string event types.
+- `print_boot_status_report` at line 174: Print the structured post-boot summary.
 - `BootStatus.mark_degraded` at line 40: Explanation needed.
 
 ### modules/reward_model.py
@@ -14854,7 +15918,14 @@ Shared bootstrap helpers for Niblit entrypoints and tests.
 - `_candidate_roots` at line 11: Explanation needed.
 - `_find_repo_root` at line 25: Explanation needed.
 - `bootstrap_runtime_environment` at line 36: Ensure the Niblit repo root is importable and the CWD is consistent.
-- `ensure_import_path` at line 56: Explanation needed.
+- `ensure_import_path` at line 81: Explanation needed.
+
+### modules/runtime_lifecycle.py
+
+Bounded local lifecycle diagnostics without credentials or automatic trading recovery.
+
+- `event` at line 13: Explanation needed.
+- `enable_fault_diagnostics` at line 33: Explanation needed.
 
 ### modules/runtime_resource_manager.py
 
@@ -14878,13 +15949,13 @@ modules/runtime_resource_manager.py — Phase 21 Runtime Resource Intelligence
 
 NRR-v2 unified runtime router with deterministic single-backend execution.
 
-- `NiblitUnifiedRuntimeRouterV2` at line 13: Single-entry router that wraps LocalBrain's proven routing pipeline.
-- `NiblitUnifiedRuntimeRouterV2.__init__` at line 16: Explanation needed.
-- `NiblitUnifiedRuntimeRouterV2._resolve_local_brain` at line 20: Explanation needed.
-- `NiblitUnifiedRuntimeRouterV2._default_context_policy` at line 28: Explanation needed.
-- `NiblitUnifiedRuntimeRouterV2.generate` at line 48: Generate via a single deterministic backend for this request cycle.
-- `NiblitUnifiedRuntimeRouterV2.generate_for_contract` at line 106: Canonical wrapper that derives prompt/context from a cognitive request.
-- `NiblitUnifiedRuntimeRouterV2.last_route` at line 116: Return the last routing decision metadata.
+- `NiblitUnifiedRuntimeRouterV2` at line 15: Single-entry router that wraps LocalBrain's proven routing pipeline.
+- `NiblitUnifiedRuntimeRouterV2.__init__` at line 18: Explanation needed.
+- `NiblitUnifiedRuntimeRouterV2._resolve_local_brain` at line 22: Explanation needed.
+- `NiblitUnifiedRuntimeRouterV2._default_context_policy` at line 30: Explanation needed.
+- `NiblitUnifiedRuntimeRouterV2.generate` at line 51: Generate via a single deterministic backend for this request cycle.
+- `NiblitUnifiedRuntimeRouterV2.generate_for_contract` at line 111: Canonical wrapper that derives prompt/context from a cognitive request.
+- `NiblitUnifiedRuntimeRouterV2.last_route` at line 121: Return the last routing decision metadata.
 
 ### modules/safe_loader.py
 
@@ -14983,9 +16054,10 @@ Module purpose needs a human explanation.
 
 - `SelfIdeaGenerator` at line 8: Explanation needed.
 - `SelfIdeaGenerator.__init__` at line 9: Explanation needed.
-- `SelfIdeaGenerator.generate_plan` at line 21: Explanation needed.
-- `SelfIdeaGenerator.autonomous_loop` at line 40: Explanation needed.
-- `SelfIdeaGenerator.stop` at line 57: Explanation needed.
+- `SelfIdeaGenerator.start` at line 17: Explicit legacy start; construction never schedules learning.
+- `SelfIdeaGenerator.generate_plan` at line 26: Explanation needed.
+- `SelfIdeaGenerator.autonomous_loop` at line 45: Explanation needed.
+- `SelfIdeaGenerator.stop` at line 62: Explanation needed.
 
 ### modules/self_idea_implementation.py
 
@@ -15173,35 +16245,38 @@ SelfTeacher — Autonomous LLM-Driven Teaching, Review, and Quizzing for Niblit.
 - `SelfTeacher._synthesize_with_llm` at line 148: Explanation needed.
 - `SelfTeacher._generate_quiz` at line 162: Explanation needed.
 - `SelfTeacher._get_recent_facts` at line 182: Explanation needed.
-- `SelfTeacher.teach` at line 205: Explanation needed.
-- `SelfTeacher.teach_review` at line 302: Explanation needed.
-- `SelfTeacher.spaced_review` at line 383: Review up to `count` topics due for review.
-- `SelfTeacher.self_test` at line 403: Execute active-recall tests for due quiz questions.
-- `SelfTeacher._find_quiz_answer` at line 521: Look up the stored answer for a quiz question.
-- `SelfTeacher._shorten_review_interval` at line 544: Halve the review interval so a failed topic is retested sooner.
+- `SelfTeacher.assess_evidence` at line 206: Review a native candidate without turning its answer into KB facts.
+- `SelfTeacher.teach` at line 215: Explanation needed.
+- `SelfTeacher.teach_review` at line 312: Explanation needed.
+- `SelfTeacher.spaced_review` at line 393: Review up to `count` topics due for review.
+- `SelfTeacher.self_test` at line 413: Execute active-recall tests for due quiz questions.
+- `SelfTeacher._find_quiz_answer` at line 531: Look up the stored answer for a quiz question.
+- `SelfTeacher._shorten_review_interval` at line 554: Halve the review interval so a failed topic is retested sooner.
 
 ### modules/server_manager.py
 
 Invite-only shared Niblit workspace, separate from desktop Core authority.
 
-- `Login` at line 24: Explanation needed.
-- `Account` at line 29: Explanation needed.
-- `Signup` at line 33: Explanation needed.
-- `Message` at line 37: Explanation needed.
-- `WorkspaceTitle` at line 42: Explanation needed.
-- `Plan` at line 46: Explanation needed.
-- `Member` at line 50: Explanation needed.
-- `ServerManager` at line 55: Explanation needed.
-- `create_app` at line 170: Explanation needed.
-- `ServerManager.__init__` at line 56: Explanation needed.
-- `ServerManager.db` at line 76: Explanation needed.
-- `ServerManager.password` at line 86: Explanation needed.
-- `ServerManager.add_user` at line 89: Explanation needed.
-- `ServerManager.login` at line 99: Explanation needed.
-- `ServerManager.identity` at line 120: Explanation needed.
-- `ServerManager.history` at line 127: Explanation needed.
-- `ServerManager.submit` at line 131: Explanation needed.
-- `ServerManager.local_reply` at line 159: Explanation needed.
+- `Login` at line 27: Explanation needed.
+- `Account` at line 32: Explanation needed.
+- `Signup` at line 36: Explanation needed.
+- `PasswordUpdate` at line 40: Explanation needed.
+- `Message` at line 45: Explanation needed.
+- `WorkspaceTitle` at line 51: Explanation needed.
+- `Plan` at line 55: Explanation needed.
+- `Member` at line 59: Explanation needed.
+- `ServerManager` at line 64: Explanation needed.
+- `create_app` at line 206: Explanation needed.
+- `ServerManager.__init__` at line 65: Explanation needed.
+- `ServerManager.db` at line 95: Explanation needed.
+- `ServerManager.password` at line 105: Explanation needed.
+- `ServerManager.add_user` at line 108: Explanation needed.
+- `ServerManager.login` at line 120: Explanation needed.
+- `ServerManager.identity` at line 141: Explanation needed.
+- `ServerManager.history` at line 148: Explanation needed.
+- `ServerManager.submit` at line 152: Explanation needed.
+- `ServerManager._complete_turn` at line 178: Explanation needed.
+- `ServerManager.local_reply` at line 200: Explanation needed.
 
 ### modules/slice_guard.py
 
@@ -15214,7 +16289,7 @@ Module purpose needs a human explanation.
 modules/slsa_generator.py — Structured Live Sense Artifact (SLSA) Generator for Niblit.
 
 - `SLSAGenerator` at line 59: Structured Live Sense Artifact generator.
-- `start_slsa` at line 456: Create a SLSAGenerator and start its background thread.
+- `start_slsa` at line 460: Create a SLSAGenerator and start its background thread.
 - `SLSAGenerator.__init__` at line 75: Explanation needed.
 - `SLSAGenerator._internet_manager` at line 106: Return the InternetManager, loading it lazily if needed.
 - `SLSAGenerator._phased_engine` at line 117: Return the PhasedResearchEngine singleton, loading it lazily.
@@ -15231,11 +16306,11 @@ modules/slsa_generator.py — Structured Live Sense Artifact (SLSA) Generator fo
 - `SLSAGenerator.run` at line 403: Run the continuous background generation loop.
 - `SLSAGenerator.start` at line 423: Start one managed background loop, returning the existing live thread.
 - `SLSAGenerator.stop` at line 433: Stop the loop and wait a bounded time for an in-flight request.
-- `SLSAGenerator.add_topic` at line 441: Add a new topic to the running generation list.
-- `SLSAGenerator.get_stats` at line 447: Return current generation statistics.
-- `_MockDB.__init__` at line 484: Explanation needed.
-- `_MockDB.add_fact` at line 486: Explanation needed.
-- `_MockDB.list_facts` at line 489: Explanation needed.
+- `SLSAGenerator.add_topic` at line 445: Add a new topic to the running generation list.
+- `SLSAGenerator.get_stats` at line 451: Return current generation statistics.
+- `_MockDB.__init__` at line 488: Explanation needed.
+- `_MockDB.add_fact` at line 490: Explanation needed.
+- `_MockDB.list_facts` at line 493: Explanation needed.
 
 ### modules/slsa_manager.py
 
@@ -15246,11 +16321,11 @@ SLSA MANAGER MODULE
 - `SLSAManager.__init__` at line 25: Explanation needed.
 - `SLSAManager.start` at line 38: Start SLSA engine with optional topics.
 - `SLSAManager.stop` at line 80: Stop SLSA engine.
-- `SLSAManager.restart` at line 115: Restart SLSA engine with optional new topics.
-- `SLSAManager.status` at line 129: Get SLSA status.
-- `SLSAManager.is_running` at line 143: Check if SLSA is running.
-- `SLSAManager.get_topics` at line 148: Get current topics.
-- `SLSAManager.add_topics` at line 153: Add new topics to the SLSA engine.
+- `SLSAManager.restart` at line 117: Restart SLSA engine with optional new topics.
+- `SLSAManager.status` at line 131: Get SLSA status.
+- `SLSAManager.is_running` at line 145: Check if SLSA is running.
+- `SLSAManager.get_topics` at line 150: Get current topics.
+- `SLSAManager.add_topics` at line 155: Add new topics to the SLSA engine.
 
 ### modules/software_studier.py
 
@@ -15282,6 +16357,16 @@ SQLITE RESEARCHER
 - `SQLiteResearcher._extract_snippet` at line 189: Extract a plain-text snippet from a KnowledgeDB fact/entry.
 - `SQLiteResearcher._extract_title` at line 208: Extract a short title from a KnowledgeDB entry.
 - `SQLiteResearcher._search` at line 220: Search KnowledgeDB and return normalised result dicts.
+
+### modules/ssh_forward_identity.py
+
+Windows loopback-forward provenance. No credential is sent before this check.
+
+- `validate_ssh_arguments` at line 15: Explanation needed.
+- `listener_pid` at line 47: Explanation needed.
+- `owner_identity` at line 71: Explanation needed.
+- `windows_argv` at line 94: Explanation needed.
+- `verify_peer` at line 106: Explanation needed.
 
 ### modules/stackoverflow_search.py
 
@@ -15315,6 +16400,33 @@ Prepare the official Codex executor for an existing self-hosted session.
 
 - `codex_executable` at line 11: Explanation needed.
 - `executor_configuration` at line 25: Explanation needed.
+
+### modules/strategy_manager.py
+
+Compare registered demo rules without inventing probabilities or weakening risk.
+
+- `assess` at line 10: Explanation needed.
+- `assess_observation` at line 68: Validate a point-in-time M5 observation and reuse the existing registry.
+- `assess_with_context` at line 183: Attach point-in-time context to the six votes without adding votes.
+- `replay_context` at line 215: Replay closed native bars in the supplied broker clock, without fills.
+
+### modules/strategy_performance_shadow.py
+
+Cost-aware broker-outcome strategy rankings: research and SHADOW ONLY.
+
+- `_finite` at line 14: Explanation needed.
+- `_summary` at line 20: Explanation needed.
+- `shadow_rank` at line 38: Explanation needed.
+
+### modules/strategy_research.py
+
+Local forecasting and constrained rule synthesis; deliberately no order API.
+
+- `feature` at line 14: Explanation needed.
+- `estimate` at line 22: Training-only scaling and nearest-state empirical next-return estimate.
+- `metrics` at line 30: Explanation needed.
+- `signal` at line 36: Explanation needed.
+- `study` at line 44: Explanation needed.
 
 ### modules/structural_awareness.py
 
@@ -15369,6 +16481,16 @@ Structured Logging with Correlation IDs
 - `RequestContext.__enter__` at line 251: Enter context.
 - `RequestContext.__exit__` at line 261: Exit context.
 - Review: duplicate-definition at line 112.
+
+### modules/structured_trade_engine.py
+
+Deterministic, side-effect-free trading decision contract (paper planning only).
+
+- `finite` at line 18: Explanation needed.
+- `validated_m5` at line 24: Only completed, continuous 5-minute bars. No future or forming candles.
+- `lot_grid` at line 48: Broker-grid volume rounding always rounds down, never exceeds risk.
+- `plan_mt5_crypto` at line 59: Plan BTC/USD or ETH/USD demo trades; never grants or executes them.
+- `execution_plan_record` at line 134: Describe a broker-reviewed plan deterministically without authorizing it.
 
 ### modules/sync_engine.py
 
@@ -15425,6 +16547,32 @@ modules/sync_engine.py — Niblit Local ↔ Cloud Sync Protocol (LCSP v1)
 - `SyncEngine._background_loop` at line 935: Main background sync loop.
 - `SyncEngine.stop` at line 951: Signal the background loop to stop.
 - `SyncEngine.status` at line 957: Return a snapshot of sync engine state.
+
+### modules/task_admission.py
+
+Shared task admission via the existing private memory gateway.
+
+- `check_cancelled` at line 23: Explanation needed.
+- `delegation_headers` at line 27: Explanation needed.
+- `ambiguous_failure` at line 32: Explanation needed.
+- `AdmissionBusy` at line 44: Explanation needed.
+- `AdmissionUncertain` at line 45: Explanation needed.
+- `TaskCancelled` at line 46: Explanation needed.
+- `task_is_held` at line 49: Explanation needed.
+- `TaskAuthority` at line 52: Explanation needed.
+- `admitted` at line 212: Explanation needed.
+- `task_owned` at line 258: Explanation needed.
+- `TaskAuthority.__init__` at line 53: Explanation needed.
+- `TaskAuthority._owner_gone` at line 70: Explanation needed.
+- `TaskAuthority._trading_audit` at line 80: Explanation needed.
+- `TaskAuthority._acquire_trading` at line 84: Explanation needed.
+- `TaskAuthority.acquire` at line 118: Explanation needed.
+- `TaskAuthority.finish` at line 146: Explanation needed.
+- `TaskAuthority.delegate` at line 167: Explanation needed.
+- `TaskAuthority.status` at line 191: Explanation needed.
+- Review: empty-body at line 44.
+- Review: empty-body at line 45.
+- Review: empty-body at line 46.
 
 ### modules/temporal_coherence.py
 
@@ -15492,14 +16640,15 @@ modules/termux_wakelock.py — Termux CPU Wake-Lock + Persistent Notification
 
 modules/tft_forecast.py — Temporal Fusion Transformer market forecast adapter.
 
-- `_ewma_signal` at line 87: Compute a trend signal using exponential weighted moving averages.
-- `_tft_signal` at line 134: Run a minimal TFT model on the price buffer and return a signal.
-- `TFTForecastAdapter` at line 251: Rolling price buffer + TFT (or EWMA fallback) market forecast.
-- `get_tft_adapter` at line 334: Return the module-level :class:`TFTForecastAdapter` singleton.
-- `TFTForecastAdapter.__init__` at line 262: Explanation needed.
-- `TFTForecastAdapter.push_price` at line 275: Append a new close price to the rolling history buffer.
-- `TFTForecastAdapter.predict_signal` at line 280: Compute and return a BUY / SELL / HOLD forecast signal.
-- `TFTForecastAdapter.status` at line 315: Return a status dict suitable for logging / monitoring.
+- `_configured_value` at line 59: Honor older read-only research settings unless a newer setting overrides them.
+- `_ewma_signal` at line 95: Compute a trend signal using exponential weighted moving averages.
+- `_tft_signal` at line 142: Run a minimal TFT model on the price buffer and return a signal.
+- `TFTForecastAdapter` at line 259: Rolling price buffer + TFT (or EWMA fallback) market forecast.
+- `get_tft_adapter` at line 342: Return the module-level :class:`TFTForecastAdapter` singleton.
+- `TFTForecastAdapter.__init__` at line 270: Explanation needed.
+- `TFTForecastAdapter.push_price` at line 283: Append a new close price to the rolling history buffer.
+- `TFTForecastAdapter.predict_signal` at line 288: Compute and return a BUY / SELL / HOLD forecast signal.
+- `TFTForecastAdapter.status` at line 323: Return a status dict suitable for logging / monitoring.
 
 ### modules/tiered_knowledge_system.py
 
@@ -15570,6 +16719,14 @@ modules/trade_kb_learner.py — KB-based Trading Pattern Learner for Niblit.
 - `TradeKBLearner._compute_win_rate` at line 296: Return (win_rate, sample_size, recent_actions) for a pattern key.
 - `TradeKBLearner._plain` at line 325: Explanation needed.
 
+### modules/trade_performance_metrics.py
+
+Deterministic observed-price trade diagnostics, not entry/exit decisions.
+
+- `_number` at line 10: Explanation needed.
+- `observed_excursion` at line 19: One reproducible price observation, with previous observed extrema.
+- `summarise_closed` at line 61: Net realized R uses signed broker profit and original cash stop risk.
+
 ### modules/trading_adapter.py
 
 modules/trading_adapter.py — Trading Brain Adapter
@@ -15601,37 +16758,80 @@ modules/trading_brain.py — Niblit Trading Brain (V2).
 
 Loopback human trading desk. No order functions are exposed to model tools.
 
-- `FreqtradeRejection` at line 27: Explanation needed.
-- `Intent` at line 31: Explanation needed.
-- `Confirm` at line 38: Explanation needed.
-- `MT5Check` at line 43: Explanation needed.
-- `MT5Intent` at line 50: Explanation needed.
-- `MT5Confirm` at line 55: Explanation needed.
-- `Desk` at line 60: Explanation needed.
-- `create_app` at line 308: Explanation needed.
-- `Desk.__init__` at line 61: Explanation needed.
-- `Desk.db` at line 73: Explanation needed.
-- `Desk.connection` at line 78: Explanation needed.
-- `Desk.api` at line 85: Explanation needed.
-- `Desk.configuration` at line 103: Explanation needed.
-- `Desk.market` at line 108: Explanation needed.
-- `Desk.snapshot` at line 136: Explanation needed.
-- `Desk.export_outcomes` at line 169: Queue closed execution evidence for Core's existing memory worker.
-- `Desk.validate` at line 204: Explanation needed.
-- `Desk.minimum_stake` at line 225: Explanation needed.
-- `Desk.preview` at line 244: Explanation needed.
-- `Desk.confirm` at line 256: Explanation needed.
-- `Desk.reconcile` at line 287: Explanation needed.
-- Review: empty-body at line 27.
+- `core_origin` at line 27: Explanation needed.
+- `FreqtradeRejection` at line 34: Explanation needed.
+- `Intent` at line 38: Explanation needed.
+- `Confirm` at line 45: Explanation needed.
+- `BoundConfirm` at line 50: Existing human ticket, additionally bound to an immutable Cloud request.
+- `MT5Check` at line 58: Explanation needed.
+- `MT5Intent` at line 65: Explanation needed.
+- `MT5Confirm` at line 70: Explanation needed.
+- `DemoSession` at line 75: Explanation needed.
+- `Desk` at line 84: Explanation needed.
+- `core_market_analysis` at line 506: Forward evidence to the existing Core; never retry or submit an order.
+- `create_app` at line 530: Explanation needed.
+- `Desk.__init__` at line 85: Explanation needed.
+- `Desk.db` at line 107: Explanation needed.
+- `Desk.connection` at line 114: Explanation needed.
+- `Desk.api` at line 121: Explanation needed.
+- `Desk.configuration` at line 158: Explanation needed.
+- `Desk.quote` at line 163: Read public bid/ask for this exact configured market, without orders.
+- `Desk.market` at line 177: Explanation needed.
+- `Desk.public_market` at line 215: Reuse existing public data provider when the stopped engine has no bars.
+- `Desk.snapshot` at line 288: Explanation needed.
+- `Desk.export_outcomes` at line 325: Queue closed execution evidence for Core's existing memory worker.
+- `Desk.validate` at line 360: Explanation needed.
+- `Desk.minimum_stake` at line 382: Explanation needed.
+- `Desk.preview` at line 401: Explanation needed.
+- `Desk.confirm` at line 413: Explanation needed.
+- `Desk.attributed_trades` at line 464: Read both native open positions and closed history without duplicate IDs.
+- `Desk.reconcile` at line 485: Explanation needed.
+- Review: empty-body at line 34.
+
+### modules/trading_execution_rehearsal.py
+
+Existing Core/adapters with intercepted delivery. Never a broker gateway.
+
+- `runtime` at line 11: Explanation needed.
+- `recall_environment_preparation` at line 16: Read scoped preparation evidence; no account grant or broker operation.
+- `recall_rehearsal` at line 29: Explanation needed.
+- `run_rehearsal` at line 39: Explanation needed.
+- `seed` at line 54: Replay approved deterministic fixture bars; never label them live.
+- `activate` at line 70: Explanation needed.
+- `detail` at line 76: Explanation needed.
+- `cases` at line 90: Explanation needed.
+- `captured_gates` at line 183: Use captured native data in existing adapters; no real identity grant.
+- `native_exchange_contracts` at line 236: Explanation needed.
+- `worker` at line 265: Explanation needed.
+
+### modules/trading_observation.py
+
+Bounded integration of existing observers; no trading transport is exposed.
+
+- `ReadOnlyMT5` at line 17: Explanation needed.
+- `profile` at line 30: Explanation needed.
+- `scope` at line 38: Explanation needed.
+- `gateway` at line 43: Explanation needed.
+- `recall_observations` at line 51: Explanation needed.
+- `observe_trading` at line 76: Explanation needed.
+- `instrument_candidates` at line 92: Bounded visible-symbol comparison; never selects/activates a symbol.
+- `mt5_execution_review` at line 121: Explanation needed.
+- `freqtrade_execution_review` at line 205: Explanation needed.
+- `collect` at line 268: Explanation needed.
+- `summarize` at line 439: Explanation needed.
+- `ReadOnlyMT5.__init__` at line 22: Explanation needed.
+- `ReadOnlyMT5.__getattr__` at line 24: Explanation needed.
+- `BoundBridge.connect` at line 307: Explanation needed.
 
 ### modules/trading_read_tools.py
 
 NIBLIT PHASE 5B — TASKS 16–19: READ-ONLY TRADING RUNTIME CAPABILITY SURFACE.
 
-- `_state_attr` at line 70: Read the first present attribute; return 'unavailable' when absent.
-- `read_runtime_status` at line 81: Build a structured READ-ONLY snapshot from the authoritative runtime.
-- `execute_trading_runtime_status` at line 104: Dispatch entry used by the governed tool loop. Never executes anything.
-- `register` at line 111: Register the read-only trading capability with the governed tool loop.
+- `read_trading_readiness` at line 28: Exact scoped operational evidence. Never initialize a broker or tool.
+- `_state_attr` at line 100: Read the first present attribute; return 'unavailable' when absent.
+- `read_runtime_status` at line 111: Build a structured READ-ONLY snapshot from the authoritative runtime.
+- `execute_trading_runtime_status` at line 134: Dispatch entry used by the governed tool loop. Never executes anything.
+- `register` at line 141: Register the read-only trading capability with the governed tool loop.
 
 ### modules/trading_runtime_client.py
 
@@ -15649,6 +16849,98 @@ Read-only Core bridge to the separately packaged Lean trading runtime.
 - `TradingRuntimeClient.execution_enabled` at line 104: Explanation needed.
 - `TradingRuntimeClient.health` at line 107: Explanation needed.
 - `TradingRuntimeClient.status` at line 111: Explanation needed.
+
+### modules/trading_session_adapters.py
+
+Broker translation for Core sessions; original ticket ledgers still deliver.
+
+- `account_exposure` at line 15: Explanation needed.
+- `bound_cost_schedule` at line 26: Validate operator/broker evidence for this account and proposed size.
+- `mt5_trade_costs` at line 55: Value protective levels on executable prices; spread is already embedded.
+- `MT5SessionAdapter` at line 81: Explanation needed.
+- `native_dry_run_fee` at line 282: Use a private, explicitly configured paper fee when the RPC omits it.
+- `freqtrade_entry_costs` at line 301: Explicit dry-run fee plus approved funding/slippage bounds, not account-tier fees.
+- `FreqtradeSessionAdapter` at line 331: Explanation needed.
+- `MT5SessionAdapter.__init__` at line 82: Explanation needed.
+- `MT5SessionAdapter.bind_demo_delivery` at line 85: Explanation needed.
+- `MT5SessionAdapter.reconciliation_identity` at line 102: Explanation needed.
+- `MT5SessionAdapter.snapshot` at line 107: Explanation needed.
+- `MT5SessionAdapter.draft_entry` at line 145: Explanation needed.
+- `MT5SessionAdapter.prepare` at line 148: Explanation needed.
+- `MT5SessionAdapter.submit` at line 206: Explanation needed.
+- `MT5SessionAdapter.cancel_prepared` at line 212: Explanation needed.
+- `MT5SessionAdapter.reconcile` at line 221: Explanation needed.
+- `FreqtradeSessionAdapter.__init__` at line 332: Explanation needed.
+- `FreqtradeSessionAdapter.identity` at line 335: Explanation needed.
+- `FreqtradeSessionAdapter.bind_demo_delivery` at line 342: Explanation needed.
+- `FreqtradeSessionAdapter.reconciliation_identity` at line 348: Explanation needed.
+- `FreqtradeSessionAdapter.snapshot` at line 352: Explanation needed.
+- `FreqtradeSessionAdapter.prepare` at line 396: Explanation needed.
+- `FreqtradeSessionAdapter.draft_entry` at line 410: Same sizing/protections, without a ticket, session activation or delivery.
+- `FreqtradeSessionAdapter.submit` at line 451: Explanation needed.
+- `FreqtradeSessionAdapter.cancel_prepared` at line 464: Explanation needed.
+- `FreqtradeSessionAdapter.reconcile` at line 473: Explanation needed.
+
+### modules/trading_session_api.py
+
+Module purpose needs a human explanation.
+
+- `Proposal` at line 9: Explanation needed.
+- `ObservationBatch` at line 18: Explanation needed.
+- `Activation` at line 24: Explanation needed.
+- `Stop` at line 31: Explanation needed.
+- `NativeReceipt` at line 36: Explanation needed.
+- `demo_control_policy` at line 49: Explanation needed.
+- `demo_readiness` at line 86: Existing adapters/consensus and draft inspection only. No ticket or grant.
+- `register_trading_routes` at line 177: Explanation needed.
+- `register_market_desk` at line 306: Serve the bundled desk on the authoritative Core, without another port.
+- `HostedDesk.__init__` at line 310: Explanation needed.
+- `HostedDesk.__call__` at line 311: Explanation needed.
+- `HostedDesk.shutdown` at line 316: Explanation needed.
+
+### modules/trading_session_probe.py
+
+Explicit, non-delivering broker checks for the packaged executable.
+
+- `check` at line 12: Explanation needed.
+- `main` at line 65: Explanation needed.
+
+### modules/trading_session_selftest.py
+
+Offline integration fixture: actual Core policy/tickets, broker doubles only.
+
+- `FixtureGateway` at line 14: Explanation needed.
+- `FixtureMT5` at line 29: Explanation needed.
+- `fixture_costs` at line 79: Explicit simulation-only bounds; never a broker cost schedule.
+- `fixture` at line 87: Explanation needed.
+- `activate` at line 103: Explanation needed.
+- `exercise` at line 109: Explanation needed.
+- `FixtureFreqtrade` at line 129: Explanation needed.
+- `datetime_utc_day` at line 177: Explanation needed.
+- `freq_fixture` at line 182: Explanation needed.
+- `exercise_freq` at line 205: Explanation needed.
+- `main` at line 219: Explanation needed.
+- `FixtureGateway.__init__` at line 15: Explanation needed.
+- `FixtureGateway.db` at line 17: Explanation needed.
+- `FixtureGateway.require` at line 22: Explanation needed.
+- `FixtureGateway.audit` at line 24: Explanation needed.
+- `FixtureMT5.__init__` at line 33: Explanation needed.
+- `FixtureMT5.initialize` at line 43: Explanation needed.
+- `FixtureMT5.account_info` at line 44: Explanation needed.
+- `FixtureMT5.terminal_info` at line 45: Explanation needed.
+- `FixtureMT5.symbols_get` at line 46: Explanation needed.
+- `FixtureMT5.symbol_info` at line 47: Explanation needed.
+- `FixtureMT5.symbol_info_tick` at line 48: Explanation needed.
+- `FixtureMT5.copy_rates_from_pos` at line 52: Explanation needed.
+- `FixtureMT5.positions_get` at line 53: Explanation needed.
+- `FixtureMT5.orders_get` at line 54: Explanation needed.
+- `FixtureMT5.history_deals_get` at line 55: Explanation needed.
+- `FixtureMT5.order_calc_profit` at line 56: Explanation needed.
+- `FixtureMT5.order_calc_margin` at line 57: Explanation needed.
+- `FixtureMT5.order_check` at line 58: Explanation needed.
+- `FixtureMT5.order_send` at line 59: Explanation needed.
+- `FixtureFreqtrade.__init__` at line 130: Explanation needed.
+- `FixtureFreqtrade.rpc` at line 138: Explanation needed.
 
 ### modules/trading_study.py
 
@@ -15710,6 +17002,15 @@ modules/trading_swing_v3.py — Niblit Filtered Swing Trend Signals v3
 - `FilteredSwingTraderV3.get_legs` at line 586: Return the last *last_n* trade legs as dicts.
 - `FilteredSwingTraderV3.kelly_position_size` at line 591: Compute the Kelly-criterion position size fraction.
 - `FilteredSwingTraderV3.explain_last_entry` at line 628: Plain-text explanation of the last entry signal for AI introspection.
+
+### modules/trading_values.py
+
+Finite risk values shared by Core and its lightweight broker translator.
+
+- `number` at line 5: Explanation needed.
+- `fee_resolution` at line 11: Resolve a fee's meaning, not execution permission or a live fee cache.
+- `linear_exit_estimate` at line 60: Counterfactual at public top-of-book, not a fill or complete cost quote.
+- `freqtrade_actuals` at line 89: Reconcile observed simulation actuals, never authorize an entry.
 
 ### modules/training_dataset_governance.py
 
@@ -16510,6 +17811,16 @@ python -m modules.memory_laboratory [--env-file .env] [--apply].
 
 - `main` at line 8: Explanation needed.
 
+### modules/memory_laboratory/cognitive.py
+
+NUCM-2 logical episodes over the existing canonical ledger and durable outbox.
+
+- `timestamp` at line 16: Explanation needed.
+- `CognitiveMemory` at line 23: Explanation needed.
+- `CognitiveMemory.__init__` at line 24: Explanation needed.
+- `CognitiveMemory.record` at line 34: Explanation needed.
+- `CognitiveMemory.retrieve` at line 71: Explanation needed.
+
 ### modules/memory_laboratory/consolidation.py
 
 Resource-bounded evidence proposals; never promotes or deletes evidence.
@@ -16524,8 +17835,8 @@ Resource-bounded evidence proposals; never promotes or deletes evidence.
 
 Bounded evidence adapter for existing LlmToolLoop, with no execution authority.
 
-- `runtime_gateway` at line 24: Explanation needed.
-- `augment_messages` at line 41: Explanation needed.
+- `runtime_gateway` at line 25: Explanation needed.
+- `augment_messages` at line 42: Explanation needed.
 
 ### modules/memory_laboratory/contracts.py
 
@@ -16541,21 +17852,33 @@ Versioned retrieval records; source documents and audit remain authoritative.
 
 Governed source ledger and rebuildable Qdrant projection, not an orchestrator.
 
-- `now` at line 21: Explanation needed.
-- `digest` at line 25: Explanation needed.
-- `permission` at line 29: Explanation needed.
-- `MemoryGateway` at line 35: Explanation needed.
-- `MemoryGateway.__init__` at line 36: Explanation needed.
-- `MemoryGateway.db` at line 57: Explanation needed.
-- `MemoryGateway.close` at line 71: Explanation needed.
-- `MemoryGateway.require` at line 74: Explanation needed.
-- `MemoryGateway.audit` at line 81: Explanation needed.
-- `MemoryGateway.ingest_file` at line 85: Explanation needed.
-- `MemoryGateway.ingest` at line 124: Explanation needed.
-- `MemoryGateway.retrieve` at line 211: Explanation needed.
-- `MemoryGateway.status` at line 276: Explanation needed.
-- `MemoryGateway.review_record` at line 285: Explicit operator review, never inferred from recurrence or similarity.
-- `MemoryGateway.delete_source` at line 310: Explanation needed.
+- `now` at line 24: Explanation needed.
+- `digest` at line 28: Explanation needed.
+- `permission` at line 32: Explanation needed.
+- `market_namespace` at line 38: Explanation needed.
+- `MemoryGateway` at line 42: Explanation needed.
+- `MemoryGateway.__init__` at line 43: Explanation needed.
+- `MemoryGateway.db` at line 74: Explanation needed.
+- `MemoryGateway._keep_wal_open` at line 91: Explanation needed.
+- `MemoryGateway.close` at line 107: Explanation needed.
+- `MemoryGateway.require` at line 115: Explanation needed.
+- `MemoryGateway.register_market_partition` at line 140: Bind an isolated view of already authorized parent memory.
+- `MemoryGateway.audit` at line 163: Explanation needed.
+- `MemoryGateway.ingest_file` at line 167: Explanation needed.
+- `MemoryGateway.prime_small_events` at line 206: Warm bounded vectors for <=4 same-scope events; publish nothing.
+- `MemoryGateway.project_remote` at line 265: Mirror approved synthetic records only; SQLite/local stay authoritative.
+- `MemoryGateway.read_remote` at line 297: Explanation needed.
+- `MemoryGateway.ingest` at line 315: Explanation needed.
+- `MemoryGateway.ingest_small_events` at line 500: Same record builder, bounded shared I/O; verify all before activation.
+- `MemoryGateway._prepare_lexical_rowids` at line 582: Explanation needed.
+- `MemoryGateway._delete_lexical` at line 590: Explanation needed.
+- `MemoryGateway._insert_lexical` at line 598: Explanation needed.
+- `MemoryGateway.observe_learning` at line 603: Unique source observations in records; repetitions/conflicts in audit.
+- `MemoryGateway.learning_facts` at line 656: Exact scoped recall of accepted source declarations, not summaries.
+- `MemoryGateway.retrieve` at line 692: Explanation needed.
+- `MemoryGateway.status` at line 781: Explanation needed.
+- `MemoryGateway.review_record` at line 790: Explicit operator review, never inferred from recurrence or similarity.
+- `MemoryGateway.delete_source` at line 815: Explanation needed.
 
 ### modules/memory_laboratory/market.py
 
@@ -16594,37 +17917,47 @@ Durable ingestion outbox shared by Core facts, documents and trading evidence.
 - `readable` at line 23: Extract prose without Python repr wrappers or unrelated metadata.
 - `confidence` at line 45: Explanation needed.
 - `MemoryRuntime` at line 53: Explanation needed.
-- `runtime_memory` at line 254: Explanation needed.
-- `queue_core_fact` at line 268: Best effort mirror; original KnowledgeDB remains intact if queue fails.
+- `runtime_memory` at line 468: Explanation needed.
+- `stop_runtime_memory` at line 482: Stop only the projection worker already owned by this process.
+- `queue_core_fact` at line 492: Best effort mirror; original KnowledgeDB remains intact if queue fails.
 - `MemoryRuntime.__init__` at line 54: Explanation needed.
-- `MemoryRuntime.enqueue` at line 73: Explanation needed.
-- `MemoryRuntime.enqueue_fact` at line 102: Explanation needed.
-- `MemoryRuntime.tick` at line 120: One bounded pass. Multiple processes claim jobs atomically in SQLite.
-- `MemoryRuntime.status` at line 154: Explanation needed.
-- `MemoryRuntime.sync_knowledge_file` at line 162: Read existing atomic JSON snapshots; never modify original memory.
-- `MemoryRuntime.start` at line 189: Explanation needed.
-- `MemoryRuntime.stop` at line 213: Explanation needed.
-- `MemoryRuntime.backup` at line 218: Consistent SQLite backup, including source evidence, queue and audit.
-- `MemoryRuntime.rebuild` at line 229: Repair active projections from original ledger, never from generated text.
+- `MemoryRuntime.enqueue` at line 79: Explanation needed.
+- `MemoryRuntime.enqueue_fact` at line 114: Explanation needed.
+- `MemoryRuntime.tick` at line 132: Serial, durable groups of <=4 small events; large sources stay alone.
+- `MemoryRuntime._add_projection_metrics` at line 217: Explanation needed.
+- `MemoryRuntime.tick_market_partitions` at line 228: Oldest-ready scoped feedback with a64-chunk fairness allowance.
+- `MemoryRuntime.status` at line 260: Explanation needed.
+- `MemoryRuntime.sync_knowledge_file` at line 276: Read existing atomic JSON snapshots; never modify original memory.
+- `MemoryRuntime._safe_error` at line 304: Explanation needed.
+- `MemoryRuntime._phase` at line 319: Explanation needed.
+- `MemoryRuntime.tick_remote` at line 344: Explanation needed.
+- `MemoryRuntime.run_once` at line 370: One fair pass of the existing worker; never another worker/authority.
+- `MemoryRuntime.start` at line 407: Explanation needed.
+- `MemoryRuntime.stop` at line 427: Explanation needed.
+- `MemoryRuntime.backup` at line 432: Consistent SQLite backup, including source evidence, queue and audit.
+- `MemoryRuntime.rebuild` at line 443: Repair active projections from original ledger, never from generated text.
 
 ### modules/memory_laboratory/setup.py
 
 Read-only preflight and additive, versioned Qdrant collection setup.
 
-- `Config` at line 30: Explanation needed.
-- `validate_vector` at line 79: Explanation needed.
-- `DedicatedEmbedder` at line 89: Pinned CPU embedding model. No Qwen, fabricated or zero-vector fallback.
-- `QdrantSetup` at line 114: Explanation needed.
-- `Config.__post_init__` at line 39: Explanation needed.
-- `Config.from_env` at line 56: Explanation needed.
-- `Config.from_values` at line 60: Explanation needed.
-- `Config.collection` at line 71: Explanation needed.
-- `DedicatedEmbedder.__init__` at line 91: Explanation needed.
-- `DedicatedEmbedder.embed` at line 95: Explanation needed.
-- `QdrantSetup.__init__` at line 115: Explanation needed.
-- `QdrantSetup.close` at line 125: Explanation needed.
-- `QdrantSetup.request` at line 129: Explanation needed.
-- `QdrantSetup.run` at line 134: Explanation needed.
+- `Config` at line 31: Explanation needed.
+- `validate_vector` at line 80: Explanation needed.
+- `embedding_batch_size` at line 90: Bound CPU/RAM demand independently of model/collection identity.
+- `DedicatedEmbedder` at line 98: Same pinned CPU model, serialized bounded batches; no Qwen fallback.
+- `QdrantSetup` at line 141: Explanation needed.
+- `Config.__post_init__` at line 40: Explanation needed.
+- `Config.from_env` at line 57: Explanation needed.
+- `Config.from_values` at line 61: Explanation needed.
+- `Config.collection` at line 72: Explanation needed.
+- `DedicatedEmbedder.__init__` at line 100: Explanation needed.
+- `DedicatedEmbedder._load_model` at line 105: Explanation needed.
+- `DedicatedEmbedder.embed` at line 117: Explanation needed.
+- `DedicatedEmbedder.embed_many` at line 120: Explanation needed.
+- `QdrantSetup.__init__` at line 142: Explanation needed.
+- `QdrantSetup.close` at line 152: Explanation needed.
+- `QdrantSetup.request` at line 156: Explanation needed.
+- `QdrantSetup.run` at line 161: Explanation needed.
 
 ### modules/memory_laboratory/web.py
 
@@ -16633,11 +17966,15 @@ Loopback-only operator desk. Keys and Docker authority stay on the host.
 - `Review` at line 36: Explanation needed.
 - `Search` at line 43: Explanation needed.
 - `ContainerAction` at line 48: Explanation needed.
-- `docker` at line 52: Explanation needed.
-- `inspect_containers` at line 61: Explanation needed.
-- `freqtrade_status` at line 87: Read-only authenticated configuration; never serialize credentials.
-- `local_get` at line 101: Explanation needed.
-- `create_app` at line 110: Explanation needed.
+- `TutorObservation` at line 52: Explanation needed.
+- `TaskRequest` at line 56: Explanation needed.
+- `TaskDelegation` at line 60: Explanation needed.
+- `TaskFinish` at line 66: Explanation needed.
+- `docker` at line 71: Explanation needed.
+- `inspect_containers` at line 80: Explanation needed.
+- `freqtrade_status` at line 106: Read-only authenticated configuration; never serialize credentials.
+- `local_get` at line 120: Explanation needed.
+- `create_app` at line 129: Explanation needed.
 
 ### modules/meta_cognition/__init__.py
 
@@ -16742,6 +18079,66 @@ modules/meta_cognition/self_model.py — SelfConceptEngine (MSG Layer v1).
 - `SelfModel.snapshot` at line 152: Return a serialisable state snapshot.
 - `SelfModel.strengths` at line 164: Return the top-N capability domains sorted by score.
 - `SelfModel.weaknesses` at line 170: Return the top-N weakness domains sorted by score (highest = weakest).
+
+### modules/native_cognition/alphabet.py
+
+Unicode-aware symbol and alphabet primitives for Niblit's native cognition.
+
+- `normalize_text` at line 39: Canonical NFC normalization; raw source text should remain separately stored.
+- `script_of` at line 46: Explanation needed.
+- `graphemes` at line 57: Yield approximate extended grapheme clusters with original offsets.
+- `classify_character` at line 82: Explanation needed.
+- `inspect_alphabet` at line 115: Explanation needed.
+
+### modules/native_cognition/cognition.py
+
+Deterministic source-to-cognition pipeline; source remains the evidence authority.
+
+- `analyze_text` at line 13: Explanation needed.
+- `source_chunks` at line 69: Return exact source chunks with stable character-span citations.
+- `persist_analysis` at line 89: Queue source chunks through the existing governed SQLite outbox.
+
+### modules/native_cognition/language.py
+
+Small, inspectable language primitives; offsets refer to original text.
+
+- `normalize_word` at line 39: Explanation needed.
+- `classify_word` at line 43: Explanation needed.
+- `tokenize` at line 69: Explanation needed.
+- `split_sentences` at line 84: Split on terminal punctuation while retaining exact source spans.
+- `sentence_signals` at line 104: Explanation needed.
+
+### modules/native_cognition/maths.py
+
+Safe, bounded arithmetic expression evaluator for Niblit's native layer.
+
+- `MathExpressionError` at line 23: Explanation needed.
+- `evaluate_expression` at line 27: Explanation needed.
+- `_evaluate` at line 49: Explanation needed.
+- `_tree_summary` at line 68: Explanation needed.
+- Review: empty-body at line 23.
+
+### modules/native_cognition/memorization.py
+
+Spaced-retrieval scheduling primitives for learned skills, not fact truth.
+
+- `schedule_review` at line 7: SM-2-style bounded review schedule; quality is 0 (failed) to 5 (easy).
+
+### modules/native_cognition/numbers.py
+
+Deterministic numeric parsing for native cognition; no model or eval needed.
+
+- `parse_numeric_literal` at line 27: Explanation needed.
+- `parse_english_number_words` at line 62: Parse a bounded English cardinal/decimal phrase (up to billions).
+- `_parse_integer_words` at line 95: Explanation needed.
+- `extract_numeric_literals` at line 120: Explanation needed.
+
+### modules/native_cognition/seed.py
+
+Versioned native foundation packs; persisted only through existing MemoryRuntime.
+
+- `seed_batches` at line 53: Explanation needed.
+- `seed_memory` at line 95: Dry-run by default; apply queues through the existing permission-checked outbox.
 
 ### modules/trading_decision_engine/freqtrade_adapter.py
 
@@ -17928,10 +19325,21 @@ Compatibility package for niblit_core with config submodules.
 
 Centralized project path resolution utilities.
 
-- `get_project_root` at line 10: Return the repository root directory.
-- `get_data_dir` at line 15: Return the canonical data directory.
-- `get_memory_dir` at line 20: Return the canonical memory directory.
-- `resolve_path` at line 25: Resolve one or more path segments under the project root.
+- `get_project_root` at line 16: Return the repository root directory.
+- `get_data_dir` at line 21: Return the canonical data directory.
+- `get_memory_dir` at line 26: Return the canonical memory directory.
+- `resolve_path` at line 31: Resolve one or more path segments under the project root.
+- `EnvironmentResolutionError` at line 36: A deployment binding is missing, changed, or outside its approved roots.
+- `runtime_layout` at line 40: Independent resource roots; never derive an installation from the CWD.
+- `_absolute` at line 50: Explanation needed.
+- `_bounded` at line 59: Explanation needed.
+- `_approved_roots` at line 68: Explanation needed.
+- `_manifest` at line 78: Explanation needed.
+- `_resource` at line 99: Explanation needed.
+- `environment_plan` at line 148: Read-only reconstruction plan; no process launch, probe, install or store creation.
+- `apply_environment` at line 193: Apply only validated process bindings and disposable-directory repair.
+- `guard_persistent_resource` at line 242: Reject rebinding or disappearance of a store in manifest-enabled runtimes.
+- `restore_environment_observation` at line 256: Explicit metadata-only rollback. Never restores databases or configuration.
 
 ### niblit_memory/__init__.py
 
@@ -17939,237 +19347,237 @@ niblit_memory.py — Canonical single-file memory system for Niblit.
 
 - `_same_storage_path` at line 85: Compare storage destinations using platform-specific path semantics.
 - `_writable_path` at line 90: Return a writable path for *filename*.
-- `_get_loop_tracer` at line 144: Lazily import loop_tracer from niblit_core to break circular import.
-- `_now_iso` at line 156: Return current UTC time as an ISO-8601 string.
-- `_is_no_data_placeholder` at line 164: Return True when *text* is a 'No data found' placeholder.
-- `FusedMemory` at line 187: Hybrid memory backend combining Qdrant vector search with SQLite
-- `get_fused_memory` at line 494: Return a process-level :class:`FusedMemory` singleton.
-- `FusedMemoryPrimary` at line 519: Primary fused memory backend with:
-- `get_primary` at line 737: Return a process-level :class:`FusedMemoryPrimary` singleton.
-- `LocalDB` at line 762: JSON-backed semantic memory DB.
-- `event` at line 923: Build a canonical event dict.
-- `canonicalize` at line 939: Convert any raw chat line into a canonical event dict.
-- `ingest` at line 951: Canonical ingestion entry-point.
-- `_get_path_write_lock` at line 994: Explanation needed.
-- `RecoveryIntegrityValidator` at line 1004: Schema-safe payload validator used by persistence commits.
-- `ReplaySafePersistenceHooks` at line 1028: Ensure replay/governance lineage fields survive every disk commit.
-- `AtomicCommitManager` at line 1046: Crash-safe atomic JSON commit manager with WAL-style rotations.
-- `PersistenceManager` at line 1154: Runtime-owned persistence manager that owns runtime assets and write coordination.
-- `MemoryMutationQueue` at line 1422: Deduplicating mutation queue for single-writer persistence.
-- `SaveDebounceController` at line 1458: Debounce rapid save storms while keeping final state durable.
-- `EmbeddingMiddleware` at line 1478: Deterministic async embedding middleware with validation and cache.
-- `QdrantSyncBridge` at line 1589: Best-effort hook layer for local JSON ↔ governed Qdrant sync.
-- `RuntimePersistenceCoordinator` at line 1610: Single-writer persistence coordinator for KnowledgeDB.
-- `GovernedPersistenceWorker` at line 1723: Compatibility facade exposing worker semantics used by integrations.
-- `KnowledgeDB` at line 1739: Unified Knowledge Database for Niblit.
-- `KnowledgeStore` at line 3068: Persistent store for search results backed by SQLite.
-- `NiblitMemory` at line 3252: Unified memory management system with singleton pattern and persistent storage.
-- `__getattr__` at line 4093: Explanation needed.
-- `FusedMemory.__init__` at line 208: Explanation needed.
-- `FusedMemory._init_sqlite` at line 236: Create all required SQLite tables.
-- `FusedMemory._get_vector_store` at line 270: Lazily initialise the underlying VectorStore.
-- `FusedMemory.vector_backend` at line 291: Active vector backend name: ``"qdrant"``, ``"faiss"``, or ``"memory"``.
-- `FusedMemory.is_vector_available` at line 296: Return True when a vector store backend is reachable.
-- `FusedMemory.log_event` at line 302: Append a structured event to the SQLite event log.
-- `FusedMemory.store_knowledge` at line 314: Persist a key/value knowledge fact to SQLite.
-- `FusedMemory.merge_node` at line 327: Create or update a graph node in the SQLite adjacency table.
-- `FusedMemory.merge_relationship` at line 339: Create a directed edge in the SQLite graph adjacency table.
-- `FusedMemory.query_events` at line 353: Retrieve structured events from the SQLite event log.
-- `FusedMemory.query_knowledge` at line 381: Retrieve knowledge facts from the SQLite knowledge table.
-- `FusedMemory.add_embedding` at line 403: Embed *text* and store the resulting vector in Qdrant (or fallback).
-- `FusedMemory.search_vectors` at line 429: Semantic vector search over the Qdrant / fallback store.
-- `FusedMemory.find_knowledge_document` at line 444: Exact persisted lookup; semantic/event recency is not deduplication.
-- `FusedMemory.retrieve` at line 463: Unified hybrid retrieval — combines semantic vector search and
-- `FusedMemory.close` at line 480: Close the SQLite connection.
-- `FusedMemoryPrimary.__init__` at line 530: Explanation needed.
-- `FusedMemoryPrimary._init_records_table` at line 547: Create the structured-records table used by the FusedStorage API.
-- `FusedMemoryPrimary.add_embedding` at line 570: Store a raw float vector **or** text string.
-- `FusedMemoryPrimary.search_vectors` at line 612: Search by raw float vector or text query string.
-- `FusedMemoryPrimary.insert_record` at line 656: Insert or replace a structured record in SQLite.
-- `FusedMemoryPrimary.get_record` at line 669: Retrieve a structured record by ID.  Returns ``None`` if not found.
-- `FusedMemoryPrimary.list_records` at line 682: List all stored records (``record_id``, ``data``, ``created_at``).
-- `FusedMemoryPrimary.insert_vector` at line 701: Insert a named vector (SQLite metadata + Qdrant/FAISS upsert).
-- `FusedMemoryPrimary.query_vector` at line 712: Search by raw vector and return a flat merged list of hits.
-- `LocalDB.__init__` at line 770: Explanation needed.
-- `LocalDB._read` at line 794: Explanation needed.
-- `LocalDB._write` at line 798: Explanation needed.
-- `LocalDB._save` at line 802: Explanation needed.
-- `LocalDB.add_entry` at line 808: Explanation needed.
-- `LocalDB.get_log` at line 818: Explanation needed.
-- `LocalDB.list_facts` at line 823: Explanation needed.
-- `LocalDB.get_fact` at line 827: Explanation needed.
-- `LocalDB.add_fact` at line 833: Explanation needed.
-- `LocalDB.store_learning` at line 861: Explanation needed.
-- `LocalDB.get_learning_log` at line 868: Explanation needed.
-- `LocalDB.get_preferences` at line 874: Explanation needed.
-- `LocalDB.store_preferences` at line 878: Explanation needed.
-- `LocalDB.recall` at line 886: Explanation needed.
-- `LocalDB.condense` at line 906: Explanation needed.
-- `RecoveryIntegrityValidator.normalize` at line 1009: Explanation needed.
-- `ReplaySafePersistenceHooks.apply` at line 1031: Explanation needed.
-- `AtomicCommitManager.__init__` at line 1049: Explanation needed.
-- `AtomicCommitManager._path_lock` at line 1053: Explanation needed.
-- `AtomicCommitManager._fsync_directory` at line 1057: Explanation needed.
-- `AtomicCommitManager._write_text_direct` at line 1068: Explanation needed.
-- `AtomicCommitManager._atomic_write_text` at line 1074: Explanation needed.
-- `AtomicCommitManager._copy_atomic` at line 1118: Explanation needed.
-- `AtomicCommitManager.commit_json` at line 1123: Explanation needed.
-- `PersistenceManager.__init__` at line 1157: Explanation needed.
-- `PersistenceManager._ensure_dir` at line 1194: Explanation needed.
-- `PersistenceManager._default_payload` at line 1197: Explanation needed.
-- `PersistenceManager._write_json_payload` at line 1210: Explanation needed.
-- `PersistenceManager.write_json_file` at line 1213: Explanation needed.
-- `PersistenceManager.write_text_file` at line 1227: Explanation needed.
-- `PersistenceManager.append_jsonl_record` at line 1242: Append a JSONL record using true append mode (O(1) instead of O(n²)).
-- `PersistenceManager.write_cognitive_checkpoint` at line 1260: Explanation needed.
-- `PersistenceManager.read_cognitive_checkpoint` at line 1264: Explanation needed.
-- `PersistenceManager._repair_json_payload` at line 1274: Explanation needed.
-- `PersistenceManager.initialize_runtime_assets` at line 1286: Explanation needed.
-- `PersistenceManager.get_coordinator` at line 1353: Explanation needed.
-- `PersistenceManager.get_diagnostics` at line 1384: Explanation needed.
-- `PersistenceManager.note_write_started` at line 1403: Explanation needed.
-- `PersistenceManager.note_write_completed` at line 1410: Explanation needed.
-- `MemoryMutationQueue.__init__` at line 1425: Explanation needed.
-- `MemoryMutationQueue.enqueue` at line 1431: Explanation needed.
-- `MemoryMutationQueue.pop` at line 1442: Explanation needed.
-- `MemoryMutationQueue.mark_committed` at line 1448: Explanation needed.
-- `MemoryMutationQueue.committed_version` at line 1453: Explanation needed.
-- `SaveDebounceController.__init__` at line 1461: Explanation needed.
-- `SaveDebounceController.wait_turn` at line 1466: Explanation needed.
-- `SaveDebounceController.mark_commit` at line 1473: Explanation needed.
-- `EmbeddingMiddleware.__init__` at line 1484: Explanation needed.
-- `EmbeddingMiddleware._normalize_text` at line 1494: Explanation needed.
-- `EmbeddingMiddleware._validate_vector` at line 1499: Explanation needed.
-- `EmbeddingMiddleware._fallback_embedding` at line 1507: Explanation needed.
-- `EmbeddingMiddleware._cache_get` at line 1524: Explanation needed.
-- `EmbeddingMiddleware._cache_put` at line 1531: Explanation needed.
-- `EmbeddingMiddleware.embed_text` at line 1542: Explanation needed.
-- `EmbeddingMiddleware.embed_batch` at line 1557: Explanation needed.
-- `EmbeddingMiddleware._run` at line 1560: Explanation needed.
-- `EmbeddingMiddleware.start_worker` at line 1571: Explanation needed.
-- `EmbeddingMiddleware.stop_worker` at line 1578: Explanation needed.
-- `EmbeddingMiddleware.enqueue` at line 1584: Explanation needed.
-- `QdrantSyncBridge.__init__` at line 1592: Explanation needed.
-- `QdrantSyncBridge.sync_after_commit` at line 1596: Explanation needed.
-- `RuntimePersistenceCoordinator.__init__` at line 1613: Explanation needed.
-- `RuntimePersistenceCoordinator.request_save` at line 1648: Explanation needed.
-- `RuntimePersistenceCoordinator._commit_snapshot` at line 1653: Explanation needed.
-- `RuntimePersistenceCoordinator._notify_committed` at line 1676: Explanation needed.
-- `RuntimePersistenceCoordinator._worker_loop` at line 1682: Explanation needed.
-- `RuntimePersistenceCoordinator.flush` at line 1697: Explanation needed.
-- `RuntimePersistenceCoordinator.shutdown` at line 1711: Explanation needed.
-- `GovernedPersistenceWorker.__init__` at line 1726: Explanation needed.
-- `GovernedPersistenceWorker.schedule` at line 1729: Explanation needed.
-- `GovernedPersistenceWorker.flush` at line 1732: Explanation needed.
-- `GovernedPersistenceWorker.shutdown` at line 1735: Explanation needed.
-- `KnowledgeDB.__new__` at line 1749: Explanation needed.
-- `KnowledgeDB.__init__` at line 1754: Explanation needed.
-- `KnowledgeDB._rebuild_persistence_coordinator` at line 1810: Explanation needed.
-- `KnowledgeDB._strip_trailing_commas` at line 1848: Explanation needed.
-- `KnowledgeDB._safe_single_quote_key_fix` at line 1852: Explanation needed.
-- `KnowledgeDB._safe_single_quote_value_fix` at line 1857: Explanation needed.
-- `KnowledgeDB._truncate_to_balanced_object` at line 1866: Explanation needed.
-- `KnowledgeDB._record_quarantine` at line 1895: Explanation needed.
-- `KnowledgeDB._extract_error_snippet` at line 1913: Explanation needed.
-- `KnowledgeDB._repair_json` at line 1918: Explanation needed.
-- `KnowledgeDB._merge_loaded` at line 1949: Explanation needed.
-- `KnowledgeDB._load` at line 1986: Explanation needed.
-- `KnowledgeDB._snapshot_for_persistence` at line 2042: Explanation needed.
-- `KnowledgeDB._save` at line 2047: Explanation needed.
-- `KnowledgeDB.set` at line 2061: Explanation needed.
-- `KnowledgeDB.get` at line 2066: Explanation needed.
-- `KnowledgeDB.log_event` at line 2072: Explanation needed.
-- `KnowledgeDB.get_events` at line 2099: Explanation needed.
-- `KnowledgeDB.add_interaction` at line 2105: Explanation needed.
-- `KnowledgeDB.store_learning` at line 2125: Explanation needed.
-- `KnowledgeDB.get_learning_log` at line 2136: Explanation needed.
-- `KnowledgeDB.add_entry` at line 2140: LocalDB-compatible shim so SLSA and other modules can call add_entry on KnowledgeDB.
-- `KnowledgeDB.add_fact` at line 2153: Explanation needed.
-- `KnowledgeDB._extract_relationship_entities` at line 2191: Extract stable entity-like tokens from free-form text.
-- `KnowledgeDB._relationship_type_for_tags` at line 2216: Explanation needed.
-- `KnowledgeDB._index_relationships_for_fact` at line 2226: Build lightweight governed relationship index for semantic recall.
-- `KnowledgeDB._remove_relationships_for_fact` at line 2264: Remove any existing relationship edges that reference a given fact key.
-- `KnowledgeDB._upsert_fact` at line 2286: Insert or update a fact in-place.
-- `KnowledgeDB._structure_fact_payload` at line 2323: Return a fact payload that conforms to the structured schema while
-- `KnowledgeDB.get_relationships` at line 2385: Return indexed semantic relationships for an entity.
-- `KnowledgeDB.relationship_summary` at line 2396: Return compact relationship graph stats for runtime cognition.
-- `KnowledgeDB.reinforce` at line 2414: Boost the confidence of an existing fact when re-confirmed.
-- `KnowledgeDB.smart_recall` at line 2439: TF-IDF ranked recall — more relevant results than keyword-any-match.
-- `KnowledgeDB.think_about` at line 2456: Synthesise a human-readable summary of what is known about *topic*.
-- `KnowledgeDB.knowledge_health` at line 2468: Return a health report dict for *topic* (or the whole KB).
-- `KnowledgeDB.consolidate_facts` at line 2476: Merge duplicate facts (same key) and return a report.
-- `KnowledgeDB.decay_stale_confidence` at line 2488: Decay confidence of facts that have not been accessed recently.
-- `KnowledgeDB.store_research` at line 2555: Preferred entry-point for persisting research & learning content.
-- `KnowledgeDB.list_facts` at line 2612: Explanation needed.
-- `KnowledgeDB.delete_fact` at line 2618: Remove the most-recent fact whose ``key`` matches *key*.
-- `KnowledgeDB.queue_learning` at line 2639: Explanation needed.
-- `KnowledgeDB.get_learning_queue` at line 2666: Explanation needed.
-- `KnowledgeDB.mark_learning_done` at line 2670: Explanation needed.
-- `KnowledgeDB.store_preferences` at line 2679: Explanation needed.
-- `KnowledgeDB.get_preferences` at line 2684: Explanation needed.
-- `KnowledgeDB.get_personality` at line 2688: Explanation needed.
-- `KnowledgeDB._canonicalize` at line 2693: Explanation needed.
-- `KnowledgeDB.search` at line 2722: Search through facts and learning log for matching entries.
-- `KnowledgeDB.recall` at line 2753: Recall information matching the query from facts, events, and learning log.
-- `KnowledgeDB.get_acquired_data` at line 2806: Return structured data acquired by the Autonomous Learning Engine.
-- `KnowledgeDB.get_knowledge_summary` at line 2825: Return a human-readable summary of everything stored in the KnowledgeDB.
-- `KnowledgeDB.add_hf_context` at line 2932: Explanation needed.
-- `KnowledgeDB.dump_state` at line 2942: Explanation needed.
-- `KnowledgeDB.get_all` at line 2952: Explanation needed.
-- `KnowledgeDB.recent_interactions` at line 2956: Explanation needed.
-- `KnowledgeDB.mark_training_step` at line 2960: Explanation needed.
-- `KnowledgeDB.store_interaction` at line 2967: Explanation needed.
-- `KnowledgeDB.shutdown` at line 2978: Explanation needed.
-- `KnowledgeDB.save_record` at line 2994: Persist a structured record (with optional vector) to this KnowledgeDB.
-- `KnowledgeDB.query_vector` at line 3016: Return the *top_k* stored records most similar to *vector*.
-- `KnowledgeStore.__init__` at line 3096: Explanation needed.
-- `KnowledgeStore.store_search_results` at line 3117: Persist a list of search results to SQLite and optionally to Qdrant.
-- `KnowledgeStore.get_by_source` at line 3157: Retrieve stored records by their source label.
-- `KnowledgeStore.retrieve` at line 3170: Hybrid retrieval via FusedMemory (when available), else SQLite LIKE.
-- `KnowledgeStore._connect` at line 3193: Explanation needed.
-- `KnowledgeStore._vector_store_client` at line 3203: Explanation needed.
-- `KnowledgeStore._embed_to_qdrant` at line 3216: Explanation needed.
-- `KnowledgeStore._store_via_fused_memory` at line 3226: Explanation needed.
-- `NiblitMemory.__new__` at line 3273: Explanation needed.
-- `NiblitMemory.__init__` at line 3280: Explanation needed.
-- `NiblitMemory._init_improvements` at line 3330: Initialize all 17 production improvements.
-- `NiblitMemory._ensure_integrity` at line 3421: Ensures required keys always exist. Prevents runtime crashes in other modules.
-- `NiblitMemory._canonicalize` at line 3429: Convert various input formats into canonical memory record format.
-- `NiblitMemory._load` at line 3458: Load memory state from persistent JSON file with fallback to backup.
-- `NiblitMemory.save` at line 3496: Save memory state to persistent JSON file with backup.
-- `NiblitMemory._autosave_loop` at line 3522: Single canonical autosave loop — saves NiblitMemory state AND KnowledgeDB.
-- `NiblitMemory._dump_loop` at line 3542: Single canonical dump loop.
-- `NiblitMemory.set_dump_verbose` at line 3569: Enable or disable the periodic state dump.
-- `NiblitMemory.dump_visible` at line 3586: True when the periodic dump is active.
-- `NiblitMemory.set` at line 3590: Set a generic key-value pair in memory.
-- `NiblitMemory.get` at line 3597: Get a generic key-value pair from memory.
-- `NiblitMemory.log_event` at line 3602: Log an event with timestamp.
-- `NiblitMemory.get_events` at line 3634: Retrieve all logged events.
-- `NiblitMemory.store_learning` at line 3639: Store learning data to the learning log.
-- `NiblitMemory.get_learning_log` at line 3666: Canonical accessor for learning log.
-- `NiblitMemory.get_logs` at line 3674: Compatibility alias for older modules.
-- `NiblitMemory.recall` at line 3678: Enhanced recall with safe empty query support and caching.
-- `NiblitMemory.store_preferences` at line 3748: Store user preferences.
-- `NiblitMemory.get_preferences` at line 3761: Retrieve stored preferences.
-- `NiblitMemory.add_interaction` at line 3766: Add an interaction record with canonicalization.
-- `NiblitMemory.add_hf_context` at line 3785: HFBrain compatibility layer for context storage.
-- `NiblitMemory.dump_state` at line 3802: Dump full current state to logs.
-- `NiblitMemory.get_all` at line 3811: Get all memory data (events, learning log, preferences).
-- `NiblitMemory.get_stats` at line 3820: Get memory statistics.
-- `NiblitMemory.health_check` at line 3834: Check memory module health.
-- `NiblitMemory.shutdown` at line 3846: Gracefully shutdown and save final state.
-- `NiblitMemory.save_record` at line 3858: Persist a structured record via the fused backend.
-- `NiblitMemory.load_record` at line 3886: Retrieve a stored record by ID.
-- `NiblitMemory.list_all_records` at line 3899: Return all stored records from the fused backend.
-- `NiblitMemory.query_vector` at line 3912: Semantic similarity search over the fused vector index.
-- `NiblitMemory.add_fact` at line 3935: Store a tagged fact.  Mirrors to the fused knowledge store.
-- `NiblitMemory.get_fact` at line 3980: Retrieve a fact by key from the in-memory state.
-- `NiblitMemory.list_facts` at line 3988: Return the most recently added facts.
-- `NiblitMemory.add_entry` at line 3995: Add a raw interaction entry (LocalDB compatibility).
-- `NiblitMemory.get_log` at line 4004: Return all interaction entries (LocalDB compatibility).
-- `NiblitMemory.condense` at line 4009: Trim the interaction log to the most recent *keep_top* entries.
-- `NiblitMemory.store_knowledge` at line 4019: Store a key/value knowledge fact (mirrors to fused SQLite knowledge table).
-- `NiblitMemory.ingest_line` at line 4029: Canonicalize and store *raw_line*.  Returns the canonical event dict.
+- `_get_loop_tracer` at line 149: Lazily import loop_tracer from niblit_core to break circular import.
+- `_now_iso` at line 161: Return current UTC time as an ISO-8601 string.
+- `_is_no_data_placeholder` at line 169: Return True when *text* is a 'No data found' placeholder.
+- `FusedMemory` at line 192: Hybrid memory backend combining Qdrant vector search with SQLite
+- `get_fused_memory` at line 499: Return a process-level :class:`FusedMemory` singleton.
+- `FusedMemoryPrimary` at line 524: Primary fused memory backend with:
+- `get_primary` at line 742: Return a process-level :class:`FusedMemoryPrimary` singleton.
+- `LocalDB` at line 767: JSON-backed semantic memory DB.
+- `event` at line 928: Build a canonical event dict.
+- `canonicalize` at line 944: Convert any raw chat line into a canonical event dict.
+- `ingest` at line 956: Canonical ingestion entry-point.
+- `_get_path_write_lock` at line 999: Explanation needed.
+- `RecoveryIntegrityValidator` at line 1009: Schema-safe payload validator used by persistence commits.
+- `ReplaySafePersistenceHooks` at line 1033: Ensure replay/governance lineage fields survive every disk commit.
+- `AtomicCommitManager` at line 1051: Crash-safe atomic JSON commit manager with WAL-style rotations.
+- `PersistenceManager` at line 1159: Runtime-owned persistence manager that owns runtime assets and write coordination.
+- `MemoryMutationQueue` at line 1427: Deduplicating mutation queue for single-writer persistence.
+- `SaveDebounceController` at line 1463: Debounce rapid save storms while keeping final state durable.
+- `EmbeddingMiddleware` at line 1483: Deterministic async embedding middleware with validation and cache.
+- `QdrantSyncBridge` at line 1594: Best-effort hook layer for local JSON ↔ governed Qdrant sync.
+- `RuntimePersistenceCoordinator` at line 1615: Single-writer persistence coordinator for KnowledgeDB.
+- `GovernedPersistenceWorker` at line 1730: Compatibility facade exposing worker semantics used by integrations.
+- `KnowledgeDB` at line 1746: Unified Knowledge Database for Niblit.
+- `KnowledgeStore` at line 3077: Persistent store for search results backed by SQLite.
+- `NiblitMemory` at line 3261: Unified memory management system with singleton pattern and persistent storage.
+- `__getattr__` at line 4115: Explanation needed.
+- `FusedMemory.__init__` at line 213: Explanation needed.
+- `FusedMemory._init_sqlite` at line 241: Create all required SQLite tables.
+- `FusedMemory._get_vector_store` at line 275: Lazily initialise the underlying VectorStore.
+- `FusedMemory.vector_backend` at line 296: Active vector backend name: ``"qdrant"``, ``"faiss"``, or ``"memory"``.
+- `FusedMemory.is_vector_available` at line 301: Return True when a vector store backend is reachable.
+- `FusedMemory.log_event` at line 307: Append a structured event to the SQLite event log.
+- `FusedMemory.store_knowledge` at line 319: Persist a key/value knowledge fact to SQLite.
+- `FusedMemory.merge_node` at line 332: Create or update a graph node in the SQLite adjacency table.
+- `FusedMemory.merge_relationship` at line 344: Create a directed edge in the SQLite graph adjacency table.
+- `FusedMemory.query_events` at line 358: Retrieve structured events from the SQLite event log.
+- `FusedMemory.query_knowledge` at line 386: Retrieve knowledge facts from the SQLite knowledge table.
+- `FusedMemory.add_embedding` at line 408: Embed *text* and store the resulting vector in Qdrant (or fallback).
+- `FusedMemory.search_vectors` at line 434: Semantic vector search over the Qdrant / fallback store.
+- `FusedMemory.find_knowledge_document` at line 449: Exact persisted lookup; semantic/event recency is not deduplication.
+- `FusedMemory.retrieve` at line 468: Unified hybrid retrieval — combines semantic vector search and
+- `FusedMemory.close` at line 485: Close the SQLite connection.
+- `FusedMemoryPrimary.__init__` at line 535: Explanation needed.
+- `FusedMemoryPrimary._init_records_table` at line 552: Create the structured-records table used by the FusedStorage API.
+- `FusedMemoryPrimary.add_embedding` at line 575: Store a raw float vector **or** text string.
+- `FusedMemoryPrimary.search_vectors` at line 617: Search by raw float vector or text query string.
+- `FusedMemoryPrimary.insert_record` at line 661: Insert or replace a structured record in SQLite.
+- `FusedMemoryPrimary.get_record` at line 674: Retrieve a structured record by ID.  Returns ``None`` if not found.
+- `FusedMemoryPrimary.list_records` at line 687: List all stored records (``record_id``, ``data``, ``created_at``).
+- `FusedMemoryPrimary.insert_vector` at line 706: Insert a named vector (SQLite metadata + Qdrant/FAISS upsert).
+- `FusedMemoryPrimary.query_vector` at line 717: Search by raw vector and return a flat merged list of hits.
+- `LocalDB.__init__` at line 775: Explanation needed.
+- `LocalDB._read` at line 799: Explanation needed.
+- `LocalDB._write` at line 803: Explanation needed.
+- `LocalDB._save` at line 807: Explanation needed.
+- `LocalDB.add_entry` at line 813: Explanation needed.
+- `LocalDB.get_log` at line 823: Explanation needed.
+- `LocalDB.list_facts` at line 828: Explanation needed.
+- `LocalDB.get_fact` at line 832: Explanation needed.
+- `LocalDB.add_fact` at line 838: Explanation needed.
+- `LocalDB.store_learning` at line 866: Explanation needed.
+- `LocalDB.get_learning_log` at line 873: Explanation needed.
+- `LocalDB.get_preferences` at line 879: Explanation needed.
+- `LocalDB.store_preferences` at line 883: Explanation needed.
+- `LocalDB.recall` at line 891: Explanation needed.
+- `LocalDB.condense` at line 911: Explanation needed.
+- `RecoveryIntegrityValidator.normalize` at line 1014: Explanation needed.
+- `ReplaySafePersistenceHooks.apply` at line 1036: Explanation needed.
+- `AtomicCommitManager.__init__` at line 1054: Explanation needed.
+- `AtomicCommitManager._path_lock` at line 1058: Explanation needed.
+- `AtomicCommitManager._fsync_directory` at line 1062: Explanation needed.
+- `AtomicCommitManager._write_text_direct` at line 1073: Explanation needed.
+- `AtomicCommitManager._atomic_write_text` at line 1079: Explanation needed.
+- `AtomicCommitManager._copy_atomic` at line 1123: Explanation needed.
+- `AtomicCommitManager.commit_json` at line 1128: Explanation needed.
+- `PersistenceManager.__init__` at line 1162: Explanation needed.
+- `PersistenceManager._ensure_dir` at line 1199: Explanation needed.
+- `PersistenceManager._default_payload` at line 1202: Explanation needed.
+- `PersistenceManager._write_json_payload` at line 1215: Explanation needed.
+- `PersistenceManager.write_json_file` at line 1218: Explanation needed.
+- `PersistenceManager.write_text_file` at line 1232: Explanation needed.
+- `PersistenceManager.append_jsonl_record` at line 1247: Append a JSONL record using true append mode (O(1) instead of O(n²)).
+- `PersistenceManager.write_cognitive_checkpoint` at line 1265: Explanation needed.
+- `PersistenceManager.read_cognitive_checkpoint` at line 1269: Explanation needed.
+- `PersistenceManager._repair_json_payload` at line 1279: Explanation needed.
+- `PersistenceManager.initialize_runtime_assets` at line 1291: Explanation needed.
+- `PersistenceManager.get_coordinator` at line 1358: Explanation needed.
+- `PersistenceManager.get_diagnostics` at line 1389: Explanation needed.
+- `PersistenceManager.note_write_started` at line 1408: Explanation needed.
+- `PersistenceManager.note_write_completed` at line 1415: Explanation needed.
+- `MemoryMutationQueue.__init__` at line 1430: Explanation needed.
+- `MemoryMutationQueue.enqueue` at line 1436: Explanation needed.
+- `MemoryMutationQueue.pop` at line 1447: Explanation needed.
+- `MemoryMutationQueue.mark_committed` at line 1453: Explanation needed.
+- `MemoryMutationQueue.committed_version` at line 1458: Explanation needed.
+- `SaveDebounceController.__init__` at line 1466: Explanation needed.
+- `SaveDebounceController.wait_turn` at line 1471: Explanation needed.
+- `SaveDebounceController.mark_commit` at line 1478: Explanation needed.
+- `EmbeddingMiddleware.__init__` at line 1489: Explanation needed.
+- `EmbeddingMiddleware._normalize_text` at line 1499: Explanation needed.
+- `EmbeddingMiddleware._validate_vector` at line 1504: Explanation needed.
+- `EmbeddingMiddleware._fallback_embedding` at line 1512: Explanation needed.
+- `EmbeddingMiddleware._cache_get` at line 1529: Explanation needed.
+- `EmbeddingMiddleware._cache_put` at line 1536: Explanation needed.
+- `EmbeddingMiddleware.embed_text` at line 1547: Explanation needed.
+- `EmbeddingMiddleware.embed_batch` at line 1562: Explanation needed.
+- `EmbeddingMiddleware._run` at line 1565: Explanation needed.
+- `EmbeddingMiddleware.start_worker` at line 1576: Explanation needed.
+- `EmbeddingMiddleware.stop_worker` at line 1583: Explanation needed.
+- `EmbeddingMiddleware.enqueue` at line 1589: Explanation needed.
+- `QdrantSyncBridge.__init__` at line 1597: Explanation needed.
+- `QdrantSyncBridge.sync_after_commit` at line 1601: Explanation needed.
+- `RuntimePersistenceCoordinator.__init__` at line 1618: Explanation needed.
+- `RuntimePersistenceCoordinator.request_save` at line 1653: Explanation needed.
+- `RuntimePersistenceCoordinator._commit_snapshot` at line 1658: Explanation needed.
+- `RuntimePersistenceCoordinator._notify_committed` at line 1683: Explanation needed.
+- `RuntimePersistenceCoordinator._worker_loop` at line 1689: Explanation needed.
+- `RuntimePersistenceCoordinator.flush` at line 1704: Explanation needed.
+- `RuntimePersistenceCoordinator.shutdown` at line 1718: Explanation needed.
+- `GovernedPersistenceWorker.__init__` at line 1733: Explanation needed.
+- `GovernedPersistenceWorker.schedule` at line 1736: Explanation needed.
+- `GovernedPersistenceWorker.flush` at line 1739: Explanation needed.
+- `GovernedPersistenceWorker.shutdown` at line 1742: Explanation needed.
+- `KnowledgeDB.__new__` at line 1756: Explanation needed.
+- `KnowledgeDB.__init__` at line 1761: Explanation needed.
+- `KnowledgeDB._rebuild_persistence_coordinator` at line 1819: Explanation needed.
+- `KnowledgeDB._strip_trailing_commas` at line 1857: Explanation needed.
+- `KnowledgeDB._safe_single_quote_key_fix` at line 1861: Explanation needed.
+- `KnowledgeDB._safe_single_quote_value_fix` at line 1866: Explanation needed.
+- `KnowledgeDB._truncate_to_balanced_object` at line 1875: Explanation needed.
+- `KnowledgeDB._record_quarantine` at line 1904: Explanation needed.
+- `KnowledgeDB._extract_error_snippet` at line 1922: Explanation needed.
+- `KnowledgeDB._repair_json` at line 1927: Explanation needed.
+- `KnowledgeDB._merge_loaded` at line 1958: Explanation needed.
+- `KnowledgeDB._load` at line 1995: Explanation needed.
+- `KnowledgeDB._snapshot_for_persistence` at line 2051: Explanation needed.
+- `KnowledgeDB._save` at line 2056: Explanation needed.
+- `KnowledgeDB.set` at line 2070: Explanation needed.
+- `KnowledgeDB.get` at line 2075: Explanation needed.
+- `KnowledgeDB.log_event` at line 2081: Explanation needed.
+- `KnowledgeDB.get_events` at line 2108: Explanation needed.
+- `KnowledgeDB.add_interaction` at line 2114: Explanation needed.
+- `KnowledgeDB.store_learning` at line 2134: Explanation needed.
+- `KnowledgeDB.get_learning_log` at line 2145: Explanation needed.
+- `KnowledgeDB.add_entry` at line 2149: LocalDB-compatible shim so SLSA and other modules can call add_entry on KnowledgeDB.
+- `KnowledgeDB.add_fact` at line 2162: Explanation needed.
+- `KnowledgeDB._extract_relationship_entities` at line 2200: Extract stable entity-like tokens from free-form text.
+- `KnowledgeDB._relationship_type_for_tags` at line 2225: Explanation needed.
+- `KnowledgeDB._index_relationships_for_fact` at line 2235: Build lightweight governed relationship index for semantic recall.
+- `KnowledgeDB._remove_relationships_for_fact` at line 2273: Remove any existing relationship edges that reference a given fact key.
+- `KnowledgeDB._upsert_fact` at line 2295: Insert or update a fact in-place.
+- `KnowledgeDB._structure_fact_payload` at line 2332: Return a fact payload that conforms to the structured schema while
+- `KnowledgeDB.get_relationships` at line 2394: Return indexed semantic relationships for an entity.
+- `KnowledgeDB.relationship_summary` at line 2405: Return compact relationship graph stats for runtime cognition.
+- `KnowledgeDB.reinforce` at line 2423: Boost the confidence of an existing fact when re-confirmed.
+- `KnowledgeDB.smart_recall` at line 2448: TF-IDF ranked recall — more relevant results than keyword-any-match.
+- `KnowledgeDB.think_about` at line 2465: Synthesise a human-readable summary of what is known about *topic*.
+- `KnowledgeDB.knowledge_health` at line 2477: Return a health report dict for *topic* (or the whole KB).
+- `KnowledgeDB.consolidate_facts` at line 2485: Merge duplicate facts (same key) and return a report.
+- `KnowledgeDB.decay_stale_confidence` at line 2497: Decay confidence of facts that have not been accessed recently.
+- `KnowledgeDB.store_research` at line 2564: Preferred entry-point for persisting research & learning content.
+- `KnowledgeDB.list_facts` at line 2621: Explanation needed.
+- `KnowledgeDB.delete_fact` at line 2627: Remove the most-recent fact whose ``key`` matches *key*.
+- `KnowledgeDB.queue_learning` at line 2648: Explanation needed.
+- `KnowledgeDB.get_learning_queue` at line 2675: Explanation needed.
+- `KnowledgeDB.mark_learning_done` at line 2679: Explanation needed.
+- `KnowledgeDB.store_preferences` at line 2688: Explanation needed.
+- `KnowledgeDB.get_preferences` at line 2693: Explanation needed.
+- `KnowledgeDB.get_personality` at line 2697: Explanation needed.
+- `KnowledgeDB._canonicalize` at line 2702: Explanation needed.
+- `KnowledgeDB.search` at line 2731: Search through facts and learning log for matching entries.
+- `KnowledgeDB.recall` at line 2762: Recall information matching the query from facts, events, and learning log.
+- `KnowledgeDB.get_acquired_data` at line 2815: Return structured data acquired by the Autonomous Learning Engine.
+- `KnowledgeDB.get_knowledge_summary` at line 2834: Return a human-readable summary of everything stored in the KnowledgeDB.
+- `KnowledgeDB.add_hf_context` at line 2941: Explanation needed.
+- `KnowledgeDB.dump_state` at line 2951: Explanation needed.
+- `KnowledgeDB.get_all` at line 2961: Explanation needed.
+- `KnowledgeDB.recent_interactions` at line 2965: Explanation needed.
+- `KnowledgeDB.mark_training_step` at line 2969: Explanation needed.
+- `KnowledgeDB.store_interaction` at line 2976: Explanation needed.
+- `KnowledgeDB.shutdown` at line 2987: Explanation needed.
+- `KnowledgeDB.save_record` at line 3003: Persist a structured record (with optional vector) to this KnowledgeDB.
+- `KnowledgeDB.query_vector` at line 3025: Return the *top_k* stored records most similar to *vector*.
+- `KnowledgeStore.__init__` at line 3105: Explanation needed.
+- `KnowledgeStore.store_search_results` at line 3126: Persist a list of search results to SQLite and optionally to Qdrant.
+- `KnowledgeStore.get_by_source` at line 3166: Retrieve stored records by their source label.
+- `KnowledgeStore.retrieve` at line 3179: Hybrid retrieval via FusedMemory (when available), else SQLite LIKE.
+- `KnowledgeStore._connect` at line 3202: Explanation needed.
+- `KnowledgeStore._vector_store_client` at line 3212: Explanation needed.
+- `KnowledgeStore._embed_to_qdrant` at line 3225: Explanation needed.
+- `KnowledgeStore._store_via_fused_memory` at line 3235: Explanation needed.
+- `NiblitMemory.__new__` at line 3282: Explanation needed.
+- `NiblitMemory.__init__` at line 3289: Explanation needed.
+- `NiblitMemory._init_improvements` at line 3344: Initialize all 17 production improvements.
+- `NiblitMemory._ensure_integrity` at line 3435: Ensures required keys always exist. Prevents runtime crashes in other modules.
+- `NiblitMemory._canonicalize` at line 3443: Convert various input formats into canonical memory record format.
+- `NiblitMemory._load` at line 3472: Load memory state from persistent JSON file with fallback to backup.
+- `NiblitMemory.save` at line 3510: Save memory state to persistent JSON file with backup.
+- `NiblitMemory._autosave_loop` at line 3538: Single canonical autosave loop — saves NiblitMemory state AND KnowledgeDB.
+- `NiblitMemory._dump_loop` at line 3558: Single canonical dump loop.
+- `NiblitMemory.set_dump_verbose` at line 3585: Enable or disable the periodic state dump.
+- `NiblitMemory.dump_visible` at line 3602: True when the periodic dump is active.
+- `NiblitMemory.set` at line 3606: Set a generic key-value pair in memory.
+- `NiblitMemory.get` at line 3613: Get a generic key-value pair from memory.
+- `NiblitMemory.log_event` at line 3618: Log an event with timestamp.
+- `NiblitMemory.get_events` at line 3650: Retrieve all logged events.
+- `NiblitMemory.store_learning` at line 3655: Store learning data to the learning log.
+- `NiblitMemory.get_learning_log` at line 3682: Canonical accessor for learning log.
+- `NiblitMemory.get_logs` at line 3690: Compatibility alias for older modules.
+- `NiblitMemory.recall` at line 3694: Enhanced recall with safe empty query support and caching.
+- `NiblitMemory.store_preferences` at line 3764: Store user preferences.
+- `NiblitMemory.get_preferences` at line 3777: Retrieve stored preferences.
+- `NiblitMemory.add_interaction` at line 3782: Add an interaction record with canonicalization.
+- `NiblitMemory.add_hf_context` at line 3801: HFBrain compatibility layer for context storage.
+- `NiblitMemory.dump_state` at line 3818: Dump full current state to logs.
+- `NiblitMemory.get_all` at line 3827: Get all memory data (events, learning log, preferences).
+- `NiblitMemory.get_stats` at line 3836: Get memory statistics.
+- `NiblitMemory.health_check` at line 3850: Check memory module health.
+- `NiblitMemory.shutdown` at line 3862: Gracefully shutdown and save final state.
+- `NiblitMemory.save_record` at line 3880: Persist a structured record via the fused backend.
+- `NiblitMemory.load_record` at line 3908: Retrieve a stored record by ID.
+- `NiblitMemory.list_all_records` at line 3921: Return all stored records from the fused backend.
+- `NiblitMemory.query_vector` at line 3934: Semantic similarity search over the fused vector index.
+- `NiblitMemory.add_fact` at line 3957: Store a tagged fact.  Mirrors to the fused knowledge store.
+- `NiblitMemory.get_fact` at line 4002: Retrieve a fact by key from the in-memory state.
+- `NiblitMemory.list_facts` at line 4010: Return the most recently added facts.
+- `NiblitMemory.add_entry` at line 4017: Add a raw interaction entry (LocalDB compatibility).
+- `NiblitMemory.get_log` at line 4026: Return all interaction entries (LocalDB compatibility).
+- `NiblitMemory.condense` at line 4031: Trim the interaction log to the most recent *keep_top* entries.
+- `NiblitMemory.store_knowledge` at line 4041: Store a key/value knowledge fact (mirrors to fused SQLite knowledge table).
+- `NiblitMemory.ingest_line` at line 4051: Canonicalize and store *raw_line*.  Returns the canonical event dict.
 
 ### niblit_memory/chunker.py
 
@@ -18469,6 +19877,39 @@ os/userland/niblit_tool/niblit_entry.py
 - `run_status` at line 212: Ping the daemon and print its status.
 - `main` at line 238: Explanation needed.
 
+### scripts/backfill_r14_position_cognition.py
+
+Backfill historical R14 position cognition into a separate SQLite sidecar.
+
+- `_obj` at line 19: Explanation needed.
+- `_numeric` at line 27: Explanation needed.
+- `backfill` at line 31: Best effort evidence ingestion, explicit skips, repeatable/idempotent.
+- `main` at line 215: Explanation needed.
+
+### scripts/backup-client-portal.py
+
+Consistent SQLite backup; run inside the portal with a mounted /backups folder.
+
+- `backup` at line 12: Explanation needed.
+
+### scripts/check-build-contract.py
+
+Read-only build inputs audit. Does not import specs or boot any service.
+
+- `audit` at line 10: Explanation needed.
+
+### scripts/check-market-pipeline.py
+
+Read-only acceptance of the existing feed -> rules -> Core analysis path.
+
+- `check_market_pipeline` at line 19: Explanation needed.
+
+### scripts/check_native_cognition_readiness.py
+
+Read-only readiness check for native cognition seed integration.
+
+- `main` at line 8: Explanation needed.
+
 ### scripts/configure-memory-framework.py
 
 Enable the local memory projection without changing execution or model settings.
@@ -18481,11 +19922,100 @@ Start only Niblit's dedicated Docker memory service; never reset its volume.
 
 - `main` at line 12: Explanation needed.
 
+### scripts/hybrid-backup.py
+
+Online SQLite backup/restore to NEW paths only; never overwrite a live store.
+
+- `backup_sqlite` at line 13: Explanation needed.
+- `restore_new` at line 34: Explanation needed.
+
+### scripts/hybrid-qdrant-backup.py
+
+Create/download Qdrant v1.18 collection snapshots; never restore or delete.
+
+- `backup` at line 8: Explanation needed.
+
+### scripts/inspect_market_cognition.py
+
+Read-only inspection of the installed R14 Core's canonical decision evidence.
+
+- `_json` at line 17: Explanation needed.
+- `inspect_ledger` at line 25: No INSERT/UPDATE/DELETE or network. All counts are within the scan window.
+- `main` at line 148: Explanation needed.
+
+### scripts/install-freqtrade-lab.py
+
+Stage the native dry-run catalog without changing engine config or orders.
+
+- `install` at line 7: Explanation needed.
+
+### scripts/install_android_sdk_packages.py
+
+Finish the Android toolchain install on D: using subprocess, preserving logs.
+
+- `note` at line 21: Explanation needed.
+- `step` at line 24: Explanation needed.
+
+### scripts/mt5_active_exit_advisory.py
+
+Read-only exit-cognition report for an existing MT5 demo position.
+
+- `decoded` at line 20: Explanation needed.
+- `saved_context` at line 29: Explanation needed.
+- `evaluate` at line 57: Explanation needed.
+- `main` at line 109: Explanation needed.
+
+### scripts/mt5_handover_observer.py
+
+MT5 read-only position handover observation from r12 to isolated r13.
+
+- `parse_json` at line 23: Explanation needed.
+- `core_snapshot` at line 35: Explanation needed.
+- `broker_binding` at line 48: Explanation needed.
+- `inspect` at line 53: Explanation needed.
+- `persist_snapshot` at line 175: Write only within approved isolated r13/r14 observation data roots.
+- `load_pinned_core_snapshot` at line 199: Read only an operator-exported original receipt, never imported authority.
+- `main` at line 217: Explanation needed.
+
+### scripts/mt5_readonly_reconciliation.py
+
+Read-only MT5 position/ledger reconciliation. Never sends, modifies, or closes orders.
+
+- `ledger_evidence` at line 9: Return ticket evidence without creating or changing the SQLite database.
+- `core_evidence` at line 38: Read existing Core session records without activation or order endpoints.
+- `inspect` at line 67: Attach to an existing terminal and read positions. Do not submit order calls.
+- `main` at line 108: Explanation needed.
+
+### scripts/qdrant_readonly_check.py
+
+Read-only authenticated Qdrant availability inspection; never changes collections.
+
+- `main` at line 8: Explanation needed.
+
+### scripts/resume-market-observation.py
+
+Resume EURUSD research only; never start an order-submitting session.
+
+- `DeskToken` at line 7: Explanation needed.
+- `DeskToken.handle_starttag` at line 10: Explanation needed.
+
 ### scripts/run-memory-framework.py
 
 Run the existing Qdrant-backed memory worker independently of a desktop rebuild.
 
 - `main` at line 17: Explanation needed.
+
+### scripts/runtime-task-status.py
+
+Owner-only admission status/recovery. Never registered as a model tool.
+
+- `main` at line 13: Explanation needed.
+
+### scripts/seed_native_cognition.py
+
+Preview or permission-gated seed of Niblit's native cognition foundation.
+
+- `main` at line 11: Explanation needed.
 
 ### scripts/verify-command-desktop.py
 
@@ -18512,6 +20042,14 @@ Verify a desktop bundle with disposable data and isolated local services.
 Verify the unified packaged boot chain and UI request responsiveness with isolated paper-only state.
 
 - `main` at line 11: Explanation needed.
+
+### scripts/verify-freqtrade-exits.py
+
+Run inside the installed Freqtrade container; synthetic trades, no orders.
+
+- `TradeFixture` at line 10: Explanation needed.
+- `TradeFixture.get_custom_data` at line 11: Explanation needed.
+- `TradeFixture.set_custom_data` at line 12: Explanation needed.
 
 ### scripts/verify-memory-desktop.py
 
@@ -18544,6 +20082,12 @@ Exercise actual Core -> strategy -> policy -> durable paper execution.
 
 - `call` at line 14: Explanation needed.
 - `main` at line 18: Explanation needed.
+
+### scripts/verify_native_cognition_seed.py
+
+Read-only verification of native cognition seed queue/projection state.
+
+- `main` at line 8: Explanation needed.
 
 ### shared/governance_contract/advisor_protocol.py
 
@@ -18616,18 +20160,183 @@ Anti-drift and contract validation helpers.
 - `validate_runtime_contract` at line 13: Validate schema/runtime/governance/advisor contract consistency.
 - `anti_drift_report` at line 41: Return semantic drift assessment for governance orchestration workflows.
 
+### tests/test_adaptive_market_cognition.py
+
+Market cognition must not invent volatility state or let a default guess rank results.
+
+- `_experience` at line 5: Explanation needed.
+- `test_missing_volatility_is_unknown_not_low` at line 14: Explanation needed.
+- `test_measured_volatility_still_buckets_normally` at line 20: Explanation needed.
+- `test_absent_values_are_never_reported_as_a_low_bucket` at line 27: Explanation needed.
+- `test_query_without_a_volatility_cue_gives_no_volatility_bonus` at line 35: Explanation needed.
+- `test_explicit_volatility_cue_still_prefers_the_matching_experience` at line 44: Explanation needed.
+
+### tests/test_adaptive_market_cognition_dqi.py
+
+DQI must measure decision evidence, not reflection verbosity (Task 06).
+
+- `_FakeCluster` at line 21: Explanation needed.
+- `_record` at line 29: Explanation needed.
+- `_calm` at line 41: Explanation needed.
+- `_rebuild` at line 53: Reassemble the record's own reflection sections, with optional padding.
+- `_score` at line 61: Explanation needed.
+- `test_records_carry_the_new_policy_and_a_breakdown` at line 68: Explanation needed.
+- `test_legacy_scores_are_persisted_without_being_restamped_or_rescored` at line 86: Explanation needed.
+- `test_identical_evidence_scores_the_same_short_and_long` at line 119: Explanation needed.
+- `test_repeating_the_reflection_does_not_raise_dqi` at line 145: Explanation needed.
+- `test_long_evidence_free_reflection_earns_no_reasoning_credit` at line 156: Explanation needed.
+- `test_unsupported_prediction_lowers_dqi` at line 172: Explanation needed.
+- `test_unverified_outcome_cannot_be_described_as_verified` at line 185: Explanation needed.
+- `test_verified_and_unverified_outcomes_stay_distinguishable` at line 203: Explanation needed.
+- `test_missing_risk_evidence_cannot_be_reported_as_measured` at line 215: Explanation needed.
+- `test_missing_evidence_never_outscores_the_same_measured_evidence` at line 226: Explanation needed.
+- `test_non_finite_and_invalid_inputs_stay_finite` at line 245: Explanation needed.
+- `test_scoring_is_deterministic_across_repeated_evaluations` at line 273: Explanation needed.
+- `test_legacy_scores_are_excluded_from_current_policy_averages` at line 289: Explanation needed.
+- `test_a_purely_legacy_store_still_reports_its_scores` at line 310: Explanation needed.
+- `test_retrieval_bundle_exposes_the_scoring_policy` at line 324: Explanation needed.
+- `test_low_dqi_still_retrieves_through_governed_memory` at line 338: Explanation needed.
+- `_FakeCluster.__init__` at line 22: Explanation needed.
+- `_FakeCluster.write_memory` at line 25: Explanation needed.
+- `Cluster.write_memory` at line 91: Explanation needed.
+
+### tests/test_adaptive_market_cognition_evidence.py
+
+Evidence integrity for market cognition (Task 05).
+
+- `_FakeCluster` at line 17: Explanation needed.
+- `_record` at line 25: Finalize one episode while capturing what would be written to memory.
+- `_calm_but_measured` at line 38: Explanation needed.
+- `test_persisted_summary_distinguishes_unmeasured_from_measured_zero` at line 53: Explanation needed.
+- `test_partial_evidence_summary_counts_measured_inputs` at line 70: Explanation needed.
+- `test_invalid_risk_inputs_stay_unmeasured_in_the_persisted_summary` at line 80: Explanation needed.
+- `test_reflection_labels_observed_inferred_predicted_and_verified_sections` at line 95: Explanation needed.
+- `test_reflection_reports_the_derived_confidence_the_episode_carries` at line 108: Explanation needed.
+- `test_reflection_reports_recorded_scenarios_as_unverified_predictions` at line 118: Explanation needed.
+- `test_reflection_reports_measured_risk_with_its_evidence_not_as_awareness` at line 127: Explanation needed.
+- `test_reflection_reports_unmeasured_risk_as_unmeasured` at line 136: Explanation needed.
+- `test_reflection_only_marks_outcomes_the_caller_supplied_as_verified` at line 144: Explanation needed.
+- `test_unmeasured_risk_confidence_is_lower_than_measured_zero_risk` at line 158: Explanation needed.
+- `test_partial_evidence_confidence_sits_between_missing_and_complete` at line 168: Explanation needed.
+- `test_measured_risk_still_lowers_derived_confidence` at line 177: Explanation needed.
+- `test_invalid_confidence_and_risk_inputs_yield_finite_confidence` at line 193: Explanation needed.
+- `test_dqi_policy_and_evidence_state_agree_across_record_history_status_and_memory` at line 211: Explanation needed.
+- `test_coherence_projection_stays_independent_of_a_low_dqi` at line 235: Explanation needed.
+- `test_dqi_snapshot_reports_a_recorded_zero_instead_of_substituting_the_average` at line 247: Explanation needed.
+- `test_retrieval_risk_profile_ignores_records_with_no_risk_evidence` at line 262: Explanation needed.
+- `test_unknown_risk_labels_are_bounded_and_clamped` at line 285: Explanation needed.
+- `_FakeCluster.__init__` at line 18: Explanation needed.
+- `_FakeCluster.write_memory` at line 21: Explanation needed.
+
+### tests/test_adaptive_market_cognition_quality.py
+
+Quality scores (DQI, prediction_usefulness) must not invent safety credit.
+
+- `_record` at line 14: Explanation needed.
+- `_calm_but_measured` at line 22: Explanation needed.
+- `_documented_dqi` at line 34: Reconstruct weighted DQI with the risk term supplied independently.
+- `test_missing_risk_evidence_earns_no_dqi_safety_credit` at line 65: Explanation needed.
+- `test_complete_evidence_retains_the_documented_dqi_baseline` at line 78: Explanation needed.
+- `test_partial_evidence_does_not_receive_complete_risk_credit` at line 92: Explanation needed.
+- `test_measured_zero_regime_uncertainty_is_a_real_measurement` at line 107: Explanation needed.
+- `test_unmeasured_regime_uncertainty_is_not_reported_as_useful` at line 118: Explanation needed.
+- `test_non_finite_regime_uncertainty_is_unmeasured_not_perfect` at line 127: Explanation needed.
+- `test_dqi_history_matches_the_computed_score_and_evidence_state` at line 136: Explanation needed.
+- `test_dqi_and_metaevaluation_telemetry_is_json_serialisable` at line 166: Explanation needed.
+- `test_dqi_stays_bounded_for_extreme_complete_evidence` at line 179: Explanation needed.
+
+### tests/test_adaptive_market_cognition_risk.py
+
+Missing risk evidence must never be reported as a measured low risk state.
+
+- `_record` at line 9: Explanation needed.
+- `_calm_but_measured` at line 18: Explanation needed.
+- `test_missing_risk_evidence_is_unknown_not_low` at line 28: Explanation needed.
+- `test_measured_zero_volatility_remains_low` at line 41: Explanation needed.
+- `test_measured_volatility_buckets_and_scores_increase` at line 51: Explanation needed.
+- `test_invalid_risk_values_are_unknown_and_never_low_or_high` at line 62: Explanation needed.
+- `test_bucket_treats_non_finite_and_non_numeric_values_as_unknown` at line 74: Explanation needed.
+- `test_complete_evidence_keeps_the_documented_weighted_score` at line 85: Explanation needed.
+- `test_partial_evidence_does_not_treat_missing_fields_as_zero_risk` at line 104: Explanation needed.
+- `test_explicit_nested_risk_state_is_not_overwritten_by_absent_fields` at line 118: Explanation needed.
+- `test_unknown_risk_earns_no_safety_credit_in_retrieval` at line 129: Explanation needed.
+- `test_unknown_risk_profile_is_reported_as_unknown` at line 138: Explanation needed.
+- `test_persisted_market_fact_marks_unknown_volatility` at line 147: Explanation needed.
+- `_Db.__init__` at line 152: Explanation needed.
+- `_Db.add_fact` at line 155: Explanation needed.
+- `_Core.__init__` at line 159: Explanation needed.
+
 ### tests/test_ale_lifecycle.py
 
 Exercise real lifecycle methods with no Core boot, network or paid inference.
 
 - `engine` at line 9: Explanation needed.
-- `test_bounded_worker_finishes_and_releases_running_state` at line 18: Explanation needed.
-- `test_stop_does_not_allow_restart_over_existing_worker` at line 30: Explanation needed.
-- `test_timed_out_step_is_observed_and_blocks_other_steps_and_restarts` at line 46: Explanation needed.
-- `test_unexpected_exit_reports_failure_and_can_restart` at line 65: Explanation needed.
-- `test_ownership_is_compatible_with_legacy_engine` at line 78: Explanation needed.
-- `test_both_real_core_research_loops_yield_to_ale` at line 84: Explanation needed.
-- `NeverRead.get_learning_queue` at line 93: Explanation needed.
+- `test_bounded_worker_finishes_and_releases_running_state` at line 19: Explanation needed.
+- `test_stop_does_not_allow_restart_over_existing_worker` at line 31: Explanation needed.
+- `test_timed_out_step_is_observed_and_blocks_other_steps_and_restarts` at line 47: Explanation needed.
+- `test_unexpected_exit_reports_failure_and_can_restart` at line 66: Explanation needed.
+- `test_ownership_is_compatible_with_legacy_engine` at line 79: Explanation needed.
+- `test_timed_out_worker_keeps_shared_ownership_until_actual_completion` at line 85: Explanation needed.
+- `test_local_profile_has_finite_default_and_bypasses_legacy_cycle` at line 104: Explanation needed.
+- `test_active_user_defers_native_background_cycles` at line 118: Explanation needed.
+- `test_both_real_core_research_loops_yield_to_ale` at line 128: Explanation needed.
+- `NeverRead.get_learning_queue` at line 137: Explanation needed.
+
+### tests/test_api_process_ownership.py
+
+Module purpose needs a human explanation.
+
+- `test_api_process_identity` at line 8: Explanation needed.
+- `test_api_owner_unavailable` at line 15: Explanation needed.
+- `test_foreign_core_blocks_ui_without_attempting_port_takeover` at line 21: Explanation needed.
+
+### tests/test_chart_annotations.py
+
+Module purpose needs a human explanation.
+
+- `evidence` at line 14: Explanation needed.
+- `bundle` at line 17: Explanation needed.
+- `test_actual_six_strategy_mapping_and_coordinates` at line 19: Explanation needed.
+- `test_schema_rejects_bad_coordinates` at line 33: Explanation needed.
+- `test_schema_rejects_invalid_lifetime_identity_and_authority` at line 41: Explanation needed.
+- `test_no_invented_levels_for_signal_only_output` at line 45: Explanation needed.
+- `test_core_denial_has_no_drawings` at line 51: Explanation needed.
+- `test_stale_and_partial_failure_preserve_abstention` at line 54: Explanation needed.
+- `test_disagreement_never_becomes_visual_consensus` at line 62: Explanation needed.
+- `test_memory_idempotence_revision_invalidation_and_restart` at line 67: Explanation needed.
+- `test_old_observation_does_not_rewind_annotations` at line 82: Explanation needed.
+- `test_stable_annotation_ids_across_next_bar` at line 86: Explanation needed.
+- `test_scope_and_memory_isolation` at line 94: Explanation needed.
+- `test_permission_revocation_precedes_read_or_write` at line 101: Explanation needed.
+- `test_position_values_are_recorded_and_absent_thesis_not_invented` at line 106: Explanation needed.
+- `test_mt5_rejects_futures_alias_and_maps_broker_time` at line 113: Explanation needed.
+- `test_freqtrade_supported_area_contract_and_pine_snapshot` at line 121: Explanation needed.
+- `test_original_core_pipeline_publishes_drawings_and_failure_isolation` at line 129: Explanation needed.
+- `test_native_source_owns_only_namespaced_objects_and_no_execution` at line 136: Explanation needed.
+- `test_native_clock_requires_two_fresh_receipts` at line 142: Explanation needed.
+- `test_existing_market_worker_drains_chart_after_last_market_event` at line 155: Explanation needed.
+- `test_stale_observation_invalidates_fresh_drawings_in_same_view` at line 163: Explanation needed.
+- `test_freqtrade_reader_matches_scope_profile_and_never_mutates` at line 173: Explanation needed.
+- `test_other_timeframe_only_displays_observation_not_m5_rules` at line 188: Explanation needed.
+- `test_position_assessment_never_reuses_a_different_bar_or_timeframe` at line 195: Explanation needed.
+- `test_actual_creation_time_is_not_backdated_to_the_candle` at line 207: Explanation needed.
+- `test_missing_feed_retires_drawings_without_inventing_a_price` at line 216: Explanation needed.
+- `test_chart_cache_rechecks_execution_mode_before_reuse` at line 224: Explanation needed.
+- `Desk.configuration` at line 230: Explanation needed.
+- `Desk.api` at line 231: Explanation needed.
+- `Desk.market` at line 234: Explanation needed.
+- `Offline.__enter__` at line 239: Explanation needed.
+- `Offline.__exit__` at line 240: Explanation needed.
+- Review: empty-body at line 240.
+
+### tests/test_chat_admission_priority.py
+
+Module purpose needs a human explanation.
+
+- `test_foreground_gets_next_slot_without_interrupting_active_work` at line 6: Explanation needed.
+- `test_one_bounded_waiter_and_restart_preserves_no_generation_authority` at line 22: Explanation needed.
+- `test_waiter_expiry_never_expires_an_active_or_quarantined_lease` at line 35: Explanation needed.
+- `test_invalid_interactive_identity_cannot_reserve_a_slot` at line 47: Explanation needed.
 
 ### tests/test_chat_attachments.py
 
@@ -18656,6 +20365,18 @@ Real SQLite tests against disposable databases, with no inference calls.
 - `test_too_small_budget_does_not_substitute_stale_context` at line 92: Explanation needed.
 - `test_cutoff_does_not_leave_assistant_reply_without_question` at line 97: Explanation needed.
 
+### tests/test_chat_paper_replay.py
+
+Module purpose needs a human explanation.
+
+- `test_explicit_paper_request_and_exact_recall` at line 6: Explanation needed.
+- `test_unapproved_execution_never_routes_to_paper` at line 18: Explanation needed.
+- `test_run_paths_are_not_user_filesystem_paths` at line 23: Explanation needed.
+- `test_failed_dispatch_does_not_claim_execution` at line 27: Explanation needed.
+- `test_permission_checked_before_worker_or_manifest` at line 32: Explanation needed.
+- `test_mutated_worker_identity_fails_closed` at line 43: Explanation needed.
+- `test_exact_operational_recall_respects_principal_and_missing_receipt` at line 58: Explanation needed.
+
 ### tests/test_chunker.py
 
 Unit tests for DocumentChunker.
@@ -18674,53 +20395,84 @@ Unit tests for DocumentChunker.
 - `TestDocumentChunker.test_to_dict` at line 93: Explanation needed.
 - `TestDocumentChunker.test_custom_target_chars` at line 104: Explanation needed.
 
+### tests/test_cognitive_chat.py
+
+Module purpose needs a human explanation.
+
+- `test_admission_does_not_confuse_discussion_with_execution` at line 25: Explanation needed.
+- `test_unknown_identity_never_invents_native_generation` at line 29: Explanation needed.
+- `test_learning_plan_has_explicit_bounded_permissions` at line 36: Explanation needed.
+- `test_explicit_cors_origin_takes_precedence_without_wildcard` at line 45: Explanation needed.
+- `test_dispatch_uses_existing_governance_and_records_real_failure` at line 53: Explanation needed.
+- `test_chat_endpoint_self_assessment_executes_and_persists` at line 65: Explanation needed.
+- `test_record_id_requires_exact_evidence_and_keeps_scope` at line 96: Explanation needed.
+- `test_record_id_retains_related_chunks_only` at line 110: Explanation needed.
+- `test_gateway_exact_identifier_outranks_semantic_neighbours` at line 123: Explanation needed.
+- `test_gateway_identifier_split_across_contiguous_chunks` at line 139: Explanation needed.
+- `Gateway.retrieve` at line 100: Explanation needed.
+- `Gateway.retrieve` at line 114: Explanation needed.
+
+### tests/test_command_activation.py
+
+Module purpose needs a human explanation.
+
+- `activation` at line 12: Explanation needed.
+- `test_start_activates_exactly_one_approved_bounded_task` at line 21: Explanation needed.
+- `test_failed_start_revokes_scoped_authority` at line 34: Explanation needed.
+- `test_unready_start_does_not_create_task` at line 39: Explanation needed.
+- `test_permission_revocation_is_reloaded` at line 45: Explanation needed.
+- `test_stop_pending_is_not_reported_complete` at line 51: Explanation needed.
+- `test_lifecycle_checks_actual_worker` at line 57: Explanation needed.
+- `test_research_aliases_use_same_owned_worker` at line 62: Explanation needed.
+- `test_memory_app_reuses_owned_runtime` at line 69: Explanation needed.
+
 ### tests/test_command_runtime.py
 
 Phase 5E tests: governed command surface for the Command tab.
 
-- `FakeCore` at line 42: Explanation needed.
-- `isolated` at line 49: Isolated workspace root + permission store + fresh loop singleton.
-- `_no_core` at line 61: Explanation needed.
-- `_find` at line 65: Explanation needed.
-- `test_registry_lists_exactly_the_governed_capabilities` at line 76: Explanation needed.
-- `test_registry_states_are_truthful` at line 90: Explanation needed.
-- `test_trading_becomes_executable_with_real_runtime` at line 104: Explanation needed.
-- `test_grant_flips_mutation_state_to_executable` at line 110: Explanation needed.
-- `test_research_budgets_are_structural_not_ui_raisable` at line 120: Explanation needed.
-- `test_execute_returns_real_file_content` at line 133: Explanation needed.
-- `test_execute_runtime_status_real_dispatch` at line 142: Explanation needed.
-- `test_unknown_command_rejected_never_substituted` at line 148: Explanation needed.
-- `test_missing_required_argument_rejected` at line 156: Explanation needed.
-- `test_unknown_argument_rejected` at line 162: Explanation needed.
-- `test_non_object_arguments_rejected` at line 169: Explanation needed.
-- `test_unavailable_capability_is_not_dispatched` at line 174: Explanation needed.
-- `test_mutation_blocked_then_executes_after_grant` at line 181: Explanation needed.
-- `test_no_trading_execution_surface_registered` at line 204: Explanation needed.
-- `test_cannot_invoke_arbitrary_python` at line 212: Explanation needed.
-- `test_workspace_escape_answered_truthfully_not_followed` at line 217: Explanation needed.
-- `test_cannot_self_authorize_via_arguments` at line 227: Explanation needed.
-- `test_command_metadata_matches_declared_permissions` at line 237: Explanation needed.
-- `test_non_serializable_result_is_json_safe` at line 243: Regression (found live): a capability result embedding a runtime object
-- `test_events_record_lifecycle` at line 272: Explanation needed.
-- `_client` at line 302: Explanation needed.
-- `test_api_governed_registry` at line 308: Explanation needed.
-- `test_api_execute_real_result` at line 317: Explanation needed.
-- `test_api_execute_unknown_rejected` at line 333: Explanation needed.
-- `test_api_execute_authorization_required` at line 342: Explanation needed.
-- `test_api_static_catalogue_untouched` at line 352: The dashboard nav contract (GET /api/commands) is preserved.
-- `real_kb` at line 382: A REAL KnowledgeDB instance (singleton reset) backed by tmp_path.
-- `test_restored_commands_are_registered` at line 407: Explanation needed.
-- `test_original_names_preserved_as_aliases` at line 419: Explanation needed.
-- `test_registry_reports_original_names_and_aliases` at line 434: Explanation needed.
-- `test_restored_commands_unavailable_without_db` at line 442: Truthful UNAVAILABLE — no fake success when core.db is missing.
-- `test_alias_execution_reaches_real_knowledge_db` at line 450: 'knowledge stats' (original verbal alias) executes the REAL
-- `test_recall_returns_real_fact` at line 465: Explanation needed.
-- `test_memory_returns_real_interactions` at line 480: Explanation needed.
-- `test_acquired_data_alias_executes` at line 492: Explanation needed.
-- `test_recall_requires_query` at line 504: Explanation needed.
-- `test_restored_commands_reject_unknown_arguments` at line 515: Explanation needed.
-- `test_restored_events_flow` at line 524: EventBus records started/completed for a restored command by alias.
-- `FakeCore.__init__` at line 43: Explanation needed.
+- `FakeCore` at line 43: Explanation needed.
+- `isolated` at line 50: Isolated workspace root + permission store + fresh loop singleton.
+- `_no_core` at line 62: Explanation needed.
+- `_find` at line 66: Explanation needed.
+- `test_registry_lists_exactly_the_governed_capabilities` at line 77: Explanation needed.
+- `test_registry_states_are_truthful` at line 91: Explanation needed.
+- `test_trading_becomes_executable_with_real_runtime` at line 105: Explanation needed.
+- `test_grant_flips_mutation_state_to_executable` at line 111: Explanation needed.
+- `test_research_budgets_are_structural_not_ui_raisable` at line 121: Explanation needed.
+- `test_execute_returns_real_file_content` at line 134: Explanation needed.
+- `test_execute_runtime_status_real_dispatch` at line 143: Explanation needed.
+- `test_unknown_command_rejected_never_substituted` at line 149: Explanation needed.
+- `test_missing_required_argument_rejected` at line 157: Explanation needed.
+- `test_unknown_argument_rejected` at line 163: Explanation needed.
+- `test_non_object_arguments_rejected` at line 170: Explanation needed.
+- `test_unavailable_capability_is_not_dispatched` at line 175: Explanation needed.
+- `test_mutation_blocked_then_executes_after_grant` at line 182: Explanation needed.
+- `test_no_trading_execution_surface_registered` at line 205: Explanation needed.
+- `test_cannot_invoke_arbitrary_python` at line 213: Explanation needed.
+- `test_workspace_escape_answered_truthfully_not_followed` at line 218: Explanation needed.
+- `test_cannot_self_authorize_via_arguments` at line 228: Explanation needed.
+- `test_command_metadata_matches_declared_permissions` at line 238: Explanation needed.
+- `test_non_serializable_result_is_json_safe` at line 244: Regression (found live): a capability result embedding a runtime object
+- `test_events_record_lifecycle` at line 273: Explanation needed.
+- `_client` at line 303: Explanation needed.
+- `test_api_governed_registry` at line 309: Explanation needed.
+- `test_api_execute_real_result` at line 318: Explanation needed.
+- `test_api_execute_unknown_rejected` at line 334: Explanation needed.
+- `test_api_execute_authorization_required` at line 343: Explanation needed.
+- `test_api_static_catalogue_untouched` at line 353: The dashboard nav contract (GET /api/commands) is preserved.
+- `real_kb` at line 383: A REAL KnowledgeDB instance (singleton reset) backed by tmp_path.
+- `test_restored_commands_are_registered` at line 408: Explanation needed.
+- `test_original_names_preserved_as_aliases` at line 420: Explanation needed.
+- `test_registry_reports_original_names_and_aliases` at line 435: Explanation needed.
+- `test_restored_commands_unavailable_without_db` at line 443: Truthful UNAVAILABLE — no fake success when core.db is missing.
+- `test_alias_execution_reaches_real_knowledge_db` at line 451: 'knowledge stats' (original verbal alias) executes the REAL
+- `test_recall_returns_real_fact` at line 466: Explanation needed.
+- `test_memory_returns_real_interactions` at line 481: Explanation needed.
+- `test_acquired_data_alias_executes` at line 493: Explanation needed.
+- `test_recall_requires_query` at line 505: Explanation needed.
+- `test_restored_commands_reject_unknown_arguments` at line 516: Explanation needed.
+- `test_restored_events_flow` at line 525: EventBus records started/completed for a restored command by alias.
+- `FakeCore.__init__` at line 44: Explanation needed.
 
 ### tests/test_command_surface_audit.py
 
@@ -18760,6 +20512,34 @@ Phase 5G tests: original command-surface audit and governance.
 - `test_surface_payload_is_complete_and_serialisable` at line 481: Explanation needed.
 - `test_live_core_surface_is_complete` at line 502: Explanation needed.
 
+### tests/test_core_market_pipeline.py
+
+Core market integration: real code and temporary ledgers; fake projections only.
+
+- `observation` at line 20: Explanation needed.
+- `NoGenericMemory` at line 32: Explanation needed.
+- `pipeline` at line 40: Explanation needed.
+- `ingest` at line 54: Explanation needed.
+- `test_actual_registered_rules_normalize_and_preserve_measurements` at line 60: Explanation needed.
+- `test_bad_observations_abstain_without_invoking_strategies` at line 76: Explanation needed.
+- `test_replay_uses_explicit_clock_and_remains_replay` at line 96: Explanation needed.
+- `test_disagreement_and_partial_failure_keep_all_denominator_members` at line 106: Explanation needed.
+- `project_receipts` at line 123: Explanation needed.
+- `test_ingress_graph_strategy_outbox_projection_and_restart` at line 132: Explanation needed.
+- `test_market_memory_partitions_isolate_mode_account_and_symbol` at line 160: Explanation needed.
+- `test_core_denial_precedes_specialists_even_without_governance_mode` at line 175: Explanation needed.
+- `test_memory_permission_denial_is_explicit_and_never_escalated` at line 190: Explanation needed.
+- `test_projection_outage_retries_same_immutable_receipt_after_restart` at line 198: Explanation needed.
+- `test_http_core_analysis_uses_existing_ingress_without_order_surface` at line 214: Explanation needed.
+- `test_actual_desk_feed_reaches_core_http_rules_and_canonical_ledger` at line 236: Explanation needed.
+- `test_core_forwarder_never_retries_ambiguous_analysis_transport` at line 279: Explanation needed.
+- `test_unexpected_specialist_failure_cannot_preserve_caller_supplied_signal` at line 294: Explanation needed.
+- `test_disabled_memory_reports_disabled_without_projection` at line 307: Explanation needed.
+- `test_queued_market_permission_revocation_blocks_projection` at line 313: Explanation needed.
+- `test_strategy_policy_versions_get_separate_memory_partitions` at line 320: Explanation needed.
+- `NoGenericMemory.recall_contract` at line 33: Explanation needed.
+- `NoGenericMemory.remember_contract` at line 35: Explanation needed.
+
 ### tests/test_core_tool_runtime.py
 
 Phase 5C tests: governed tool runtime for the canonical Core boundary.
@@ -18787,6 +20567,201 @@ Phase 5C tests: governed tool runtime for the canonical Core boundary.
 - `FakeLoop.__init__` at line 188: Explanation needed.
 - `FakeLoop.chat` at line 191: Explanation needed.
 - Review: empty-body at line 134.
+
+### tests/test_core_trading_sessions.py
+
+Module purpose needs a human explanation.
+
+- `f` at line 14: Explanation needed.
+- `test_full_mt5_pipeline_and_canonical_outbox` at line 17: Explanation needed.
+- `test_full_freqtrade_pipeline_and_canonical_outbox` at line 18: Explanation needed.
+- `test_observation_and_proposal_never_authorize` at line 21: Explanation needed.
+- `test_uncertain_other_account_does_not_block_verified_demo_account` at line 27: Explanation needed.
+- `test_uncertain_same_account_blocks_even_across_adapters` at line 39: Explanation needed.
+- `test_scope_tamper_and_replayed_activation` at line 52: Explanation needed.
+- `test_scope_limits_are_bounded_and_finite` at line 60: Explanation needed.
+- `test_expiry_keeps_observer_but_no_order` at line 65: Explanation needed.
+- `test_restart_interrupts_scope_without_persistent_latch` at line 73: Explanation needed.
+- `test_active_session_does_not_rearm_after_restart` at line 82: Explanation needed.
+- `test_core_rejects_unsafe_account_and_market_state` at line 91: Explanation needed.
+- `test_six_strategy_consensus_fails_closed` at line 109: Explanation needed.
+- `test_uncertain_partial_rejected_delivery_is_not_retried` at line 124: Explanation needed.
+- `test_core_owned_mt5_ticket_cannot_use_manual_confirmation` at line 131: Explanation needed.
+- `test_core_owned_freqtrade_ticket_cannot_use_manual_confirmation` at line 138: Explanation needed.
+- `test_revocation_between_preview_and_send_is_final` at line 145: Explanation needed.
+- `test_revalidate_risk_after_preview` at line 154: Explanation needed.
+- `test_memory_denial_prevents_submission` at line 161: Explanation needed.
+- `test_inference_reservation_does_not_block_deterministic_broker_cycle` at line 165: Explanation needed.
+- `test_competing_broker_cycle_blocks_and_audits_trade` at line 174: Explanation needed.
+- `test_dead_broker_owner_recovers_only_after_uncertain_delivery_resolves` at line 186: Explanation needed.
+- `test_closed_broker_position_does_not_cause_duplicate_entry_same_bar` at line 204: Explanation needed.
+- `test_manual_position_never_adopted_or_closed` at line 209: Explanation needed.
+- `test_api_needs_exact_origin_nonce_and_ack` at line 216: Explanation needed.
+- `test_alerts_are_durable_and_never_execute` at line 229: Explanation needed.
+- `test_learning_approval_does_not_grant_trading` at line 236: Explanation needed.
+- `test_freqtrade_native_protection_change_blocks_final_send` at line 244: Explanation needed.
+- `test_freqtrade_sells_use_existing_short_adapter` at line 253: Explanation needed.
+- `test_atomic_instrument_claim_blocks_other_broker` at line 261: Explanation needed.
+- `test_http_review_activation_to_core_worker_and_hosted_desk` at line 270: Explanation needed.
+- `test_ordinary_stop_persists_when_memory_permission_is_revoked` at line 294: Explanation needed.
+- `test_risk_exits_owned_position_when_exposure_limit_breached` at line 301: Explanation needed.
+- `test_missing_broker_stop_causes_authorized_exit_not_new_entry` at line 308: Explanation needed.
+- `test_broker_currency_valuation_is_used` at line 315: Explanation needed.
+- `test_permission_manager_refuses_funded_scope_itself` at line 324: Explanation needed.
+- `test_restart_cancels_only_provably_unsent_ticket` at line 329: Explanation needed.
+- `test_background_worker_stops_cleanly_without_activating` at line 342: Explanation needed.
+- `test_freqtrade_missing_native_protection_or_fee_blocks_entry` at line 349: Explanation needed.
+- `test_freqtrade_engine_is_never_started_by_observation_or_activation` at line 355: Explanation needed.
+- `test_reconciliation_and_realized_outcomes_continue_with_stale_market` at line 362: Explanation needed.
+- `test_telemetry_checks_actual_runtime_namespace` at line 375: Explanation needed.
+- `test_native_receipt_is_one_time_and_cannot_mint_a_session` at line 386: Explanation needed.
+- `test_native_strategy_callback_denies_expired_or_changed_claim` at line 401: Explanation needed.
+- `test_non_core_native_catalog_cannot_execute_core_session` at line 412: Explanation needed.
+- `test_native_callback_fails_closed_without_original_scope` at line 420: Explanation needed.
+- `test_native_callback_transport_error_never_uses_freqtrade_fail_open_default` at line 427: Explanation needed.
+- `test_session_signal_and_expiry_audit_survive_broker_outage` at line 434: Explanation needed.
+- `test_expired_owned_position_is_watched_without_close_authority` at line 452: Explanation needed.
+- `test_mt5_reconciles_changed_position_ticket_and_broker_protective_exit` at line 467: Explanation needed.
+- `test_mt5_refuses_to_manage_position_with_mixed_opening_orders` at line 498: Explanation needed.
+- `test_close_only_scope_resumes_owned_position_without_new_exposure` at line 512: Explanation needed.
+- `test_close_only_scope_refuses_unknown_order` at line 550: Explanation needed.
+- `switch_to_xm` at line 556: Explanation needed.
+- `test_mt5_switch_suspends_grant_and_never_rearms` at line 563: Explanation needed.
+- `test_mt5_switch_after_delivery_guard_does_not_send` at line 583: Explanation needed.
+- `test_mt5_switch_preserves_original_position_ownership` at line 601: Explanation needed.
+- `test_mt5_unknown_and_disconnected_are_distinct` at line 615: Explanation needed.
+- `test_mt5_unavailable_selected_symbol_is_not_a_disconnect` at line 625: Explanation needed.
+- `test_local_demo_volume_editor_for_xm_and_mt5` at line 632: Explanation needed.
+- `test_volume_policy_drop_invalidates_existing_review` at line 650: Explanation needed.
+- `test_freqtrade_split_open_status_and_closed_history_reconciles_end_to_end` at line 659: Native /trades may omit open trades; /status owns the open readback.
+- `test_freqtrade_native_readback_deduplicates_consistent_trade_ids` at line 685: Explanation needed.
+- `test_freqtrade_native_readback_rejects_conflicting_attribution` at line 694: Explanation needed.
+- `test_owned_position_reversal_uses_existing_close_order_path` at line 709: An early-exit recommendation uses the native Core ticket, not a new sender.
+- `test_completed_outcome_has_broker_net_r_and_sampled_excursions` at line 732: Explanation needed.
+- `test_multiple_instruments_can_have_parallel_demo_sessions_same_account` at line 751: An owned open position on EUR/USD does not monopolize the demo account.
+- `test_multi_symbol_observers_are_independent_and_never_place_orders` at line 772: Explanation needed.
+- `test_reviewed_demo_session_accepts_ten_entries_and_five_positions` at line 786: Explanation needed.
+- `test_reviewed_demo_session_reports_actual_volume_ceiling` at line 804: Explanation needed.
+
+### tests/test_cost_provenance.py
+
+Module purpose needs a human explanation.
+
+- `replay` at line 7: Explanation needed.
+- `resolve` at line 11: Explanation needed.
+- `test_installed_native_maker_replay_is_not_account_fee_or_authority` at line 14: Explanation needed.
+- `test_known_override_precedence_and_conflict` at line 19: Explanation needed.
+- `test_zero_fallback_is_rejected_but_explicit_zero_is_attributed` at line 24: Explanation needed.
+- `test_public_or_historical_rates_cannot_replace_missing_native_evidence` at line 29: Explanation needed.
+- `test_invalid_fee_sources_fail_closed` at line 35: Explanation needed.
+- `test_stale_binding_and_same_role_conflicts_are_distinct` at line 38: Explanation needed.
+- `test_original_native_ownership_cannot_be_aliased_into_core_authority` at line 45: Explanation needed.
+- `test_core_tag_alone_cannot_prove_an_authorized_decision` at line 54: Explanation needed.
+
+### tests/test_crypto_stops.py
+
+Deterministic protection tests, no MT5 process or broker commands.
+
+- `inputs` at line 7: Explanation needed.
+- `test_stops_are_outside_spread_and_volatility_with_grid_and_two_r` at line 18: Explanation needed.
+- `test_structure_not_just_atr_defines_invalidation` at line 28: Explanation needed.
+- `test_broker_stop_and_freeze_constraints_are_respected` at line 34: Explanation needed.
+- `test_unverified_history_or_contract_never_falls_back_to_fixed_points` at line 41: Explanation needed.
+- `test_confirmation_keeps_reviewed_sl_and_tp_unchanged` at line 55: Explanation needed.
+- `test_crossed_reviewed_stop_or_widening_spread_requires_new_review` at line 62: Explanation needed.
+- `test_huge_structural_stop_is_rejected_not_clamped` at line 68: Explanation needed.
+
+### tests/test_dae1_p2_observation.py
+
+Module purpose needs a human explanation.
+
+- `state` at line 5: Explanation needed.
+- `test_fresh_inventory_does_not_clear_execution_breaker` at line 12: Explanation needed.
+- `test_unknown_money_is_not_zero` at line 19: Explanation needed.
+- `test_outage_retains_only_historical_labelled_values` at line 25: Explanation needed.
+- `test_source_timestamp_and_inventory_required` at line 34: Explanation needed.
+- `test_account_history_is_never_implied_complete` at line 41: Explanation needed.
+- `test_hosted_remote_desk_rejects_desktop_fallback` at line 47: Explanation needed.
+
+### tests/test_dae1_remote_gateway.py
+
+Module purpose needs a human explanation.
+
+- `remote` at line 19: Explanation needed.
+- `test_real_http_identity_and_coalescing` at line 48: Explanation needed.
+- `test_fail_closed_and_recovery` at line 57: Explanation needed.
+- `test_core_status_without_local_broker` at line 77: Explanation needed.
+- `test_public_transport_rejected` at line 96: Explanation needed.
+- `test_actual_gateway_protocol_to_core_route` at line 103: Explanation needed.
+- `test_market_desk_serves_remote_panel_on_existing_entrypoint` at line 149: Explanation needed.
+- `test_remote_profile_blocks_preexisting_local_proposal_and_worker` at line 162: Explanation needed.
+- `test_remote_transitions_share_canonical_outbox_and_deduplicate` at line 175: Explanation needed.
+- `test_remote_observer_is_single_and_shutdown_is_controlled` at line 203: Explanation needed.
+- `test_verified_observation_survives_latched_execution_breaker` at line 216: Explanation needed.
+- `test_reported_config_is_not_observed_account_proof` at line 225: Explanation needed.
+- `test_canonical_history_survives_client_restart_during_outage` at line 232: Explanation needed.
+- `test_local_port_conflict_never_receives_gateway_token` at line 249: Explanation needed.
+- `test_ssh_arguments_are_bound_to_transport` at line 264: Explanation needed.
+- `Handler.do_GET` at line 30: Explanation needed.
+- `Handler.log_message` at line 36: Explanation needed.
+- `ForbiddenToken.read_text` at line 255: Explanation needed.
+- Review: empty-body at line 36.
+
+### tests/test_dae1_scheduler_budget.py
+
+Module purpose needs a human explanation.
+
+- `scheduler` at line 4: Explanation needed.
+- `test_backpressure_preserves_interactive_capacity` at line 9: Explanation needed.
+- `test_pressure_defers_background_and_resumes_without_reordering` at line 19: Explanation needed.
+- `test_cancel_pending_releases_budget_and_invalid_delay_is_rejected` at line 36: Explanation needed.
+
+### tests/test_demo_autotrader.py
+
+Module purpose needs a human explanation.
+
+- `candles` at line 11: Explanation needed.
+- `test_both_directions_and_insufficient_history` at line 18: Explanation needed.
+- `test_risk_scales_down_and_never_rounds_up` at line 26: Explanation needed.
+- `bot` at line 36: Explanation needed.
+- `test_one_delivery_per_bar_and_durable_reason` at line 59: Explanation needed.
+- `test_fail_closed` at line 69: Explanation needed.
+- `test_unknown_delivery_is_not_retried` at line 83: Explanation needed.
+- `test_opposite_signal_closes_owned_position_only` at line 90: Explanation needed.
+- `test_outcome_is_linked_net_of_all_costs_and_idempotent` at line 98: Explanation needed.
+- `test_restart_does_not_rearm` at line 111: Explanation needed.
+- `test_prediction_is_saved_then_scored_only_when_next_bar_completes` at line 117: Explanation needed.
+- `test_expiry_observes_all_rules_and_never_sends` at line 135: Explanation needed.
+- `test_alert_requires_broker_preflight_and_fresh_data` at line 150: Explanation needed.
+- `test_auto_selector_pins_entry_rule_for_exit` at line 159: Explanation needed.
+- `test_start_rejects_live_account_and_existing_exposure` at line 170: Explanation needed.
+- `test_stop_before_delivery_and_excess_spread` at line 179: Explanation needed.
+- `test_demo_routes_need_same_origin_token` at line 189: Explanation needed.
+- `test_observation_can_resume_with_existing_exposure_without_order_authority` at line 207: Explanation needed.
+- `test_adaptive_profit_exit_runs_between_bars_once_and_observation_never_closes` at line 220: Explanation needed.
+
+### tests/test_demo_controls.py
+
+Module purpose needs a human explanation.
+
+- `client_for` at line 8: Explanation needed.
+- `test_readiness_and_review_do_not_grant_or_clear_stop` at line 14: Explanation needed.
+- `test_mt5_draft_uses_inspect_without_ticket` at line 32: Explanation needed.
+- `test_operator_activation_contract_only_in_isolated_fixture` at line 38: Explanation needed.
+- `test_readonly_risk_preview_does_not_halt_or_rewrite_a_scope` at line 53: Explanation needed.
+- `test_freqtrade_blockers_and_platform_scope` at line 63: Explanation needed.
+- `test_unknown_identity_or_market_fails_closed` at line 76: Explanation needed.
+- `test_failed_packaged_desktop_cleans_owned_runtime` at line 90: Explanation needed.
+- `test_packaged_cleanup_failure_still_attempts_core_shutdown` at line 99: Explanation needed.
+
+### tests/test_desktop_dependencies.py
+
+Module purpose needs a human explanation.
+
+- `test_per_user_installation_is_found` at line 4: Explanation needed.
+- `test_existing_daemon_is_reused_without_launch` at line 13: Explanation needed.
+- `test_startup_waits_for_daemon_without_rebuilding` at line 20: Explanation needed.
+- `test_failed_startup_has_bounded_wait` at line 30: Explanation needed.
 
 ### tests/test_desktop_diagnostics.py
 
@@ -18861,6 +20836,69 @@ Module purpose needs a human explanation.
 - `test_live_guidance_and_cooperative_stop` at line 45: Explanation needed.
 - `test_redirects_revalidate_destination` at line 69: Explanation needed.
 
+### tests/test_essential_command_registry.py
+
+Module purpose needs a human explanation.
+
+- `test_essential_commands_independent_of_optional_improvements` at line 7: Explanation needed.
+
+### tests/test_execution_rehearsal.py
+
+Module purpose needs a human explanation.
+
+- `test_entry_cost_admission_is_account_bound_and_fails_before_intercepted_send` at line 9: Explanation needed.
+- `test_rehearsal_admission_does_not_accept_external_execution_suffix` at line 26: Explanation needed.
+
+### tests/test_execution_venue_router.py
+
+Module purpose needs a human explanation.
+
+- `binding` at line 8: Explanation needed.
+- `test_demo_and_live_share_route_schema_not_account_identity` at line 13: Explanation needed.
+- `test_freqtrade_exchange_context_is_explicit_and_isolated` at line 28: Explanation needed.
+- `test_bad_or_nontrade_decisions_do_not_emit_routes` at line 44: Explanation needed.
+- `test_exact_venue_environment_identity_contract` at line 55: Explanation needed.
+
+### tests/test_exness_remote_demo.py
+
+Broker doubles only: shared real Core/session/ticket code, no real orders.
+
+- `service` at line 22: Explanation needed.
+- `prepare` at line 44: Explanation needed.
+- `test_changed_account_rejected_at_final_sdk_boundary` at line 48: Explanation needed.
+- `test_terminal_change_or_permissions_never_sends` at line 56: Explanation needed.
+- `test_idempotent_demo_delivery_and_no_new_authority_on_restart` at line 63: Explanation needed.
+- `test_ambiguous_delivery_is_durable_and_never_retried` at line 72: Explanation needed.
+- `test_gateway_restart_rejects_old_preview` at line 80: Explanation needed.
+- `test_demo_gateway_restart_does_not_create_emergency_latch` at line 86: Explanation needed.
+- `test_remote_scope_authorization_is_single_use_and_bound` at line 95: Explanation needed.
+- `test_remote_rearm_rejects_wrong_demo_identity_and_unresolved_tickets` at line 109: Explanation needed.
+- `test_expired_or_invalid_scope` at line 127: Explanation needed.
+- `test_symbol_and_risk_ceiling` at line 133: Explanation needed.
+- `test_final_boundary_rejects_unsupported_mutation` at line 142: Explanation needed.
+- `test_existing_six_strategy_core_to_remote_ticket_pipeline` at line 149: Explanation needed.
+- `test_normal_core_stop_and_new_reviewed_demo_scope` at line 168: Explanation needed.
+- `test_remote_client_requires_core_scope_before_network` at line 189: Explanation needed.
+- `test_demo_scope_cannot_be_replaced_by_read_only_gateway_credential` at line 196: Explanation needed.
+- `test_partial_fill_blocks_new_preparation` at line 217: Explanation needed.
+- `test_price_review_rejection_is_proven_unsent_and_durable` at line 224: Explanation needed.
+- `test_account_changes_between_last_boundary_checks_never_sends` at line 236: Explanation needed.
+- `test_crypto_drift_is_capped_and_preserves_original_point` at line 245: Explanation needed.
+- `test_review_drift_cannot_exceed_hard_ceiling` at line 260: Explanation needed.
+- `test_unaffordable_structural_stop_is_rejected_not_squeezed` at line 267: Explanation needed.
+- `test_delivery_preserves_reviewed_protection_even_if_later_bars_change` at line 275: Explanation needed.
+- `test_core_scope_rejects_changed_protection_policy` at line 284: Explanation needed.
+- `test_market_protection_preview_is_read_only_and_broker_valued` at line 302: Explanation needed.
+- `test_unknown_broker_valuation_is_not_zero_in_protection_preview` at line 315: Explanation needed.
+- `test_three_sequential_demo_entries_and_fourth_denied` at line 322: Explanation needed.
+- `test_reviewed_larger_demo_volume_uses_existing_core_pipeline` at line 353: Explanation needed.
+- `test_invalid_or_excessive_autonomous_volume_ceiling_rejected` at line 374: Explanation needed.
+- `test_larger_demo_still_blocks_live_and_default_and_missing_guard` at line 380: Explanation needed.
+- `test_broker_step_rounds_down_under_reviewed_maximum` at line 394: Explanation needed.
+- `test_other_pinned_demo_profiles_keep_final_demo_gate` at line 403: Explanation needed.
+- `test_broker_minimum_above_old_cap_is_supported_only_after_review` at line 416: Explanation needed.
+- `test_new_demo_discovery_is_read_only_and_detects_live_transition` at line 429: Explanation needed.
+
 ### tests/test_file_search_endpoint.py
 
 Tests for the implemented /api/file/search endpoint (Phase 5D).
@@ -18894,6 +20932,31 @@ End-to-end dashboard routing through governed read tools and source evidence.
 - `StatusExecutor.niblit_status` at line 35: Explanation needed.
 - `Runtime.dispatch_command` at line 232: Explanation needed.
 
+### tests/test_freqtrade_analysis_integration.py
+
+Real strategy/research integration with isolated data and no broker writes.
+
+- `research_desk` at line 16: Explanation needed.
+- `test_stale_or_unverified_data_abstains_despite_real_direction` at line 32: Explanation needed.
+- `test_missing_freshness_is_not_an_actionable_signal` at line 51: Explanation needed.
+- `test_decision_is_durable_idempotent_and_recalled_after_restart` at line 57: Explanation needed.
+- `test_outcomes_do_not_cross_pair_venue_or_execution_mode` at line 73: Explanation needed.
+- `test_actual_http_route_returns_stale_abstention_and_durable_receipt` at line 92: Explanation needed.
+- `test_http_write_failure_is_unavailable_not_false_memory_success` at line 105: Explanation needed.
+
+### tests/test_freqtrade_native_analysis.py
+
+Module purpose needs a human explanation.
+
+- `observation` at line 7: Explanation needed.
+- `test_native_contract_never_grants_permission` at line 11: Explanation needed.
+- `test_denied_profile_never_invokes` at line 20: Explanation needed.
+- `test_invalid_and_stale_data_do_not_invoke` at line 23: Explanation needed.
+- `test_failure_is_visible_without_retry` at line 28: Explanation needed.
+- `test_native_failure_keeps_core_observation` at line 37: Explanation needed.
+- `test_dashboard_cache_single_flight_and_identity` at line 46: Explanation needed.
+- `test_dashboard_native_evidence_reaches_core_without_changing_votes` at line 69: Explanation needed.
+
 ### tests/test_freqtrade_operator.py
 
 Module purpose needs a human explanation.
@@ -18907,6 +20970,35 @@ Module purpose needs a human explanation.
 - `test_status_does_not_return_private_configuration` at line 46: Explanation needed.
 - `test_errors_do_not_echo_credentials` at line 53: Explanation needed.
 - `test_operator_subcommand_is_classified_as_trading` at line 60: Explanation needed.
+
+### tests/test_freqtrade_research.py
+
+Module purpose needs a human explanation.
+
+- `test_freqtrade_uses_shared_rules_and_never_posts_orders` at line 8: Explanation needed.
+
+### tests/test_governed_learning.py
+
+Module purpose needs a human explanation.
+
+- `learning` at line 11: Explanation needed.
+- `invoke` at line 30: Explanation needed.
+- `test_real_files_recall_accept_repeat_and_conflict` at line 37: Explanation needed.
+- `test_operator_denial_prevents_acquisition` at line 62: Explanation needed.
+- `test_memory_denial_is_not_success` at line 69: Explanation needed.
+- `test_unsupported_source_never_becomes_knowledge` at line 82: Explanation needed.
+- `test_budgets_and_filesystem_fail_closed` at line 88: Explanation needed.
+- `test_projection_failure_is_not_reported_as_learning` at line 99: Explanation needed.
+
+### tests/test_hybrid_infrastructure.py
+
+Module purpose needs a human explanation.
+
+- `test_online_backup_restore_retains_events_and_never_overwrites` at line 13: Explanation needed.
+- `test_compose_preserves_native_authority_and_external_data` at line 25: Explanation needed.
+- `test_container_build_context_never_contains_private_dotenv_models_or_ledger` at line 37: Explanation needed.
+- `test_kubernetes_contract_is_restricted_and_never_provisions_qdrant_or_volumes` at line 44: Explanation needed.
+- `test_qdrant_backup_resume_reuses_verified_snapshot_without_mutating_collection` at line 55: Explanation needed.
 
 ### tests/test_inference_bridge.py
 
@@ -18981,6 +21073,35 @@ Integration tests for the canonical knowledge pipeline.
 - `TestChunkingIntegration.test_chunks_preserve_provenance` at line 277: Explanation needed.
 - `TestChunkingIntegration.test_chunks_are_deterministic` at line 290: Explanation needed.
 
+### tests/test_isolated_controller_binding.py
+
+Module purpose needs a human explanation.
+
+- `test_explicit_binding_does_not_redirect_credentials` at line 7: Explanation needed.
+- `test_stopped_engine_can_only_produce_non_deliverable_draft` at line 10: Explanation needed.
+- `test_draft_preserves_market_and_mode_boundaries` at line 22: Explanation needed.
+- `test_trading_scope_is_in_immutable_proposal_and_cannot_cross_namespaces` at line 32: Explanation needed.
+- `test_invalid_memory_scope_denied` at line 44: Explanation needed.
+
+### tests/test_joint_trading_safety.py
+
+Existing Core + platform ticket paths. All providers are offline doubles.
+
+- `body` at line 9: Explanation needed.
+- `test_native_mt5_delivery_is_denied_without_consuming_ticket` at line 14: Explanation needed.
+- `test_demo_label_alone_cannot_bind_a_transport` at line 23: Explanation needed.
+- `test_native_freqtrade_delivery_is_denied_before_http_or_ticket_consumption` at line 29: Explanation needed.
+- `test_mt5_broker_or_binding_denial_never_calls_intercepted_send` at line 44: Explanation needed.
+- `test_invalid_mt5_volume` at line 58: Explanation needed.
+- `test_account_change_after_preflight_blocks_core_delivery` at line 64: Explanation needed.
+- `test_mt5_risk_limit_and_missing_authority` at line 73: Explanation needed.
+- `test_platform_activation_does_not_authorize_other_platform` at line 78: Explanation needed.
+- `test_freqtrade_native_strategy_can_be_observed_but_not_adopted_for_core_entry` at line 84: Explanation needed.
+- `test_historical_fees_do_not_substitute_for_new_entry_fee` at line 92: Explanation needed.
+- `test_actuals_do_not_double_count_equity_or_assign_mixed_strategy_profit` at line 100: Explanation needed.
+- `test_negative_floating_profit_is_not_subtracted_from_marked_equity_twice` at line 118: Explanation needed.
+- `test_readiness_recall_is_platform_and_principal_scoped` at line 126: Explanation needed.
+
 ### tests/test_knowledge_document.py
 
 Unit tests for KnowledgeDocument, SourceType, Provenance, and utilities.
@@ -19042,6 +21163,102 @@ Module purpose needs a human explanation.
 - `test_first_run_is_not_reported_as_recovery` at line 14: Explanation needed.
 - `test_unrecoverable_existing_store_keeps_warning` at line 23: Explanation needed.
 
+### tests/test_layer_recovery.py
+
+Module purpose needs a human explanation.
+
+- `manager` at line 8: Explanation needed.
+- `test_missing_factory_never_claims_ready_and_can_recover` at line 14: Explanation needed.
+- `test_builder_exception_remains_degraded` at line 25: Explanation needed.
+- `test_local_brain_uses_current_factory_contract` at line 29: Explanation needed.
+- `test_ale_reuses_core_owner_without_constructing_or_starting` at line 35: Explanation needed.
+- `test_current_layers_and_idle_ale_do_not_relabel_old_startup_faults` at line 40: Explanation needed.
+
+### tests/test_learning_approval.py
+
+Module purpose needs a human explanation.
+
+- `control` at line 10: Explanation needed.
+- `proposed` at line 16: Explanation needed.
+- `approved` at line 21: Explanation needed.
+- `test_proposal_allowed_while_start_denied_no_ownership_or_file_changes` at line 27: Explanation needed.
+- `test_deny_never_grants_or_runs_and_approval_replay_rejected` at line 34: Explanation needed.
+- `test_forged_hash_or_material_change_requires_fresh_approval` at line 39: Explanation needed.
+- `test_scoped_once_grant_has_tool_budget_and_preserves_default_denial` at line 46: Explanation needed.
+- `test_approval_binding_requires_original_owner_and_cannot_be_consumed_twice` at line 57: Explanation needed.
+- `test_each_terminal_state_revokes_grant` at line 68: Explanation needed.
+- `test_expiry_refuses_new_generation_but_existing_ack_can_finish` at line 74: Explanation needed.
+- `test_cancellation_wins_over_late_provider_success` at line 83: Explanation needed.
+- `test_restart_retains_pending_but_revokes_old_runtime_grant` at line 89: Explanation needed.
+- `test_unapproved_native_cycle_performs_no_recall_research_model_or_write` at line 95: Explanation needed.
+- `test_core_approval_route_rejects_foreign_origin_wrong_nonce_and_replay` at line 101: Explanation needed.
+- `test_bg_status_observes_bindings_without_invoking_engines` at line 117: Explanation needed.
+- `test_original_ale_worker_consumes_one_approval_and_revokes` at line 128: Explanation needed.
+- `test_existing_ale_busy_admission_revokes_unused_approval` at line 153: Explanation needed.
+- `test_single_generation_budget_is_enforced_at_original_cloud_delegation` at line 170: Explanation needed.
+- `test_denied_opportunity_is_not_repeated_without_explicit_renewal` at line 176: Explanation needed.
+- `test_sync_background_learning_keeps_queue_and_only_prepares_proposal` at line 182: Explanation needed.
+- `test_idea_generator_construction_does_not_start_learning_and_manual_plan_still_works` at line 199: Explanation needed.
+- `test_core_initialization_constructs_learning_components_without_autostart` at line 207: Explanation needed.
+
+### tests/test_learning_outcomes.py
+
+Evidence failures must not be transformed into successful learned knowledge.
+
+- `test_empty_placeholders_and_questions_are_not_learning` at line 10: Explanation needed.
+- `test_retrieval_failure_and_no_findings_are_distinct` at line 17: Explanation needed.
+- `test_source_claim_and_generated_interpretation_are_separate` at line 22: Explanation needed.
+- `test_model_synthesis_is_not_source_findings` at line 30: Explanation needed.
+- `test_empty_phased_artifact_is_not_ale_learned` at line 35: Explanation needed.
+- `test_phased_artifact_retains_source_excerpt_and_reference` at line 46: Explanation needed.
+- `test_out_of_cycle_module_reflection_cannot_create_empty_learning` at line 54: Explanation needed.
+- `test_native_failed_research_is_persisted_as_failure_without_teacher_questions` at line 67: Explanation needed.
+- `test_phased_ale_hands_same_topic_findings_to_next_steps` at line 86: Explanation needed.
+- `test_manual_runtime_keeps_curriculum_queued_without_starting_teacher` at line 109: Explanation needed.
+- `test_unrelated_topic_cannot_be_claimed_as_local_source_learning` at line 120: Explanation needed.
+- `test_unrelated_recalled_memory_does_not_make_unsupported_topic_successful` at line 129: Explanation needed.
+
+### tests/test_learning_remote.py
+
+Module purpose needs a human explanation.
+
+- `Remote` at line 10: Explanation needed.
+- `synthetic` at line 21: Explanation needed.
+- `test_remote_original_identity_payload_restart_and_scope` at line 26: Explanation needed.
+- `test_cloud_outage_preserves_local_recall_and_retry` at line 39: Explanation needed.
+- `test_private_or_unapproved_history_not_transmitted` at line 45: Explanation needed.
+- `test_remote_rechecks_permissions_before_network` at line 50: Explanation needed.
+- `test_remote_rejects_altered_readback` at line 55: Explanation needed.
+- `test_existing_manager_schema_and_unscoped_export_guards` at line 60: Explanation needed.
+- `test_remote_outbox_original_worker_retries_without_local_rollback` at line 73: Explanation needed.
+- `test_gap_research_local_reasoning_teacher_and_source_only_trainer` at line 85: Explanation needed.
+- `test_cancellation_after_research_blocks_model_and_memory` at line 94: Explanation needed.
+- `test_selfteacher_review_does_not_promote_candidate` at line 100: Explanation needed.
+- `Remote.__init__` at line 12: Explanation needed.
+- `Remote.canonical_project` at line 13: Explanation needed.
+- `Remote.canonical_request` at line 18: Explanation needed.
+
+### tests/test_legacy_trading_config.py
+
+Compatibility tests: legacy research flags do not create execution authority.
+
+- `test_empty_mt5_alias_falls_back_to_exness_demo_profile` at line 6: Explanation needed.
+- `test_explicit_mt5_demo_profile_takes_precedence` at line 12: Explanation needed.
+- `test_old_tft_flag_is_honored_when_new_flag_is_absent` at line 18: Explanation needed.
+- `test_new_tft_flag_takes_precedence` at line 24: Explanation needed.
+- `test_legacy_horizon_fallback` at line 30: Explanation needed.
+- `test_research_switches_do_not_grant_demo_or_funded_authority` at line 36: Explanation needed.
+- `test_missing_demo_profile_is_reported_as_configuration_blocker` at line 49: Explanation needed.
+- `test_historical_uncertain_order_remains_visible_without_global_platform_block` at line 60: Explanation needed.
+- `test_remote_demo_activation_projection_requires_verified_transport_and_no_unresolved_claims` at line 78: Explanation needed.
+
+### tests/test_live_launcher_policy.py
+
+Module purpose needs a human explanation.
+
+- `test_live_launcher_refuses_engine_control_before_any_side_effect` at line 4: Explanation needed.
+- `test_live_shortcut_never_requests_engine_control` at line 12: Explanation needed.
+
 ### tests/test_llm_tool_loop.py
 
 Tests for modules/llm_tool_loop.py — governed Core tool execution loop.
@@ -19074,17 +21291,231 @@ Tests for modules/llm_tool_loop.py — governed Core tool execution loop.
 - `FakeLocal.is_available` at line 240: Explanation needed.
 - Review: duplicate-definition at line 259.
 
+### tests/test_local_large_inference.py
+
+Exact model routing for the desktop UI without disturbing default 3B.
+
+- `test_large_coder_uses_isolated_cloud_and_other_models_keep_existing` at line 6: Explanation needed.
+- `test_desktop_14b_advertised_only_if_real_cloud_lists_exact_model` at line 20: Explanation needed.
+- `test_unavailable_cloud_does_not_invent_14b` at line 30: Explanation needed.
+- `FakeBrain.__init__` at line 8: Explanation needed.
+- `FakeBrain.__init__` at line 22: Explanation needed.
+- `FakeBrain.list_models` at line 24: Explanation needed.
+- `FakeBrain.__init__` at line 32: Explanation needed.
+- `FakeBrain.list_models` at line 33: Explanation needed.
+- Review: empty-body at line 32.
+
+### tests/test_market_cognition_audit.py
+
+Module purpose needs a human explanation.
+
+- `ledger` at line 7: Explanation needed.
+- `assessment` at line 18: Explanation needed.
+- `event` at line 27: Explanation needed.
+- `order` at line 32: Explanation needed.
+- `test_reconstructs_trace_without_claiming_it_was_live_integrated` at line 40: Explanation needed.
+- `test_missing_broker_outcome_proof_is_excluded` at line 63: Explanation needed.
+- `test_scanned_window_is_bounded_and_no_writes_occur` at line 75: Explanation needed.
+- `test_rejects_unbounded_inspection` at line 89: Explanation needed.
+
+### tests/test_market_counterfactual_lab.py
+
+Module purpose needs a human explanation.
+
+- `quotes` at line 13: Explanation needed.
+- `compare` at line 18: Explanation needed.
+- `test_all_actual_candidate_votes_are_included` at line 26: Explanation needed.
+- `test_spread_is_paid_on_each_assumed_bid_ask_path` at line 39: Explanation needed.
+- `test_unknown_costs_do_not_become_fake_net_profit` at line 51: Explanation needed.
+- `test_missing_horizon_and_missing_middle_quote_abstain` at line 61: Explanation needed.
+- `test_sampled_stop_gap_fills_at_available_quote_not_imaginary_stop` at line 70: Explanation needed.
+- `test_sampled_target_touch` at line 79: Explanation needed.
+- `test_no_future_data_can_be_used_in_horizon` at line 87: Explanation needed.
+- `test_quote_integrity_and_cost_validation` at line 93: Explanation needed.
+- `test_replay_is_deterministic` at line 106: Explanation needed.
+- `test_wait_votes_are_not_forced_into_trades` at line 111: Explanation needed.
+- `test_absent_entry_sample_is_not_modelled_as_fill` at line 119: Explanation needed.
+
+### tests/test_market_decision_trace.py
+
+Module purpose needs a human explanation.
+
+- `assessment` at line 6: Explanation needed.
+- `test_decision_trace_deterministic_and_account_bound` at line 21: Explanation needed.
+- `test_outcome_links_broker_return_not_fabricated_alternatives` at line 38: Explanation needed.
+- `test_old_orders_have_explicit_legacy_attribution` at line 53: Explanation needed.
+- `test_regime_evidence_becomes_part_of_versioned_decision_trace` at line 61: Explanation needed.
+- `test_trace_refuses_unattributed_decision` at line 75: Explanation needed.
+
+### tests/test_market_events.py
+
+Module purpose needs a human explanation.
+
+- `feed` at line 4: Explanation needed.
+- `test_published_and_available_are_distinct_no_hindsight` at line 7: Explanation needed.
+- `test_foreign_links_future_dates_and_entities_rejected` at line 18: Explanation needed.
+- `test_refresh_failure_is_visible_and_throttled` at line 24: Explanation needed.
+
+### tests/test_market_evidence.py
+
+Module purpose needs a human explanation.
+
+- `bars` at line 9: Explanation needed.
+- `evidence` at line 12: Explanation needed.
+- `test_forming_future_candles_never_affect_snapshot` at line 15: Explanation needed.
+- `test_engulfing_rules_and_source_contract` at line 21: Explanation needed.
+- `test_invalid_closed_candle_rejected` at line 29: Explanation needed.
+- `test_indicator_determinism_and_swings_available_only_after_right_bars` at line 33: Explanation needed.
+- `test_shared_evidence_does_not_change_votes` at line 40: Explanation needed.
+- `test_inventory_never_executes_or_claims_compiled_source` at line 50: Explanation needed.
+- `test_desktop_binding_rejects_account_change_before_data` at line 59: Explanation needed.
+- `test_desktop_cache_revalidates_binding_without_vps` at line 66: Explanation needed.
+- `test_remote_profile_blocks_mutations_but_not_explicit_desktop_analysis` at line 79: Explanation needed.
+
+### tests/test_market_memory_quality_governance_r12.py
+
+Regression: decision quality is not temporal coherence.
+
+- `_capture` at line 6: Explanation needed.
+- `test_low_dqi_does_not_block_memory_recall` at line 24: Explanation needed.
+- `test_explicit_temporal_incoherence_remains_governed` at line 31: Explanation needed.
+- `test_fallback_is_minimal_admissibility_floor` at line 36: Explanation needed.
+- `Cluster.write_memory` at line 10: Explanation needed.
+
+### tests/test_market_pipeline_readiness.py
+
+Acceptance CLI contracts: real rules, fixtures for unavailable external services.
+
+- `fixture_desk` at line 16: Explanation needed.
+- `analyzed` at line 28: Explanation needed.
+- `test_real_rules_and_core_readiness_never_arm_execution` at line 33: Explanation needed.
+- `test_unknown_or_live_mode_stops_before_market_or_core` at line 45: Explanation needed.
+- `test_partial_acceptance_is_explicit` at line 54: Explanation needed.
+- `test_feed_unavailable_is_classified_without_credentials` at line 69: Explanation needed.
+
+### tests/test_market_prediction.py
+
+Module purpose needs a human explanation.
+
+- `observation` at line 11: Explanation needed.
+- `test_forecast_identity_horizons_no_fabricated_probability` at line 19: Explanation needed.
+- `test_data_quality_blocks_prediction` at line 28: Explanation needed.
+- `test_future_and_expired_anchor_rejected` at line 32: Explanation needed.
+- `test_canonical_restart_outcome_idempotence_and_unknown_costs` at line 38: Explanation needed.
+- `test_missing_target_history_not_invented` at line 52: Explanation needed.
+- `test_metrics_sample_intervals_and_probability_validation` at line 58: Explanation needed.
+- `test_walk_forward_purge_reproducible_future_mutation` at line 67: Explanation needed.
+- `test_replay_rejects_gaps` at line 78: Explanation needed.
+- `test_lifecycle_records_owner_without_sensitive_fields` at line 82: Explanation needed.
+- `test_real_child_exit_diagnostics` at line 90: Explanation needed.
+- `test_attached_child_wait_observes_core_shutdown_without_child_exit` at line 100: Explanation needed.
+
+### tests/test_market_regime_evidence.py
+
+Module purpose needs a human explanation.
+
+- `bars` at line 6: Explanation needed.
+- `view` at line 16: Explanation needed.
+- `test_constant_prices_has_finite_indicators_and_no_fake_probabilities` at line 23: Explanation needed.
+- `test_trend_or_breakout_is_hypothesis_not_buy_signal` at line 37: Explanation needed.
+- `test_completed_timeframe_lookahead_rejected` at line 45: Explanation needed.
+- `test_multi_timeframe_is_separately_validated` at line 58: Explanation needed.
+- `test_gap_detection_and_bad_ohlc` at line 69: Explanation needed.
+- `test_stale_quote_is_not_a_fresh_spread_measurement` at line 79: Explanation needed.
+- `test_wide_spread_classifies_unstable` at line 89: Explanation needed.
+- `test_regime_transition_is_evidence_only` at line 99: Explanation needed.
+- `test_missing_history_is_uncertain` at line 106: Explanation needed.
+- `test_known_constant_rsi_and_no_adx_direction` at line 113: Explanation needed.
+- `test_invalid_numeric_and_future_quotes_are_not_silently_used` at line 122: Explanation needed.
+- `test_explicit_unfresh_quote_cannot_be_labelled_current_trend` at line 135: Explanation needed.
+- `test_stale_completed_bar_forces_uncertain_current_market` at line 147: Explanation needed.
+- `test_same_input_produces_identical_record` at line 157: Explanation needed.
+
+### tests/test_market_restoration_v17.py
+
+Module purpose needs a human explanation.
+
+- `feed` at line 9: Explanation needed.
+- `test_stopped_engine_uses_existing_provider_without_mutation` at line 17: Explanation needed.
+- `test_invalid_public_feed_abstains` at line 33: Explanation needed.
+- `test_stale_public_feed_and_instrument_mismatch` at line 38: Explanation needed.
+- `authority` at line 45: Explanation needed.
+- `test_partition_restart_projection_isolation_and_revocation` at line 53: Explanation needed.
+- `test_custom_authorizer_never_inherits_parent` at line 75: Explanation needed.
+- `test_concurrent_cold_core_requests_share_one_instance` at line 81: Explanation needed.
+- `Grants.check` at line 48: Explanation needed.
+
+### tests/test_market_thesis.py
+
+Market thesis is traceable analysis, never a new execution decision.
+
+- `test_directional_hypothesis_retains_support_and_provenance` at line 5: Explanation needed.
+- `test_opposing_votes_remain_unresolved_and_evidence_is_stable` at line 21: Explanation needed.
+- `test_failure_is_not_recast_as_high_confidence` at line 35: Explanation needed.
+- `test_freqtrade_without_higher_timeframe_context_has_thesis` at line 44: Explanation needed.
+- `test_same_bar_revised_strategy_measurement_has_distinct_evidence_id` at line 64: Explanation needed.
+- `test_same_measurements_and_scope_keep_stable_identity` at line 80: Explanation needed.
+
 ### tests/test_memory_desk.py
 
 Module purpose needs a human explanation.
 
 - `desk` at line 11: Explanation needed.
 - `test_local_control_rejects_cross_site_and_wrong_host` at line 21: Explanation needed.
-- `test_browse_review_and_rejection_are_real_scoped_operations` at line 30: Explanation needed.
-- `test_document_upload_queues_actual_text_without_model_calls` at line 43: Explanation needed.
-- `test_backup_and_html_have_no_configuration_key` at line 53: Explanation needed.
-- `test_freqtrade_cannot_be_started_live` at line 61: Explanation needed.
-- `test_freqtrade_live_environment_override_is_refused` at line 76: Explanation needed.
+- `test_tutor_capability_is_scoped_and_never_verifies` at line 30: Explanation needed.
+- `test_browse_review_and_rejection_are_real_scoped_operations` at line 54: Explanation needed.
+- `test_document_upload_queues_actual_text_without_model_calls` at line 67: Explanation needed.
+- `test_backup_and_html_have_no_configuration_key` at line 77: Explanation needed.
+- `test_freqtrade_cannot_be_started_live` at line 85: Explanation needed.
+- `test_freqtrade_live_environment_override_is_refused` at line 100: Explanation needed.
+
+### tests/test_memory_embedding_batches.py
+
+Bounded pinned embeddings preserve public identities and fail atomically.
+
+- `Array` at line 9: Explanation needed.
+- `Model` at line 13: Explanation needed.
+- `test_pinned_prefix_bounds_scalar_equivalence_and_serialization` at line 22: Explanation needed.
+- `test_adapter_rejects_unbounded_inputs` at line 37: Explanation needed.
+- `test_scalar_fallback_and_batch_ids_dedup_are_identical` at line 43: Explanation needed.
+- `test_partial_embedding_failure_never_publishes` at line 59: Explanation needed.
+- `test_cancelled_batch_retains_outbox_then_restart_projects` at line 73: Explanation needed.
+- `test_incomplete_qdrant_readback_never_acknowledges_batch` at line 90: Explanation needed.
+- `test_denied_scope_does_not_invoke_batch` at line 103: Explanation needed.
+- `test_bounded_cache_is_permission_scope_and_revision_separated` at line 110: Explanation needed.
+- `test_cache_disabled_preserves_scalar_baseline` at line 127: Explanation needed.
+- `test_explicitly_unsupported_batch_api_uses_original_scalar` at line 137: Explanation needed.
+- `test_wal_full_sync_preserves_outbox_and_single_task_owner` at line 145: Explanation needed.
+- `test_small_event_group_batches_embedding_and_keeps_source_ids` at line 169: Explanation needed.
+- `test_partial_group_failure_acks_only_verified_event_then_restarts` at line 182: Explanation needed.
+- `test_prefetch_rejects_scope_mix_without_embedding` at line 205: Explanation needed.
+- `test_large_event_stays_alone_and_lease_replacement_is_not_overwritten` at line 214: Explanation needed.
+- `test_chunk_aware_fairness_serves_all_oldest_scopes_without_drops` at line 230: Explanation needed.
+- `test_idle_wal_handle_retains_log_without_transaction_or_durability_change` at line 245: Explanation needed.
+- `test_group_publication_matches_original_identities_and_bounds` at line 265: Explanation needed.
+- `test_group_cancel_before_activation_keeps_every_event_unacknowledged` at line 279: Explanation needed.
+- `test_transaction_local_lexical_lookup_preserves_duplicates_and_reinsertion` at line 295: Explanation needed.
+- `Array.__init__` at line 10: Explanation needed.
+- `Array.tolist` at line 11: Explanation needed.
+- `Model.__init__` at line 14: Explanation needed.
+- `Model.encode` at line 15: Explanation needed.
+- `Batch.__init__` at line 48: Explanation needed.
+- `Batch.embed_many` at line 49: Explanation needed.
+- `Bad.embed_many` at line 61: Explanation needed.
+- `Batch.embed_many` at line 76: Explanation needed.
+- `B.embed_many` at line 105: Explanation needed.
+- `B.__init__` at line 113: Explanation needed.
+- `B.embed_many` at line 114: Explanation needed.
+- `B.__init__` at line 130: Explanation needed.
+- `B.embed_many` at line 131: Explanation needed.
+- `Legacy.embed_many` at line 139: Explanation needed.
+- `B.__init__` at line 171: Explanation needed.
+- `B.embed_many` at line 172: Explanation needed.
+- `B.__init__` at line 184: Explanation needed.
+- `B.embed_many` at line 185: Explanation needed.
+- `B.request` at line 186: Explanation needed.
+- `B.embed_many` at line 207: Explanation needed.
+- `B.request` at line 282: Explanation needed.
 
 ### tests/test_memory_framework_runtime.py
 
@@ -19192,6 +21623,68 @@ Compatibility facades must not overwrite the canonical knowledge snapshot.
 - `test_unified_semantic_memory_reaches_canonical_storage` at line 75: Explanation needed.
 - `test_changed_canonical_path_cannot_trigger_a_stale_facade_write` at line 87: Explanation needed.
 
+### tests/test_memory_projection_budget_r12.py
+
+Bounded memory projection cycle: no SQLite, embeddings, broker or Qdrant.
+
+- `test_memory_projection_cycle_respects_budgets` at line 9: Explanation needed.
+- `test_general_budget_invalid_or_unbounded` at line 44: Explanation needed.
+
+### tests/test_memory_worker_recovery.py
+
+Existing worker recovery/fairness; fake Qdrant only, real SQLite/ingress.
+
+- `runtime` at line 9: Explanation needed.
+- `test_phase_fault_does_not_starve_market_or_leak_message` at line 14: Explanation needed.
+- `test_legacy_sync_failure_recovers_without_blocking_projection` at line 39: Explanation needed.
+- `test_market_failure_does_not_disable_general_memory` at line 53: Explanation needed.
+- `test_cancellation_stops_followup_phases` at line 62: Explanation needed.
+- `test_atomic_start_does_not_create_duplicate_workers` at line 70: Explanation needed.
+- `test_real_market_episode_served_before_general_tail` at line 81: Explanation needed.
+- `test_unchanged_snapshot_performs_no_writes_and_rechecks_permission` at line 103: Explanation needed.
+
+### tests/test_mobile_runtime_service.py
+
+Mobile gateway contract tests: no live broker, no network, no Core writes.
+
+- `safe_portal` at line 12: Explanation needed.
+- `scope` at line 20: Explanation needed.
+- `test_mobile_gateway_health_local` at line 25: Explanation needed.
+- `test_market_view_requires_auth` at line 31: Explanation needed.
+- `test_viewer_cannot_review_or_activate` at line 35: Explanation needed.
+- `test_invalid_scope_rejected_before_core` at line 46: Explanation needed.
+- `test_review_propose_activate_stop_round_trip_uses_fixed_paths` at line 57: Explanation needed.
+- `test_session_response_never_leaks_operator_nonce` at line 85: Explanation needed.
+
+### tests/test_mt5_active_exit_advisory.py
+
+Read-only active exit advisory boundary tests, no real MT5 calls.
+
+- `BrokerDouble` at line 9: Explanation needed.
+- `test_live_account_remains_observation_only` at line 32: Explanation needed.
+- `test_no_core_context_does_not_guess_entry` at line 40: Explanation needed.
+- `test_core_context_requires_exact_ticket_and_unique_record` at line 50: Explanation needed.
+- `test_saved_snapshot_requires_unique_broker_ticket_and_never_calls_http` at line 68: Explanation needed.
+- `BrokerDouble.__init__` at line 12: Explanation needed.
+- `BrokerDouble.initialize` at line 16: Explanation needed.
+- `BrokerDouble.account_info` at line 18: Explanation needed.
+- `BrokerDouble.terminal_info` at line 20: Explanation needed.
+- `BrokerDouble.positions_get` at line 22: Explanation needed.
+- `BrokerDouble.shutdown` at line 25: Explanation needed.
+- `BrokerDouble.order_send` at line 27: Explanation needed.
+
+### tests/test_mt5_adoption_lease.py
+
+Offline adoption lease tests. Never imports a broker transport.
+
+- `evidence` at line 8: Explanation needed.
+- `test_matched_evidence_still_needs_explicit_original_owner_release` at line 20: Explanation needed.
+- `test_review_never_mints_execution_permission_even_after_release` at line 28: Explanation needed.
+- `test_incomplete_evidence_cannot_pass` at line 46: Explanation needed.
+- `test_unclaimed_then_single_holder_and_exact_release` at line 52: Explanation needed.
+- `test_concurrent_simulated_workers_cannot_both_acquire` at line 67: Explanation needed.
+- `test_invalid_lease_time_rejected` at line 79: Explanation needed.
+
 ### tests/test_mt5_bridge.py
 
 Module purpose needs a human explanation.
@@ -19206,119 +21699,268 @@ Module purpose needs a human explanation.
 - `test_disconnected_terminal_does_not_report_ready` at line 82: Explanation needed.
 - `test_mt5_routes_enforce_origin_and_session_token` at line 87: Explanation needed.
 
+### tests/test_mt5_handover_observer.py
+
+No-order regression suite for account-scoped MT5 handover observer.
+
+- `FakeBroker` at line 10: Explanation needed.
+- `core` at line 56: Explanation needed.
+- `fake_binding` at line 72: Explanation needed.
+- `test_exact_account_and_historical_receipt_enables_observation_not_execution` at line 79: Explanation needed.
+- `test_mismatched_account_never_adopted` at line 90: Explanation needed.
+- `test_duplicate_receipts_cannot_mint_claim` at line 96: Explanation needed.
+- `test_native_history_unavailable_cannot_be_claimed` at line 102: Explanation needed.
+- `test_account_switch_detected_after_readback` at line 108: Explanation needed.
+- `test_pending_order_blocks_handover` at line 114: Explanation needed.
+- `test_nonmatching_ticket_blocks_handover` at line 119: Explanation needed.
+- `test_unrelated_unknown_account_does_not_block_scoped_observation` at line 124: Explanation needed.
+- `test_missing_broker_position_blocks_open_core_claim` at line 130: Explanation needed.
+- `test_output_path_cannot_escape_isolated_r13_root` at line 135: Explanation needed.
+- `test_core_url_does_not_accept_remote_host` at line 140: Explanation needed.
+- `test_matching_ticket_but_wrong_original_core_token_blocks_observation` at line 145: Explanation needed.
+- `test_matching_ticket_but_wrong_native_magic_blocks_observation` at line 153: Explanation needed.
+- `test_matching_ticket_but_wrong_native_volume_blocks_observation` at line 163: Explanation needed.
+- `test_broker_order_history_mismatch_blocks_observation` at line 173: Explanation needed.
+- `FakeBroker.__init__` at line 14: Explanation needed.
+- `FakeBroker.initialize` at line 20: Explanation needed.
+- `FakeBroker.account_info` at line 23: Explanation needed.
+- `FakeBroker.terminal_info` at line 28: Explanation needed.
+- `FakeBroker.positions_get` at line 31: Explanation needed.
+- `FakeBroker.orders_get` at line 35: Explanation needed.
+- `FakeBroker.history_deals_get` at line 38: Explanation needed.
+- `FakeBroker.history_orders_get` at line 43: Explanation needed.
+- `FakeBroker.shutdown` at line 48: Explanation needed.
+- `FakeBroker.order_send` at line 51: Explanation needed.
+- `WrongMagic.history_deals_get` at line 155: Explanation needed.
+- `WrongVolume.history_deals_get` at line 165: Explanation needed.
+- `WrongOrder.history_orders_get` at line 175: Explanation needed.
+
 ### tests/test_mt5_orders.py
 
 Module purpose needs a human explanation.
 
 - `orders` at line 10: Explanation needed.
-- `intent` at line 21: Explanation needed.
-- `test_send_once_and_durable_replay` at line 26: Explanation needed.
-- `test_funded_or_contest_never_sends` at line 38: Explanation needed.
-- `test_account_switch_rejects` at line 45: Explanation needed.
-- `test_unknown_delivery_blocks_all_other_tickets` at line 52: Explanation needed.
-- `test_expiry_and_excess_risk_never_send` at line 63: Explanation needed.
-- `test_cannot_close_other_positions` at line 72: Explanation needed.
-- `test_broker_check_rejection_never_sends` at line 83: Explanation needed.
+- `intent` at line 23: Explanation needed.
+- `test_send_once_and_durable_replay` at line 28: Explanation needed.
+- `test_automatic_budget_rechecked_at_delivery` at line 39: Explanation needed.
+- `test_funded_or_contest_never_sends` at line 48: Explanation needed.
+- `test_account_switch_rejects` at line 55: Explanation needed.
+- `test_unknown_delivery_blocks_all_other_tickets` at line 62: Explanation needed.
+- `test_expiry_and_excess_risk_never_send` at line 73: Explanation needed.
+- `test_cannot_close_other_positions` at line 82: Explanation needed.
+- `test_broker_check_rejection_never_sends` at line 93: Explanation needed.
+- `test_other_niblit_symbol_does_not_impersonate_eth_entry` at line 99: Explanation needed.
+- `test_same_symbol_exposure_is_not_reused` at line 115: Explanation needed.
+- `test_demo_symbol_scope_rejects_btc` at line 130: Explanation needed.
+- `test_competing_core_refuses_delivery_without_consuming_ticket` at line 137: Explanation needed.
+- `test_competing_core_reappears_after_preview_guard` at line 152: Explanation needed.
+- `test_competing_core_image_blocks_even_before_listener` at line 174: Explanation needed.
+- `test_timewait_socket_without_listener_does_not_block_demo` at line 187: Explanation needed.
+- `test_competing_port_bad_value_rejected` at line 199: Explanation needed.
+
+### tests/test_mt5_readonly_reconciliation.py
+
+Tests for read-only terminal reconciliation; no broker SDK or order transport.
+
+- `FakeMT5` at line 9: Explanation needed.
+- `position` at line 39: Explanation needed.
+- `test_live_account_remains_readonly` at line 43: Explanation needed.
+- `test_demo_position_without_ledger_does_not_claim_ownership` at line 52: Explanation needed.
+- `test_unavailable_terminal_is_not_ready` at line 57: Explanation needed.
+- `test_ledger_is_opened_readonly_and_matches_exact_ticket` at line 63: Explanation needed.
+- `test_missing_ledger_never_created` at line 77: Explanation needed.
+- `test_core_evidence_is_localhost_only` at line 84: Explanation needed.
+- `test_core_open_and_unknown_records_readonly` at line 94: Explanation needed.
+- `FakeMT5.__init__` at line 13: Explanation needed.
+- `FakeMT5.initialize` at line 20: Explanation needed.
+- `FakeMT5.account_info` at line 23: Explanation needed.
+- `FakeMT5.terminal_info` at line 26: Explanation needed.
+- `FakeMT5.positions_get` at line 29: Explanation needed.
+- `FakeMT5.orders_get` at line 32: Explanation needed.
+- `FakeMT5.shutdown` at line 35: Explanation needed.
+
+### tests/test_native_cognition_foundation.py
+
+Module purpose needs a human explanation.
+
+- `FakeRuntime` at line 14: Explanation needed.
+- `NativeCognitionFoundationTests` at line 22: Explanation needed.
+- `FakeRuntime.__init__` at line 15: Explanation needed.
+- `FakeRuntime.enqueue` at line 17: Explanation needed.
+- `NativeCognitionFoundationTests.test_unicode_alphabet_and_grapheme_offsets` at line 23: Explanation needed.
+- `NativeCognitionFoundationTests.test_number_literals_and_word_numbers` at line 33: Explanation needed.
+- `NativeCognitionFoundationTests.test_safe_arithmetic_and_precedence` at line 43: Explanation needed.
+- `NativeCognitionFoundationTests.test_language_signals_preserve_negation_and_modality` at line 53: Explanation needed.
+- `NativeCognitionFoundationTests.test_source_chunks_keep_exact_offsets` at line 65: Explanation needed.
+- `NativeCognitionFoundationTests.test_persist_analysis_uses_existing_runtime_outbox` at line 74: Explanation needed.
+- `NativeCognitionFoundationTests.test_seed_pack_is_versioned_and_dry_run_is_read_only` at line 85: Explanation needed.
+- `NativeCognitionFoundationTests.test_spaced_retrieval_tracks_skill_not_fact_truth` at line 96: Explanation needed.
+
+### tests/test_native_cognition_research_integration.py
+
+Module purpose needs a human explanation.
+
+- `FakeSearch` at line 9: Explanation needed.
+- `FakeLoop` at line 19: Explanation needed.
+- `NativeCognitionResearchIntegrationTests` at line 35: Explanation needed.
+- `FakeSearch.search` at line 10: Explanation needed.
+- `FakeLoop.__init__` at line 20: Explanation needed.
+- `FakeLoop.chat` at line 22: Explanation needed.
+- `NativeCognitionResearchIntegrationTests.test_external_research_is_structured_before_llm_audit` at line 36: Explanation needed.
+
+### tests/test_native_evidence_learning.py
+
+Module purpose needs a human explanation.
+
+- `isolated_research` at line 8: Explanation needed.
+- `test_native_cycle_records_only_unverified_evidence` at line 12: Explanation needed.
+- `test_missing_evidence_does_not_invent_an_answer` at line 24: Explanation needed.
+- `test_stop_after_inference_prevents_new_memory_work` at line 32: Explanation needed.
+- `test_nonlocal_transport_cannot_trigger_paid_fallback` at line 42: Explanation needed.
+- `test_credential_patterns_are_redacted_before_model_and_durable_observation` at line 49: Explanation needed.
+
+### tests/test_native_inference_contract.py
+
+Module purpose needs a human explanation.
+
+- `test_native_router_delegates_to_existing_gguf_transport` at line 7: Explanation needed.
+- `test_unknown_transport_or_paid_model_cannot_fall_back` at line 18: Explanation needed.
+- `test_missing_cloud_is_an_error_not_a_fake_answer` at line 27: Explanation needed.
+
+### tests/test_native_runtime_readiness.py
+
+Module purpose needs a human explanation.
+
+- `profile` at line 5: Explanation needed.
+- `test_readiness_never_generates_or_acquires` at line 17: Explanation needed.
+- `test_invalid_profile_does_not_contact_services` at line 29: Explanation needed.
+- `test_busy_or_quarantined_is_not_ready` at line 37: Explanation needed.
+- `test_auth_failure_hides_response_and_secrets` at line 44: Explanation needed.
+
+### tests/test_niblit_conversation.py
+
+Contract tests isolate the existing API functions without booting a second Core.
+
+- `functions` at line 12: Explanation needed.
+- `test_selector_routes_niblit_to_core_orchestration` at line 22: Explanation needed.
+- `test_registered_commands_keep_existing_governance` at line 30: Explanation needed.
+- `test_niblit_uses_local_authority_and_actual_read_only_context` at line 41: Explanation needed.
+- `test_ui_keeps_direct_mode_and_existing_models` at line 53: Explanation needed.
+- `model_scope` at line 61: Explanation needed.
+- `test_niblit_busy_reports_admission_without_cloud_fallback` at line 71: Explanation needed.
+- `test_greeting_skips_irrelevant_memory` at line 80: Explanation needed.
+- `test_unsupported_authorization_is_flagged_and_corrected` at line 88: Explanation needed.
 
 ### tests/test_niblit_ui_launcher.py
 
 Tests for modules/niblit_ui_launcher.py — the desktop UI launch contract.
 
-- `test_frozen_cloud_autostart_uses_service_executable` at line 40: Explanation needed.
-- `test_autostart_log_volume_cannot_block_child` at line 64: Explanation needed.
-- `test_frozen_launcher_requires_and_starts_bundled_ui` at line 87: A release uses its co-located UI and never falls back to npm/source.
-- `_FakeManager` at line 117: Minimal stand-in for LeanAlgoManager / TradingRuntimeManager.
-- `_LegacyManager` at line 133: Manager that only exposes the legacy *Name properties.
-- `TestResultContract` at line 145: Section 12 — Result Contract: every path returns UiLaunchResult.
-- `TestCoerce` at line 204: Section 12 — _coerce_ui_launch_result compatibility helper.
-- `TestInspectTradingRuntime` at line 257: Section 13 — _inspect_trading_runtime reads real attrs / env.
-- `_make_lean_manager` at line 325: Create a stub that replicates LeanAlgoManager's inspection properties.
-- `TestLeanAlgoManagerProperties` at line 377: Section 13 — LeanAlgoManager exposes stable inspection properties.
-- `_mock_http_response` at line 421: Build a mock context-manager returned by urllib.request.urlopen.
-- `TestWaitForHttpReady` at line 430: Section 14 — _wait_for_http_ready success / timeout / transient.
-- `TestPortResolution` at line 484: Section 14 — port resolution defaults to 5000 (not 8080).
-- `TestLaunchPrimaryUi` at line 521: Section 14 — API startup: already ready vs. needs start vs. failure.
-- `TestUiLaunchResultLifecycle` at line 690: Explanation needed.
-- `TestRuntimeState` at line 772: Explanation needed.
-- `_FakeManager.__init__` at line 120: Explanation needed.
-- `_LegacyManager.__init__` at line 136: Explanation needed.
-- `TestResultContract.test_success_returns_result_not_dict` at line 148: Explanation needed.
-- `TestResultContract.test_api_failure_returns_result_not_dict` at line 155: Explanation needed.
-- `TestResultContract.test_trading_required_failure_returns_result` at line 162: Explanation needed.
-- `TestResultContract.test_result_has_success_attribute` at line 170: Explanation needed.
-- `TestResultContract.test_result_has_message_attribute` at line 177: Explanation needed.
-- `TestResultContract.test_result_has_wait_method` at line 184: Explanation needed.
-- `TestResultContract.test_result_has_terminate_method` at line 188: Explanation needed.
-- `TestResultContract.test_result_has_mode_attribute` at line 192: Explanation needed.
-- `TestCoerce.test_passthrough_result` at line 207: Explanation needed.
-- `TestCoerce.test_dict_ok_status` at line 212: Explanation needed.
-- `TestCoerce.test_dict_error_status` at line 219: Explanation needed.
-- `TestCoerce.test_dict_empty` at line 225: Empty dict → success=False (status '' != 'ok').
-- `TestCoerce.test_none_raises` at line 231: Explanation needed.
-- `TestCoerce.test_int_raises` at line 235: Explanation needed.
-- `TestCoerce.test_dict_preserves_readiness` at line 239: Explanation needed.
-- `TestCoerce.test_dict_errors_joined_in_message` at line 245: Explanation needed.
-- `TestInspectTradingRuntime.test_none_manager` at line 260: Explanation needed.
-- `TestInspectTradingRuntime.test_full_manager` at line 268: Explanation needed.
-- `TestInspectTradingRuntime.test_legacy_name_attributes` at line 277: Manager exposes selected_backend_name / state_name instead of backend/state.
-- `TestInspectTradingRuntime.test_manager_without_any_trading_attrs` at line 285: A bare Mock (no trading attrs) → truthful unknowns, no fabrication.
-- `TestInspectTradingRuntime.test_freqtrade_backend_via_env` at line 300: Explanation needed.
-- `TestInspectTradingRuntime.test_paper_backend_via_env` at line 306: Explanation needed.
-- `TestInspectTradingRuntime.test_trading_mode_via_env` at line 312: Explanation needed.
-- `TestInspectTradingRuntime.test_execution_enabled_via_env` at line 318: Explanation needed.
-- `TestLeanAlgoManagerProperties.test_backend_default` at line 380: Explanation needed.
-- `TestLeanAlgoManagerProperties.test_backend_env_override` at line 385: Explanation needed.
-- `TestLeanAlgoManagerProperties.test_state_ready` at line 390: Explanation needed.
-- `TestLeanAlgoManagerProperties.test_state_running` at line 395: Explanation needed.
-- `TestLeanAlgoManagerProperties.test_trading_mode_default` at line 401: Explanation needed.
-- `TestLeanAlgoManagerProperties.test_execution_disabled_default` at line 406: Explanation needed.
-- `TestLeanAlgoManagerProperties.test_execution_enabled` at line 411: Explanation needed.
-- `TestWaitForHttpReady.test_success` at line 434: Explanation needed.
-- `TestWaitForHttpReady.test_timeout` at line 441: Explanation needed.
-- `TestWaitForHttpReady.test_transient_then_success` at line 450: Explanation needed.
-- `TestWaitForHttpReady.test_malformed_json_does_not_crash` at line 463: A non-200 response must not raise; it should be treated as not ready.
-- `TestWaitForHttpReady.test_http_200_returns_true` at line 473: Explanation needed.
-- `TestPortResolution.test_default_api_port` at line 487: Explanation needed.
-- `TestPortResolution.test_env_api_port` at line 491: Explanation needed.
-- `TestPortResolution.test_invalid_api_port` at line 495: Explanation needed.
-- `TestPortResolution.test_zero_api_port` at line 499: Explanation needed.
-- `TestPortResolution.test_negative_api_port` at line 503: Explanation needed.
-- `TestPortResolution.test_default_cloud_url` at line 507: Explanation needed.
-- `TestPortResolution.test_env_cloud_url` at line 512: Explanation needed.
-- `TestLaunchPrimaryUi.isolate_ui_repository` at line 525: Explanation needed.
-- `TestLaunchPrimaryUi.test_api_already_ready_no_start` at line 529: API already serving → success, _start_api_server_thread NOT called.
-- `TestLaunchPrimaryUi.test_api_starts_when_not_running` at line 541: API not running → launcher starts it → success.
-- `TestLaunchPrimaryUi.test_api_failure_degraded` at line 560: API not ready and can't start → success=False, mode=degraded.
-- `TestLaunchPrimaryUi.test_trading_missing_nonblocking` at line 570: No trading manager but API ready → success=True, mode=degraded.
-- `TestLaunchPrimaryUi.test_trading_found_ok` at line 580: Trading manager present + API ready → mode=active.
-- `TestLaunchPrimaryUi.test_trading_required_blocks` at line 593: NIBLIT_TRADING_REQUIRED=true + no manager → success=False.
-- `TestLaunchPrimaryUi.test_trading_required_ok` at line 603: NIBLIT_TRADING_REQUIRED=true + manager ready → success=True.
-- `TestLaunchPrimaryUi.test_api_url_uses_port_5000` at line 616: The API health URL must use port 5000, not 8080.
-- `TestLaunchPrimaryUi.test_no_dict_return_contract` at line 629: Explicitly verify no code path returns a dict (the original bug).
-- `TestLaunchPrimaryUi.test_message_accessible` at line 636: The original crash was 'dict has no attribute message'.
-- `TestLaunchPrimaryUi.test_detached_launch_tracks_core_shutdown_event` at line 644: Explanation needed.
-- `TestLaunchPrimaryUi.test_wait_returns_zero_without_process` at line 656: Explanation needed.
-- `TestLaunchPrimaryUi.test_terminate_idempotent` at line 667: Explanation needed.
-- `TestLaunchPrimaryUi.test_cloud_url_uses_port_8000` at line 674: Cloud check must NOT use 5000 or 8080.
-- `TestUiLaunchResultLifecycle.test_detached_wait_uses_core_shutdown_event` at line 691: Explanation needed.
-- `TestUiLaunchResultLifecycle.test_detached_wait_can_be_terminated` at line 707: Explanation needed.
-- `TestUiLaunchResultLifecycle.test_wait_no_process` at line 718: Explanation needed.
-- `TestUiLaunchResultLifecycle.test_terminate_idempotent` at line 726: Explanation needed.
-- `TestUiLaunchResultLifecycle.test_terminate_with_mock_process` at line 731: Explanation needed.
-- `TestUiLaunchResultLifecycle.test_terminate_with_owned_server` at line 738: Explanation needed.
-- `TestUiLaunchResultLifecycle.test_is_trading_enabled` at line 748: Explanation needed.
-- `TestUiLaunchResultLifecycle.test_default_values` at line 754: Explanation needed.
-- `TestUiLaunchResultLifecycle.test_repr_excludes_private_fields` at line 761: Explanation needed.
-- `TestRuntimeState.test_singleton` at line 773: Explanation needed.
-- `TestRuntimeState.test_reset` at line 779: Explanation needed.
-- `TestRuntimeState.test_all_fields_false_initially` at line 787: Explanation needed.
-- `_Stub.__init__` at line 338: Explanation needed.
-- `_Stub.backend` at line 343: Explanation needed.
-- `_Stub.state` at line 347: Explanation needed.
-- `_Stub.state_name` at line 355: Explanation needed.
-- `_Stub.selected_backend_name` at line 359: Explanation needed.
-- `_Stub.trading_mode` at line 363: Explanation needed.
-- `_Stub.execution_enabled` at line 367: Explanation needed.
+- `owned_api_for_mocked_http_tests` at line 41: Explanation needed.
+- `test_frozen_cloud_autostart_uses_service_executable` at line 50: Explanation needed.
+- `test_autostart_log_volume_cannot_block_child` at line 74: Explanation needed.
+- `test_frozen_launcher_requires_and_starts_bundled_ui` at line 97: A release uses its co-located UI and never falls back to npm/source.
+- `_FakeManager` at line 132: Minimal stand-in for LeanAlgoManager / TradingRuntimeManager.
+- `_LegacyManager` at line 148: Manager that only exposes the legacy *Name properties.
+- `TestResultContract` at line 160: Section 12 — Result Contract: every path returns UiLaunchResult.
+- `TestCoerce` at line 219: Section 12 — _coerce_ui_launch_result compatibility helper.
+- `TestInspectTradingRuntime` at line 272: Section 13 — _inspect_trading_runtime reads real attrs / env.
+- `_make_lean_manager` at line 340: Create a stub that replicates LeanAlgoManager's inspection properties.
+- `TestLeanAlgoManagerProperties` at line 392: Section 13 — LeanAlgoManager exposes stable inspection properties.
+- `_mock_http_response` at line 436: Build a mock context-manager returned by urllib.request.urlopen.
+- `TestWaitForHttpReady` at line 445: Section 14 — _wait_for_http_ready success / timeout / transient.
+- `TestPortResolution` at line 499: Section 14 — port resolution defaults to 5000 (not 8080).
+- `TestLaunchPrimaryUi` at line 536: Section 14 — API startup: already ready vs. needs start vs. failure.
+- `TestUiLaunchResultLifecycle` at line 705: Explanation needed.
+- `TestRuntimeState` at line 787: Explanation needed.
+- `_FakeManager.__init__` at line 135: Explanation needed.
+- `_LegacyManager.__init__` at line 151: Explanation needed.
+- `TestResultContract.test_success_returns_result_not_dict` at line 163: Explanation needed.
+- `TestResultContract.test_api_failure_returns_result_not_dict` at line 170: Explanation needed.
+- `TestResultContract.test_trading_required_failure_returns_result` at line 177: Explanation needed.
+- `TestResultContract.test_result_has_success_attribute` at line 185: Explanation needed.
+- `TestResultContract.test_result_has_message_attribute` at line 192: Explanation needed.
+- `TestResultContract.test_result_has_wait_method` at line 199: Explanation needed.
+- `TestResultContract.test_result_has_terminate_method` at line 203: Explanation needed.
+- `TestResultContract.test_result_has_mode_attribute` at line 207: Explanation needed.
+- `TestCoerce.test_passthrough_result` at line 222: Explanation needed.
+- `TestCoerce.test_dict_ok_status` at line 227: Explanation needed.
+- `TestCoerce.test_dict_error_status` at line 234: Explanation needed.
+- `TestCoerce.test_dict_empty` at line 240: Empty dict → success=False (status '' != 'ok').
+- `TestCoerce.test_none_raises` at line 246: Explanation needed.
+- `TestCoerce.test_int_raises` at line 250: Explanation needed.
+- `TestCoerce.test_dict_preserves_readiness` at line 254: Explanation needed.
+- `TestCoerce.test_dict_errors_joined_in_message` at line 260: Explanation needed.
+- `TestInspectTradingRuntime.test_none_manager` at line 275: Explanation needed.
+- `TestInspectTradingRuntime.test_full_manager` at line 283: Explanation needed.
+- `TestInspectTradingRuntime.test_legacy_name_attributes` at line 292: Manager exposes selected_backend_name / state_name instead of backend/state.
+- `TestInspectTradingRuntime.test_manager_without_any_trading_attrs` at line 300: A bare Mock (no trading attrs) → truthful unknowns, no fabrication.
+- `TestInspectTradingRuntime.test_freqtrade_backend_via_env` at line 315: Explanation needed.
+- `TestInspectTradingRuntime.test_paper_backend_via_env` at line 321: Explanation needed.
+- `TestInspectTradingRuntime.test_trading_mode_via_env` at line 327: Explanation needed.
+- `TestInspectTradingRuntime.test_execution_enabled_via_env` at line 333: Explanation needed.
+- `TestLeanAlgoManagerProperties.test_backend_default` at line 395: Explanation needed.
+- `TestLeanAlgoManagerProperties.test_backend_env_override` at line 400: Explanation needed.
+- `TestLeanAlgoManagerProperties.test_state_ready` at line 405: Explanation needed.
+- `TestLeanAlgoManagerProperties.test_state_running` at line 410: Explanation needed.
+- `TestLeanAlgoManagerProperties.test_trading_mode_default` at line 416: Explanation needed.
+- `TestLeanAlgoManagerProperties.test_execution_disabled_default` at line 421: Explanation needed.
+- `TestLeanAlgoManagerProperties.test_execution_enabled` at line 426: Explanation needed.
+- `TestWaitForHttpReady.test_success` at line 449: Explanation needed.
+- `TestWaitForHttpReady.test_timeout` at line 456: Explanation needed.
+- `TestWaitForHttpReady.test_transient_then_success` at line 465: Explanation needed.
+- `TestWaitForHttpReady.test_malformed_json_does_not_crash` at line 478: A non-200 response must not raise; it should be treated as not ready.
+- `TestWaitForHttpReady.test_http_200_returns_true` at line 488: Explanation needed.
+- `TestPortResolution.test_default_api_port` at line 502: Explanation needed.
+- `TestPortResolution.test_env_api_port` at line 506: Explanation needed.
+- `TestPortResolution.test_invalid_api_port` at line 510: Explanation needed.
+- `TestPortResolution.test_zero_api_port` at line 514: Explanation needed.
+- `TestPortResolution.test_negative_api_port` at line 518: Explanation needed.
+- `TestPortResolution.test_default_cloud_url` at line 522: Explanation needed.
+- `TestPortResolution.test_env_cloud_url` at line 527: Explanation needed.
+- `TestLaunchPrimaryUi.isolate_ui_repository` at line 540: Explanation needed.
+- `TestLaunchPrimaryUi.test_api_already_ready_no_start` at line 544: API already serving → success, _start_api_server_thread NOT called.
+- `TestLaunchPrimaryUi.test_api_starts_when_not_running` at line 556: API not running → launcher starts it → success.
+- `TestLaunchPrimaryUi.test_api_failure_degraded` at line 575: API not ready and can't start → success=False, mode=degraded.
+- `TestLaunchPrimaryUi.test_trading_missing_nonblocking` at line 585: No trading manager but API ready → success=True, mode=degraded.
+- `TestLaunchPrimaryUi.test_trading_found_ok` at line 595: Trading manager present + API ready → mode=active.
+- `TestLaunchPrimaryUi.test_trading_required_blocks` at line 608: NIBLIT_TRADING_REQUIRED=true + no manager → success=False.
+- `TestLaunchPrimaryUi.test_trading_required_ok` at line 618: NIBLIT_TRADING_REQUIRED=true + manager ready → success=True.
+- `TestLaunchPrimaryUi.test_api_url_uses_port_5000` at line 631: The API health URL must use port 5000, not 8080.
+- `TestLaunchPrimaryUi.test_no_dict_return_contract` at line 644: Explicitly verify no code path returns a dict (the original bug).
+- `TestLaunchPrimaryUi.test_message_accessible` at line 651: The original crash was 'dict has no attribute message'.
+- `TestLaunchPrimaryUi.test_detached_launch_tracks_core_shutdown_event` at line 659: Explanation needed.
+- `TestLaunchPrimaryUi.test_wait_returns_zero_without_process` at line 671: Explanation needed.
+- `TestLaunchPrimaryUi.test_terminate_idempotent` at line 682: Explanation needed.
+- `TestLaunchPrimaryUi.test_cloud_url_uses_port_8000` at line 689: Cloud check must NOT use 5000 or 8080.
+- `TestUiLaunchResultLifecycle.test_detached_wait_uses_core_shutdown_event` at line 706: Explanation needed.
+- `TestUiLaunchResultLifecycle.test_detached_wait_can_be_terminated` at line 722: Explanation needed.
+- `TestUiLaunchResultLifecycle.test_wait_no_process` at line 733: Explanation needed.
+- `TestUiLaunchResultLifecycle.test_terminate_idempotent` at line 741: Explanation needed.
+- `TestUiLaunchResultLifecycle.test_terminate_with_mock_process` at line 746: Explanation needed.
+- `TestUiLaunchResultLifecycle.test_terminate_with_owned_server` at line 753: Explanation needed.
+- `TestUiLaunchResultLifecycle.test_is_trading_enabled` at line 763: Explanation needed.
+- `TestUiLaunchResultLifecycle.test_default_values` at line 769: Explanation needed.
+- `TestUiLaunchResultLifecycle.test_repr_excludes_private_fields` at line 776: Explanation needed.
+- `TestRuntimeState.test_singleton` at line 788: Explanation needed.
+- `TestRuntimeState.test_reset` at line 794: Explanation needed.
+- `TestRuntimeState.test_all_fields_false_initially` at line 802: Explanation needed.
+- `_Stub.__init__` at line 353: Explanation needed.
+- `_Stub.backend` at line 358: Explanation needed.
+- `_Stub.state` at line 362: Explanation needed.
+- `_Stub.state_name` at line 370: Explanation needed.
+- `_Stub.selected_backend_name` at line 374: Explanation needed.
+- `_Stub.trading_mode` at line 378: Explanation needed.
+- `_Stub.execution_enabled` at line 382: Explanation needed.
+
+### tests/test_online_market_study.py
+
+Module purpose needs a human explanation.
+
+- `bars` at line 9: Explanation needed.
+- `test_forecast_precedes_label_and_is_immutable` at line 13: Explanation needed.
+- `test_sequential_adaptation_is_research_only` at line 32: Explanation needed.
+- `test_holdout_cannot_select_a_different_winner` at line 43: Explanation needed.
+- `test_gap_staleness_nonfinite_and_no_queue` at line 51: Explanation needed.
 
 ### tests/test_openai_budget.py
 
@@ -19368,6 +22010,25 @@ Module purpose needs a human explanation.
 - `test_structured_handler_state_preserved` at line 98: Explanation needed.
 - `test_unloaded_cli_handler_does_not_boot_main` at line 103: Explanation needed.
 - `test_registered_unified_status_handler_keeps_authority` at line 114: Explanation needed.
+
+### tests/test_packaged_execution_repairs.py
+
+Module purpose needs a human explanation.
+
+- `schedule_for` at line 8: Explanation needed.
+- `test_real_adapter_propagates_bound_costs_without_delivery` at line 17: Explanation needed.
+- `test_wrong_stale_or_unapproved_schedule_is_not_cost_evidence` at line 33: Explanation needed.
+- `test_missing_cost_schedule_still_fails_closed` at line 40: Explanation needed.
+- `test_observation_profile_still_allows_authenticated_ordinary_stop` at line 49: Explanation needed.
+- `test_native_callback_authentication_does_not_mint_a_claim` at line 65: Explanation needed.
+- `ft_cost_case` at line 86: Explanation needed.
+- `test_freqtrade_cost_hook_keeps_fee_and_explicit_bounds_separate` at line 97: Explanation needed.
+- `test_freqtrade_missing_conflicting_or_stale_cost_bounds_are_not_complete` at line 109: Explanation needed.
+- `test_native_fee_uses_exact_paper_profile_only` at line 116: Explanation needed.
+- `test_freqtrade_symbol_cost_profiles_are_bound_to_the_selected_pair` at line 127: Explanation needed.
+- `test_paper_cost_schedule_is_bound_to_verified_mt5_demo_identity` at line 138: Explanation needed.
+- `test_freqtrade_submit_passes_exact_core_receipt_to_native_guard` at line 157: A valid scoped Core receipt must survive the protection wrapper.
+- `test_freqtrade_submit_preserves_receipt_after_native_protection_check` at line 179: The production protection-check path must not discard the receipt.
 
 ### tests/test_packaged_module_inventory.py
 
@@ -19494,6 +22155,80 @@ Phase 5V regressions for non-blocking curriculum startup and readiness.
 - `NullLogger.context` at line 213: Explanation needed.
 - `NullLogger.context` at line 255: Explanation needed.
 
+### tests/test_phase6_cognitive_observation.py
+
+Module purpose needs a human explanation.
+
+- `result` at line 10: Explanation needed.
+- `test_independent_source_failure_and_expiry` at line 16: Explanation needed.
+- `test_wrong_binding_and_authority_never_persist` at line 30: Explanation needed.
+- `test_no_duplicate_reads_and_recovery` at line 37: Explanation needed.
+- `test_blocked_source_cannot_starve_other_or_duplicate_worker` at line 45: Explanation needed.
+- `memory` at line 56: Explanation needed.
+- `record` at line 61: Explanation needed.
+- `test_canonical_episode_outbox_transaction_and_idempotence` at line 67: Explanation needed.
+- `test_immutable_conflict_and_restart` at line 80: Explanation needed.
+- `test_scoped_access_and_secrets_rollback` at line 88: Explanation needed.
+- `test_contradictions_preserved_without_promoting_knowledge` at line 97: Explanation needed.
+- `test_real_evidence_sink_reuses_canonical_outbox` at line 108: Explanation needed.
+- `test_core_install_is_owned_and_restarts_only_reads` at line 120: Explanation needed.
+- `test_enqueue_failure_rolls_back_episode` at line 134: Explanation needed.
+- `test_secret_provenance_rejected_before_storage` at line 143: Explanation needed.
+- `test_remote_market_reuses_shared_features_and_never_calls_execution` at line 152: Explanation needed.
+- `test_cross_source_comparison_requires_aligned_independent_quotes` at line 175: Explanation needed.
+
+### tests/test_portal_approval_email.py
+
+Portal email review requires a separate authenticated administrator decision.
+
+- `fixture_portal` at line 10: Explanation needed.
+- `test_pending_signup_email_and_admin_review_flow` at line 18: Explanation needed.
+- `test_email_failure_queues_approval_for_admin_resend` at line 56: Explanation needed.
+- `test_approval_review_url_needs_trusted_origin` at line 77: Explanation needed.
+- `test_password_change_revokes_existing_sessions` at line 86: Explanation needed.
+
+### tests/test_portal_deployment.py
+
+Module purpose needs a human explanation.
+
+- `test_private_compose_inference_url_and_no_cloud_fallback` at line 10: Explanation needed.
+- `test_backup_is_consistent_and_refuses_overwrite` at line 25: Explanation needed.
+
+### tests/test_portal_learning.py
+
+Module purpose needs a human explanation.
+
+- `owner` at line 8: Explanation needed.
+- `test_one_feedback_loop_and_no_queue` at line 15: Explanation needed.
+- `test_gap_and_dependency_failure_never_generate_or_retry` at line 37: Explanation needed.
+- `test_local_only_owner_only_idle_and_restart_disarmed` at line 48: Explanation needed.
+
+### tests/test_portal_model.py
+
+Module purpose needs a human explanation.
+
+- `test_identity_and_clock_are_runtime_facts_not_model_guesses` at line 8: Explanation needed.
+- `test_paid_urls_and_unknown_backends_never_fall_back` at line 17: Explanation needed.
+- `test_gguf_auth_context_and_generation_limit` at line 26: Explanation needed.
+
+### tests/test_portal_remote.py
+
+Module purpose needs a human explanation.
+
+- `test_remote_client_keeps_auth_csrf_and_local_capability_boundary` at line 7: Explanation needed.
+- `test_remote_is_off_by_default_and_origin_is_explicit` at line 31: Explanation needed.
+
+### tests/test_portal_tools.py
+
+Module purpose needs a human explanation.
+
+- `setup` at line 12: Explanation needed.
+- `test_boundaries_and_inert_proposals` at line 19: Explanation needed.
+- `test_owner_checks_and_workspace_isolation` at line 35: Explanation needed.
+- `test_model_observation_loop_and_invalid_request_stop` at line 54: Explanation needed.
+- `test_repeated_model_call_synthesizes_without_reexecuting` at line 74: Explanation needed.
+- `test_invalid_followup_summarizes_existing_evidence` at line 88: Explanation needed.
+
 ### tests/test_portal_workspaces.py
 
 Module purpose needs a human explanation.
@@ -19502,11 +22237,288 @@ Module purpose needs a human explanation.
 - `test_daily_limit_and_migration_preserves_shared_history` at line 43: Explanation needed.
 - `test_team_seats_and_pro_workspace_caps` at line 62: Explanation needed.
 
+### tests/test_position_cognition_record.py
+
+Module purpose needs a human explanation.
+
+- `ledger` at line 6: Explanation needed.
+- `position` at line 11: Explanation needed.
+- `entry` at line 15: Explanation needed.
+- `test_broker_marks_keep_actual_and_floating_separate` at line 21: Explanation needed.
+- `test_partial_close_restart_replay_and_fees` at line 36: Explanation needed.
+- `test_absent_fees_and_profit_never_invented` at line 60: Explanation needed.
+- `test_account_and_core_order_are_scoped` at line 71: Explanation needed.
+- `test_manual_position_requires_core_entry_evidence` at line 80: Explanation needed.
+- `test_protection_and_thesis_changes_are_observations` at line 86: Explanation needed.
+- `test_identity_conflict_is_detected` at line 97: Explanation needed.
+- `test_invalid_price_quote_future_and_overclose` at line 106: Explanation needed.
+- `test_out_of_order_broker_delivery_replays_by_time` at line 120: Explanation needed.
+- `test_partial_open_fills_need_broker_reconciled_quantities` at line 128: Explanation needed.
+- `test_pre_entry_and_post_close_quotes_do_not_contaminate_excursion` at line 143: Explanation needed.
+- `test_rejects_false_or_unverified_broker_numbers` at line 156: Explanation needed.
+
+### tests/test_position_exit_integration.py
+
+Real exit-policy integration with controlled quotes; no broker order calls.
+
+- `quote` at line 10: Explanation needed.
+- `thesis` at line 16: Explanation needed.
+- `test_original_evaluator_invoked_and_engine_context_unchanged` at line 22: Explanation needed.
+- `test_bad_quote_never_authorizes_exit` at line 33: Explanation needed.
+- `test_no_context_no_adoption_and_partial_failure_abstains` at line 49: Explanation needed.
+- `test_giveback_continuity_restart_and_distinct_quote_timestamps` at line 59: Explanation needed.
+- `attach_context` at line 79: Explanation needed.
+- `test_full_scan_memory_restart_core_denial_and_no_order_routes` at line 89: Explanation needed.
+- `test_quote_failure_retains_candle_observation` at line 105: Explanation needed.
+- `test_public_quote_provider_exact_contract_and_timestamp` at line 115: Explanation needed.
+- `test_desk_quote_selects_original_futures_provider` at line 140: Explanation needed.
+- `Exchange.__init__` at line 127: Explanation needed.
+- `Exchange.load_markets` at line 129: Explanation needed.
+- `Exchange.market` at line 130: Explanation needed.
+- `Exchange.fetch_order_book` at line 131: Explanation needed.
+
+### tests/test_position_exit_policy.py
+
+Module purpose needs a human explanation.
+
+- `position` at line 4: Explanation needed.
+- `quote` at line 5: Explanation needed.
+- `context` at line 6: Explanation needed.
+- `bars` at line 7: Explanation needed.
+- `test_profit_giveback_requires_distinct_confirmations_and_cost_buffer` at line 10: Explanation needed.
+- `test_failed_breakout_needs_two_closes_inside_saved_boundary` at line 20: Explanation needed.
+- `test_unknown_old_position_stale_quote_and_invalid_stop_hold` at line 27: Explanation needed.
+- `test_short_profit_protection_is_symmetric` at line 35: Explanation needed.
+- `test_order_reversal_evaluator_exits_profitable_short_after_distinct_bars` at line 42: Explanation needed.
+- `test_reversal_evaluator_keeps_trade_when_not_profitable_or_no_retracement` at line 64: Explanation needed.
+- `test_reversal_evaluator_cannot_count_old_candles_as_confirmations` at line 77: Explanation needed.
+- `test_reversal_does_not_confirm_on_stale_or_future_candles` at line 89: Explanation needed.
+- `test_reversal_skipped_bar_cannot_advance_confirmation` at line 102: Explanation needed.
+- `test_reversal_requires_measured_positive_broker_profit` at line 117: Explanation needed.
+
+### tests/test_position_intelligence.py
+
+Module purpose needs a human explanation.
+
+- `setup_position` at line 9: Explanation needed.
+- `test_discovery_reconciliation_and_real_strategies` at line 33: Explanation needed.
+- `test_unrealized_linear_pnl_not_realized` at line 42: Explanation needed.
+- `test_agreement_conflict_failure_assessments` at line 51: Explanation needed.
+- `test_invalid_position_or_market_abstains` at line 57: Explanation needed.
+- `test_provider_failure_does_not_stop_next_position` at line 66: Explanation needed.
+- `test_core_denial_overrides_local_recommendation` at line 76: Explanation needed.
+- `test_restart_idempotence_and_later_observation` at line 80: Explanation needed.
+- `test_mode_isolation_and_cancellation` at line 97: Explanation needed.
+- `test_duplicate_worker_kernel_lock_and_cancel` at line 103: Explanation needed.
+- `test_scheduler_prunes_only_owned_completed_history` at line 116: Explanation needed.
+- `test_future_high_priority_job_does_not_starve_ready_observation` at line 125: Explanation needed.
+- `test_confirmed_simulated_close_persists_once_and_is_not_live_profit` at line 134: Explanation needed.
+- `test_monitor_exception_clears_previous_account_snapshot` at line 148: Explanation needed.
+- `test_account_profile_isolation` at line 155: Explanation needed.
+- `test_cooperative_cancel_during_provider_preserves_worker_lock` at line 167: Explanation needed.
+- `Desk.configuration` at line 21: Explanation needed.
+- `Desk.api` at line 22: Explanation needed.
+- `Desk.market` at line 25: Explanation needed.
+- `Scheduler.__init__` at line 106: Explanation needed.
+- `Scheduler.submit` at line 107: Explanation needed.
+- `Scheduler.cancel` at line 108: Explanation needed.
+- `Scheduler.prune_completed` at line 109: Explanation needed.
+- `Scheduler.__init__` at line 171: Explanation needed.
+- `Scheduler.submit` at line 172: Explanation needed.
+- `Scheduler.cancel` at line 173: Explanation needed.
+- `Scheduler.prune_completed` at line 174: Explanation needed.
+- Review: empty-body at line 109.
+- Review: empty-body at line 173.
+- Review: empty-body at line 174.
+
+### tests/test_preparation_controls.py
+
+Module purpose needs a human explanation.
+
+- `test_callback_rejects_nonlocal_or_wrong_route` at line 17: Explanation needed.
+- `test_redirects_are_not_followed` at line 22: Explanation needed.
+- `test_exact_preparation_intent` at line 29: Explanation needed.
+- `test_persistent_preparation_provider_cannot_reach_broker_control` at line 32: Explanation needed.
+- `test_native_scope_does_not_grant_operator_access` at line 45: Explanation needed.
+
+### tests/test_public_source_learning.py
+
+Public-source learning boundaries; network doubles are not UI acceptance.
+
+- `public_request` at line 11: Explanation needed.
+- `test_source_observation_repeat_conflict_and_provenance` at line 27: Explanation needed.
+- `test_unapproved_sources_fail_before_fetch` at line 50: Explanation needed.
+- `test_no_calls_is_inconclusive_not_learning` at line 54: Explanation needed.
+- `test_titles_are_not_substantive_findings` at line 62: Explanation needed.
+- `test_chat_admission_is_explicit` at line 70: Explanation needed.
+- `test_discovery_reuses_search_and_filters_unapproved_hits` at line 77: Explanation needed.
+- `test_html_text_excludes_executable_and_navigation_content` at line 91: Explanation needed.
+
+### tests/test_r14_demo_broker_minimum.py
+
+R14 demo-only broker-minimum sizing regression tests.
+
+- `test_eth_broker_minimum_is_used_when_within_demo_ceiling` at line 5: Explanation needed.
+- `test_btc_remains_small_by_default` at line 14: Explanation needed.
+- `test_broker_minimum_exceeding_ceiling_cannot_be_escalated` at line 19: Explanation needed.
+
+### tests/test_r14_position_cognition_backfill.py
+
+Module purpose needs a human explanation.
+
+- `fixture_db` at line 8: Explanation needed.
+- `decision` at line 18: Explanation needed.
+- `populate` at line 27: Explanation needed.
+- `test_broker_identity_quote_and_actual_close_are_joined` at line 58: Explanation needed.
+- `test_repeat_backfill_is_idempotent` at line 78: Explanation needed.
+- `test_unmatched_quote_is_never_interpolated` at line 90: Explanation needed.
+- `test_wrong_watch_session_not_adopted` at line 101: Explanation needed.
+- `test_same_broker_position_id_different_account_keeps_separate` at line 110: Explanation needed.
+
+### tests/test_r3_packaged_boot.py
+
+Module purpose needs a human explanation.
+
+- `test_packaged_boot_waits_for_selected_services` at line 6: Explanation needed.
+- `test_packaged_boot_wait_is_bounded_without_restart` at line 23: Explanation needed.
+
+### tests/test_r8_consensus.py
+
+Module purpose needs a human explanation.
+
+- `test_established_policy` at line 13: Explanation needed.
+
+### tests/test_r91_funded.py
+
+Module purpose needs a human explanation.
+
+- `case` at line 9: Explanation needed.
+- `test_each_maximum_fails_closed` at line 25: Explanation needed.
+- `test_each_minimum_fails_closed` at line 34: Explanation needed.
+- `test_pass_is_not_authority_and_wrong_server_or_expiry_fail` at line 40: Explanation needed.
+- `test_material_costs_are_never_inferred_zero` at line 49: Explanation needed.
+- `test_critical_breaker_survives_core_reconstruction` at line 61: Explanation needed.
+- `test_replay_never_sees_future_price_or_adds_strategy_votes` at line 76: Explanation needed.
+- `test_live_demo_proposal_route_persists_rejection_without_broker_command` at line 86: Explanation needed.
+
+### tests/test_r9_intelligence.py
+
+Module purpose needs a human explanation.
+
+- `bars` at line 8: Explanation needed.
+- `test_context_excludes_forming_and_future_bars` at line 16: Explanation needed.
+- `test_context_surfaces_gap_and_staleness` at line 25: Explanation needed.
+- `test_context_does_not_create_votes_or_replace_consensus` at line 33: Explanation needed.
+- `test_broker_cost_evidence_preserves_unknowns_and_does_not_subtract_spread_twice` at line 42: Explanation needed.
+
 ### tests/test_reasoning_memory_fallback.py
 
 Empty provider output must not suppress retrieval-backed reasoning.
 
 - `test_empty_provider_result_uses_ranked_memory` at line 7: Explanation needed.
+
+### tests/test_release_preflight.py
+
+Module purpose needs a human explanation.
+
+- `ReleasePreflightTests` at line 14: Explanation needed.
+- `ReleasePreflightTests.test_missing_and_empty_sidecars_fail` at line 15: Explanation needed.
+- `ReleasePreflightTests.test_cli_exits_before_any_boot_import` at line 27: Explanation needed.
+
+### tests/test_relocation_paths.py
+
+Source-level relocation acceptance; never starts Core, MT5 or inference.
+
+- `profile` at line 16: Explanation needed.
+- `test_plan_is_read_only_and_services_are_not_health_claims` at line 57: Explanation needed.
+- `test_cwd_independent_and_external_bindings_preserved` at line 65: Explanation needed.
+- `test_same_drive_relocation_detected_and_old_state_preserved` at line 75: Explanation needed.
+- `test_frozen_install_and_bundle_are_independent` at line 87: Explanation needed.
+- `test_missing_persistence_blocks_without_replacement` at line 98: Explanation needed.
+- `test_optional_dependency_generates_plan_not_installation` at line 107: Explanation needed.
+- `test_manifest_pin_rejects_tampering` at line 117: Explanation needed.
+- `test_executable_substitution_rejected` at line 124: Explanation needed.
+- `test_misleading_application_paths_rejected` at line 132: Explanation needed.
+- `test_root_escape_rejected` at line 140: Explanation needed.
+- `test_conflicting_existing_memory_binding_rejected` at line 148: Explanation needed.
+- `test_persistent_guard_rejects_disappearance_and_rebinding` at line 155: Explanation needed.
+- `test_disposable_directory_cannot_enclose_memory` at line 165: Explanation needed.
+- `test_symlink_escape` at line 173: Explanation needed.
+- `test_legacy_resolution_remains_unchanged_without_manifest` at line 188: Explanation needed.
+- `test_metadata_rollback_does_not_change_persistent_bindings` at line 195: Explanation needed.
+- `test_unapproved_or_secret_bearing_service_rejected` at line 212: Explanation needed.
+- `test_junction_escape_windows` at line 220: Explanation needed.
+- `test_bootstrap_calls_profile_before_changing_working_directory` at line 240: Explanation needed.
+- `test_source_bootstrap_cross_drive_subprocess` at line 254: Explanation needed.
+- `test_cloud_autostart_is_suppressed_in_manifest_profile` at line 285: Explanation needed.
+- `test_real_memory_gateway_refuses_missing_bound_ledger` at line 293: Explanation needed.
+
+### tests/test_remote_demo_readiness_policy.py
+
+Remote demo readiness is not governed by local MT5 transport flags.
+
+- `test_verified_remote_demo_is_separate_from_local_flags` at line 6: Explanation needed.
+- `test_remote_readiness_does_not_create_preflight_ticket_or_reset_stop` at line 24: Explanation needed.
+- `Remote.status` at line 29: Explanation needed.
+- `Remote.snapshot` at line 31: Explanation needed.
+- `Remote.reconcile` at line 33: Explanation needed.
+- `Remote.prepare` at line 35: Explanation needed.
+
+### tests/test_research_completion.py
+
+Module purpose needs a human explanation.
+
+- `catalog` at line 9: Explanation needed.
+- `test_exact_source_binding_and_vendor_scope` at line 17: Explanation needed.
+- `test_generated_conclusions_and_invented_references_rejected` at line 34: Explanation needed.
+- `test_unknown_research_scope_never_falls_into_unchecked_generation` at line 41: Explanation needed.
+- `test_real_executor_cancellation_preserves_commit_and_owner` at line 52: Explanation needed.
+- `test_cancel_before_first_research_tool` at line 95: Explanation needed.
+- `test_permission_revocation_stops_new_stages_but_owner_can_cancel` at line 107: Explanation needed.
+- `test_buffered_request_disconnect_is_forwarded_without_polling` at line 119: Explanation needed.
+- `test_deadline_after_inflight_io_does_not_accept_late_findings` at line 136: Explanation needed.
+
+### tests/test_research_recovery.py
+
+Module purpose needs a human explanation.
+
+- `authority` at line 8: Explanation needed.
+- `test_model_tool_model_keeps_one_parent` at line 22: Explanation needed.
+- `test_uncertain_child_cannot_report_success` at line 41: Explanation needed.
+- `test_cancelled_owner_quarantines` at line 48: Explanation needed.
+- `test_cloud_outage_is_not_retried` at line 53: Explanation needed.
+- `test_cancelled_async_waiter_does_not_release_running_worker` at line 60: Explanation needed.
+- `test_existing_recovery_requires_stopped_producers_and_idle_model` at line 78: Explanation needed.
+- `test_definite_cloud_rejection_releases_owner_without_retry` at line 112: Explanation needed.
+- `test_forced_final_failure_is_not_swallowed` at line 120: Explanation needed.
+- `test_outer_timeout_default_and_operator_override` at line 127: Explanation needed.
+- `test_request_tool_selection_only_narrows_existing_registry` at line 134: Explanation needed.
+- `test_required_choice_is_initial_only` at line 141: Explanation needed.
+- `test_actual_core_handler_cancel_keeps_worker_owned` at line 149: Explanation needed.
+- `test_core_handler_reports_inference_ownership_failure` at line 172: Explanation needed.
+- `test_tool_loop_honors_requested_generation_budget` at line 184: Explanation needed.
+- `test_cancel_after_generation_schedules_no_tools_or_more_generations` at line 198: Explanation needed.
+- `test_nested_cancellation_reuses_parent_and_keeps_ambiguous_failure` at line 209: Explanation needed.
+- `Executor.niblit_status` at line 25: Explanation needed.
+- `Sock.__enter__` at line 88: Explanation needed.
+- `Sock.__exit__` at line 89: Explanation needed.
+- `Sock.settimeout` at line 90: Explanation needed.
+- `Sock.connect_ex` at line 91: Explanation needed.
+- `Response.raise_for_status` at line 94: Explanation needed.
+- `Response.json` at line 95: Explanation needed.
+- `Client.__init__` at line 97: Explanation needed.
+- `Client.__enter__` at line 98: Explanation needed.
+- `Client.__exit__` at line 99: Explanation needed.
+- `Client.get` at line 100: Explanation needed.
+- `Loop.chat` at line 154: Explanation needed.
+- `Loop.chat` at line 176: Explanation needed.
+- `Loop._cloud_chat` at line 190: Explanation needed.
+- `Loop._cloud_chat` at line 203: Explanation needed.
+- Review: empty-body at line 89.
+- Review: empty-body at line 90.
+- Review: empty-body at line 94.
+- Review: empty-body at line 97.
+- Review: empty-body at line 99.
 
 ### tests/test_research_vertical.py
 
@@ -19549,6 +22561,15 @@ A busy desktop telemetry snapshot must not freeze the backend event loop.
 - `Socket.send_json` at line 50: Explanation needed.
 - Review: empty-body at line 47.
 
+### tests/test_scoped_path_contract.py
+
+Existing filesystem resolver interoperability; not relocation acceptance.
+
+- `test_absolute_external_paths_are_not_rebased_to_source` at line 10: Explanation needed.
+- `test_absolute_windows_cross_drive_resources` at line 14: Explanation needed.
+- `test_existing_specs_resolve_source_from_spec_location` at line 19: Explanation needed.
+- `test_native_model_and_memory_data_are_not_build_environment_overrides` at line 25: Explanation needed.
+
 ### tests/test_server_manager.py
 
 Module purpose needs a human explanation.
@@ -19557,6 +22578,13 @@ Module purpose needs a human explanation.
 - `test_serialization_failure_expiry_and_lockout` at line 29: Explanation needed.
 - `test_failed_model_is_durable_and_not_retried` at line 50: Explanation needed.
 - `test_signup_requires_admin_approval_and_cannot_replace_account` at line 66: Explanation needed.
+
+### tests/test_shutdown_research.py
+
+Module purpose needs a human explanation.
+
+- `test_phase_deadline_cancels_and_joins_the_executor` at line 6: Explanation needed.
+- `test_owner_stop_joins_phase_without_waiting_for_research_deadline` at line 25: Explanation needed.
 
 ### tests/test_slsa_lifecycle.py
 
@@ -19575,6 +22603,84 @@ Module purpose needs a human explanation.
 - `test_bridge_dispatches_known_tool_and_returns_matching_ids` at line 24: Explanation needed.
 - `test_agent_review_api_failure_is_visible` at line 44: Explanation needed.
 
+### tests/test_strategy_failure_consensus.py
+
+Module purpose needs a human explanation.
+
+- `signal` at line 8: Explanation needed.
+- `test_failed_rule_cannot_silently_allow_a_direction` at line 13: Explanation needed.
+- `test_malformed_strategy_result_is_an_explicit_comparison_failure` at line 29: Explanation needed.
+- `test_missing_position_owner_does_not_transfer_to_an_eligible_strategy` at line 37: Explanation needed.
+- `test_real_rules_report_successful_comparison_without_claiming_profit` at line 46: Explanation needed.
+- `test_failed_comparison_keeps_demo_observer_alive_and_never_submits` at line 57: Explanation needed.
+
+### tests/test_strategy_manager.py
+
+Module purpose needs a human explanation.
+
+- `result` at line 4: Explanation needed.
+- `test_switches_to_only_eligible_rule` at line 7: Explanation needed.
+- `test_conflicting_rules_abstain` at line 11: Explanation needed.
+- `test_pinned_rule_does_not_chase_alternative` at line 15: Explanation needed.
+- `test_agreeing_non_breakout_rules_are_not_called_a_breakout` at line 20: Explanation needed.
+
+### tests/test_strategy_performance_shadow.py
+
+Module purpose needs a human explanation.
+
+- `record` at line 6: Explanation needed.
+- `data` at line 16: Explanation needed.
+- `rank` at line 27: Explanation needed.
+- `test_broker_verified_outcomes_rank_in_shadow_only` at line 33: Explanation needed.
+- `test_missing_validation_or_training_stays_unranked` at line 48: Explanation needed.
+- `test_unverified_and_fee_unknown_excluded_without_fabrication` at line 54: Explanation needed.
+- `test_account_and_regime_never_crosstrain` at line 63: Explanation needed.
+- `test_future_outcome_cannot_affect_rank` at line 73: Explanation needed.
+- `test_duplicate_broker_trade_rejected` at line 82: Explanation needed.
+- `test_future_training_cutoff_rejected` at line 88: Explanation needed.
+- `test_no_data_never_promotes_candidate` at line 94: Explanation needed.
+- `test_outcome_is_reproducible` at line 101: Explanation needed.
+
+### tests/test_strategy_research.py
+
+Module purpose needs a human explanation.
+
+- `bars` at line 8: Explanation needed.
+- `test_catalog_rules_are_explained_and_wait_for_history` at line 13: Explanation needed.
+- `test_reversion_requires_recovery_after_extreme` at line 21: Explanation needed.
+- `test_squeeze_requires_breakout_after_contraction` at line 26: Explanation needed.
+- `test_predictor_has_validation_baseline_and_cannot_execute` at line 33: Explanation needed.
+- `test_future_prices_cannot_change_earlier_predictions_or_training_selection` at line 44: Explanation needed.
+- `test_data_quality_and_no_proposals_when_not_waiting` at line 57: Explanation needed.
+
+### tests/test_structured_trade_engine.py
+
+The structured engine is pure and can never reach a broker transport.
+
+- `make` at line 26: Explanation needed.
+- `test_pure_deterministic_trade_plan_has_structure_and_no_permission` at line 35: Explanation needed.
+- `test_broker_minimum_lot_abstains_when_risk_too_high` at line 53: Explanation needed.
+- `test_malformed_or_unverified_inputs_cannot_make_trade_plan` at line 69: Explanation needed.
+- `test_volume_rounding_floor_on_broker_grid` at line 79: Explanation needed.
+- `test_completed_candles_cannot_contain_forming_bar` at line 87: Explanation needed.
+- `test_core_mt5_demo_crypto_preflight_uses_atr_structure_not_spread_formula` at line 95: Exercise actual DemoOrders broker-double preview; no external order call.
+
+### tests/test_task_admission.py
+
+Module purpose needs a human explanation.
+
+- `test_independent_authorities_share_one_persistent_slot` at line 8: Explanation needed.
+- `test_nested_calls_share_ownership_and_busy_never_runs` at line 29: Explanation needed.
+- `test_unknown_failure_quarantines_and_off_is_compatible` at line 45: Explanation needed.
+
+### tests/test_task_delegation.py
+
+Module purpose needs a human explanation.
+
+- `test_child_restart_and_replay` at line 5: Explanation needed.
+- `test_uncertain_child_stays_reserved` at line 15: Explanation needed.
+- `test_delegate_endpoint_requires_existing_private_key` at line 23: Explanation needed.
+
 ### tests/test_testing_build_startup.py
 
 Offline coverage for frozen service ownership and final readiness checks.
@@ -19587,6 +22693,19 @@ Offline coverage for frozen service ownership and final readiness checks.
 - `test_trading_client_reports_actual_service_identity` at line 74: Explanation needed.
 - `test_supervisor_attaches_to_healthy_service_without_spawning` at line 91: Explanation needed.
 - `test_final_bootstrap_does_not_treat_degraded_health_as_ready` at line 107: Explanation needed.
+- `test_packaged_process_is_not_ready_until_http_health` at line 126: Explanation needed.
+- `test_frozen_exit_releases_supervisor_ownership` at line 149: Explanation needed.
+- `test_frozen_stop_cleans_only_owned_descendants` at line 160: Explanation needed.
+
+### tests/test_trade_performance_metrics.py
+
+Module purpose needs a human explanation.
+
+- `test_short_excursion_tracks_favorable_and_adverse_quotes` at line 5: Explanation needed.
+- `test_long_excursion_and_realized_net_r` at line 18: Explanation needed.
+- `test_nonphysical_exposure_or_quote_is_invalid` at line 35: Explanation needed.
+- `test_replay_is_deterministic_and_non_mutating` at line 40: Explanation needed.
+- `test_negative_realized_profit_is_not_described_as_success` at line 47: Explanation needed.
 
 ### tests/test_trading_desk.py
 
@@ -19606,6 +22725,21 @@ Module purpose needs a human explanation.
 - `test_binance_minimum_uses_quantity_cost_and_reserve` at line 116: Explanation needed.
 - `test_expired_and_inflight_ticket_are_not_sent` at line 126: Explanation needed.
 - `test_origin_host_and_token_required` at line 135: Explanation needed.
+- `test_packaged_core_port_is_bound_without_allowing_other_hosts` at line 145: Explanation needed.
+- `test_packaged_observation_profile_denies_execution_before_token_or_adapter` at line 153: Explanation needed.
+
+### tests/test_trading_observation.py
+
+Module purpose needs a human explanation.
+
+- `test_observer_cannot_reach_mutating_mt5_methods` at line 8: Explanation needed.
+- `test_profile_requires_execution_denial` at line 19: Explanation needed.
+- `test_chat_admits_only_bounded_observation_not_trade_instructions` at line 25: Explanation needed.
+- `test_observer_has_no_execution_authority_from_market_payload` at line 31: Explanation needed.
+- `test_exit_estimate_uses_executable_side_and_never_calls_it_complete` at line 37: Explanation needed.
+- `test_missing_fee_and_crossed_stop_are_not_silently_favorable` at line 49: Explanation needed.
+- `test_cost_review_intents_do_not_admit_mutations` at line 60: Explanation needed.
+- `test_mt5_cost_review_preserves_unknown_commission_without_order_calls` at line 67: Explanation needed.
 
 ### tests/test_unified_memory_reliability.py
 

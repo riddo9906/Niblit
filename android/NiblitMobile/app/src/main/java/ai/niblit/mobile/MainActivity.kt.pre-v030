@@ -1,0 +1,567 @@
+package ai.niblit.mobile
+
+import android.app.Activity
+import android.os.Bundle
+import android.graphics.Color
+import android.graphics.Typeface
+import android.graphics.drawable.GradientDrawable
+import android.text.InputType
+import android.view.Gravity
+import android.view.View
+import android.widget.*
+import org.json.JSONArray
+import org.json.JSONObject
+import java.net.URI
+import java.net.URL
+import java.util.concurrent.Executors
+import javax.net.ssl.HttpsURLConnection
+
+/** Private, Client Portal-authenticated Niblit AI frontend. Never executes trades. */
+class MainActivity : Activity() {
+    private val workers = Executors.newSingleThreadExecutor()
+    private var sessionToken: String? = null
+    private val chatHistory = mutableListOf<Pair<String, String>>()
+    private var generating = false
+
+    private lateinit var gateway: EditText
+    private lateinit var username: EditText
+    private lateinit var password: EditText
+    private lateinit var confirm: EditText
+    private lateinit var sharedAck: CheckBox
+    private lateinit var status: TextView
+    private lateinit var identity: TextView
+    private lateinit var models: Spinner
+    private lateinit var messages: LinearLayout
+    private lateinit var prompt: EditText
+    private lateinit var sendButton: Button
+    private lateinit var marketList: Spinner
+    private lateinit var marketResult: TextView
+    private lateinit var advisoryResult: TextView
+    private lateinit var chatPage: View
+    private lateinit var marketPage: View
+    private lateinit var accountPage: View
+    private lateinit var navChat: Button
+    private lateinit var navMarkets: Button
+    private lateinit var navAccount: Button
+
+    private val modelIds = mutableListOf("qwen2.5-coder-3b")
+    private val markets = mutableListOf<MarketItem>()
+    private val bg = Color.rgb(9, 13, 25)
+    private val panel = Color.rgb(22, 29, 48)
+    private val inset = Color.rgb(30, 39, 62)
+    private val textColorValue = Color.rgb(239, 245, 255)
+    private val muted = Color.rgb(158, 173, 196)
+    private val accent = Color.rgb(119, 225, 200)
+    private val purple = Color.rgb(159, 145, 255)
+
+    data class MarketItem(val adapter: String, val symbol: String, val side: String) {
+        override fun toString() = "$symbol  ·  $adapter  ·  $side"
+    }
+
+    private fun dp(n: Int) = (n * resources.displayMetrics.density + .5f).toInt()
+    private fun surface(color: Int = panel, radius: Int = 18): GradientDrawable =
+        GradientDrawable().apply { setColor(color); cornerRadius = dp(radius).toFloat() }
+    private fun label(value: String, size: Int = 14, bold: Boolean = false,
+                      color: Int = textColorValue) = TextView(this).apply {
+        text = value
+        textSize = size.toFloat()
+        setTextColor(color)
+        if (bold) typeface = Typeface.DEFAULT_BOLD
+        setPadding(0, dp(4), 0, dp(4))
+    }
+    private fun field(hintText: String) = EditText(this).apply {
+        hint = hintText
+        textSize = 15f
+        setTextColor(textColorValue)
+        setHintTextColor(muted)
+        background = surface(inset, 14)
+        setPadding(dp(16), dp(12), dp(16), dp(12))
+        inputType = InputType.TYPE_CLASS_TEXT
+    }
+    private fun button(value: String, secondary: Boolean = false) = Button(this).apply {
+        text = value
+        isAllCaps = false
+        textSize = 13f
+        setTextColor(if (secondary) textColorValue else bg)
+        background = surface(if (secondary) inset else accent, 14)
+        elevation = 0f
+        minHeight = dp(45)
+        minimumHeight = dp(45)
+    }
+    private fun section(heading: String, detail: String? = null) = LinearLayout(this).apply {
+        orientation = LinearLayout.VERTICAL
+        setPadding(0, dp(18), 0, dp(12))
+        addView(label(heading, 19, true))
+        if (detail != null) addView(label(detail, 13, false, muted))
+    }
+    private fun card() = LinearLayout(this).apply {
+        orientation = LinearLayout.VERTICAL
+        background = surface()
+        setPadding(dp(16), dp(16), dp(16), dp(16))
+    }
+    private fun addCard(parent: LinearLayout, child: View, top: Int = 10) {
+        parent.addView(child, LinearLayout.LayoutParams(-1, -2).apply { topMargin = dp(top) })
+    }
+    private fun space(parent: LinearLayout, amount: Int = 10) {
+        parent.addView(View(this), LinearLayout.LayoutParams(1, dp(amount)))
+    }
+    private fun page() = LinearLayout(this).apply {
+        orientation = LinearLayout.VERTICAL
+        setPadding(dp(18), dp(8), dp(18), dp(24))
+    }
+    private fun scrolled(content: LinearLayout): ScrollView = ScrollView(this).apply {
+        isFillViewport = true
+        clipToPadding = false
+        addView(content)
+    }
+
+    override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(savedInstanceState)
+        window.statusBarColor = bg
+        window.navigationBarColor = bg
+        val shell = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setBackgroundColor(bg)
+        }
+        setContentView(shell)
+
+        val masthead = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
+            setPadding(dp(18), dp(16), dp(18), dp(12))
+        }
+        val avatar = label("✦", 25, true, bg).apply {
+            gravity = Gravity.CENTER
+            background = surface(accent, 14)
+        }
+        masthead.addView(avatar, LinearLayout.LayoutParams(dp(48), dp(48)))
+        val brand = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(dp(12), 0, 0, 0)
+            addView(label("Niblit AI", 21, true))
+            addView(label("Your personal intelligence", 12, false, muted))
+        }
+        masthead.addView(brand, LinearLayout.LayoutParams(0, -2, 1f))
+        val profileLink = button("Account", true)
+        masthead.addView(profileLink, LinearLayout.LayoutParams(dp(92), dp(44)))
+        profileLink.setOnClickListener { showPage(2) }
+        shell.addView(masthead)
+
+        status = label("●  Not connected · Sign in to Client Portal", 12, true, accent).apply {
+            background = surface(panel, 12)
+            setPadding(dp(14), dp(10), dp(14), dp(10))
+        }
+        shell.addView(status, LinearLayout.LayoutParams(-1, -2).apply {
+            leftMargin = dp(18); rightMargin = dp(18); bottomMargin = dp(6)
+        })
+
+        val area = FrameLayout(this)
+        shell.addView(area, LinearLayout.LayoutParams(-1, 0, 1f))
+        chatPage = scrolled(buildChatPage()).also { area.addView(it) }
+        marketPage = scrolled(buildMarketPage()).also { area.addView(it) }
+        accountPage = scrolled(buildAccountPage()).also { area.addView(it) }
+
+        val nav = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            setPadding(dp(12), dp(8), dp(12), dp(10))
+            setBackgroundColor(panel)
+        }
+        navChat = button("✦  Chat", true)
+        navMarkets = button("◈  Markets", true)
+        navAccount = button("♙  Account", true)
+        for (b in listOf(navChat, navMarkets, navAccount)) {
+            nav.addView(b, LinearLayout.LayoutParams(0, dp(46), 1f).apply {
+                leftMargin = dp(3); rightMargin = dp(3)
+            })
+        }
+        navChat.setOnClickListener { showPage(0) }
+        navMarkets.setOnClickListener { showPage(1) }
+        navAccount.setOnClickListener { showPage(2) }
+        shell.addView(nav)
+        showPage(0)
+    }
+
+    private fun showPage(tab: Int) {
+        chatPage.visibility = if (tab == 0) View.VISIBLE else View.GONE
+        marketPage.visibility = if (tab == 1) View.VISIBLE else View.GONE
+        accountPage.visibility = if (tab == 2) View.VISIBLE else View.GONE
+        for ((index, b) in listOf(navChat, navMarkets, navAccount).withIndex()) {
+            b.background = surface(if (index == tab) accent else inset, 12)
+            b.setTextColor(if (index == tab) bg else muted)
+        }
+    }
+
+    private fun buildChatPage(): LinearLayout = page().apply {
+        val hero = card().apply {
+            background = surface(Color.rgb(32, 34, 61), 22)
+            addView(label("✦  NIBLIT INTELLIGENCE", 12, true, accent))
+            addView(label("What can I help you think through?", 23, true))
+            addView(label("Private models running on your own desktop. Your Niblit, wherever you are.", 13, false, muted))
+        }
+        addCard(this, hero, 8)
+        val prompts = LinearLayout(this@MainActivity).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
+        }
+        for ((text, suggestion) in listOf(
+                "✧  Build" to "Help me plan the next Niblit feature",
+                "◇  Explain" to "Explain a complex idea step by step",
+                "◈  Review" to "Help me evaluate a decision")) {
+            val chip = button(text, true)
+            chip.textSize = 11f
+            prompts.addView(chip, LinearLayout.LayoutParams(0, dp(42), 1f).apply {
+                leftMargin = dp(3); rightMargin = dp(3)
+            })
+            chip.setOnClickListener { prompt.setText(suggestion); prompt.setSelection(prompt.text.length) }
+        }
+        addCard(this, prompts, 12)
+        addView(section("Assistant", "Choose a local model and continue the conversation."))
+        models = Spinner(this@MainActivity).apply {
+            adapter = ArrayAdapter(this@MainActivity, android.R.layout.simple_spinner_dropdown_item, modelIds)
+            background = surface(inset, 12)
+            setPadding(dp(12), dp(8), dp(12), dp(8))
+        }
+        addCard(this, models, 0)
+        val discover = button("↻  Refresh available models", true)
+        addCard(this, discover, 8)
+        discover.setOnClickListener { loadModels() }
+
+        messages = LinearLayout(this@MainActivity).apply {
+            orientation = LinearLayout.VERTICAL
+        }
+        addCard(this, messages, 14)
+        addBubble("assistant", "Hello. I'm Niblit. Sign in to your Client Portal account to chat with your local models. When connected, we can explore ideas, review your projects, or discuss market evidence.")
+        val compose = card()
+        compose.addView(label("YOUR MESSAGE", 11, true, muted))
+        prompt = field("Message Niblit…").apply {
+            minLines = 2
+            maxLines = 5
+            setSingleLine(false)
+        }
+        compose.addView(prompt)
+        sendButton = button("➤  Send message")
+        addCard(compose, sendButton, 8)
+        sendButton.setOnClickListener { sendChat() }
+        addCard(this, compose, 14)
+        addView(label("AI responses may be inaccurate. Market commentary is not order authorization.", 11, false, muted))
+    }
+
+    private fun addBubble(role: String, content: String) {
+        val user = role == "user"
+        val bubble = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            background = surface(if (user) Color.rgb(40, 72, 86) else panel, 18)
+            setPadding(dp(14), dp(12), dp(14), dp(12))
+            addView(label(if (user) "YOU" else "✦  NIBLIT", 11, true, if (user) accent else purple))
+            addView(label(content, 15))
+        }
+        val wrap = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            gravity = if (user) Gravity.RIGHT else Gravity.LEFT
+            addView(bubble, LinearLayout.LayoutParams(-1, -2))
+        }
+        messages.addView(wrap, LinearLayout.LayoutParams(-1, -2).apply { bottomMargin = dp(10) })
+    }
+
+    private fun buildMarketPage(): LinearLayout = page().apply {
+        addView(section("Market intelligence", "Live observations and AI explanations, not trade execution."))
+        val info = card().apply {
+            addView(label("◈  OBSERVATION ONLY", 12, true, accent))
+            addView(label("Understand the market context before forming a view. Trade controls remain on the desktop.", 14, false, muted))
+        }
+        addCard(this, info)
+        val refresh = button("↻  Refresh market observations")
+        addCard(this, refresh)
+        refresh.setOnClickListener { loadMarkets() }
+        marketList = Spinner(this@MainActivity).apply {
+            adapter = ArrayAdapter(this@MainActivity, android.R.layout.simple_spinner_dropdown_item, markets)
+            background = surface(inset, 12)
+            setPadding(dp(12), dp(10), dp(12), dp(10))
+        }
+        addCard(this, marketList)
+        marketResult = label("No market observations loaded yet.", 14, false, muted)
+        addCard(this, marketResult)
+        val explain = button("✦  Explain with Niblit AI")
+        addCard(this, explain)
+        explain.setOnClickListener { explainMarket() }
+        advisoryResult = label("Select an observed market for an evidence-grounded analysis.", 14)
+        val resultCard = card().apply {
+            addView(label("AI MARKET BRIEF", 11, true, purple))
+            addView(advisoryResult)
+        }
+        addCard(this, resultCard, 14)
+        addView(label("Advisories may be incomplete when broker, candles, or market observations are unavailable.", 12, false, muted))
+    }
+
+    private fun buildAccountPage(): LinearLayout = page().apply {
+        addView(section("Client Portal", "Secure access to Niblit's personal AI workspace."))
+        identity = label("●  Not signed in", 15, true, muted)
+        val accountCard = card().apply {
+            addView(label("ACCOUNT STATUS", 11, true, accent))
+            addView(identity)
+            addView(label("Approved accounts can chat with local models and view read-only market observations.", 13, false, muted))
+        }
+        addCard(this, accountCard)
+        addView(section("Private connection"))
+        gateway = field("https://your-private-niblit-gateway.example")
+        addCard(this, gateway, 0)
+        addView(label("A valid private HTTPS address is required. The desktop localhost address does not work from your phone.", 12, false, muted))
+        space(this)
+        username = field("Username")
+        addCard(this, username, 0)
+        password = field("Password").apply {
+            inputType = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_VARIATION_PASSWORD
+        }
+        addCard(this, password)
+        confirm = field("Confirm password (registration only)").apply {
+            inputType = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_VARIATION_PASSWORD
+        }
+        addCard(this, confirm)
+        sharedAck = CheckBox(this@MainActivity).apply {
+            text = "I understand that approved shared-workspace members can read its conversations."
+            setTextColor(muted)
+            textSize = 13f
+        }
+        addView(sharedAck)
+        val signIn = button("Sign in to Niblit")
+        val signUp = button("Request account approval", true)
+        val signOut = button("Sign out", true)
+        addCard(this, signIn)
+        addCard(this, signUp, 8)
+        addCard(this, signOut, 8)
+        addView(label("New accounts require administrator approval. Credentials are not stored in this app.", 12, false, muted))
+        signIn.setOnClickListener { authenticate(false) }
+        signUp.setOnClickListener { authenticate(true) }
+        signOut.setOnClickListener { signOut() }
+    }
+
+    private fun showStatus(message: String) {
+        status.text = message
+        Toast.makeText(this, message, Toast.LENGTH_LONG).show()
+    }
+
+    private fun base(): String {
+        val raw = gateway.text.toString().trim().trimEnd('/')
+        require(raw.isNotBlank()) { "Set your private HTTPS gateway in Account first." }
+        val uri = URI(raw)
+        require(uri.scheme == "https" && !uri.host.isNullOrBlank()
+                && uri.host != "localhost" && uri.host != "127.0.0.1"
+                && uri.rawUserInfo == null && uri.path.isNullOrEmpty()
+                && uri.query == null && uri.fragment == null) {
+            "Use an actual private HTTPS gateway address, not localhost or a path."
+        }
+        return raw
+    }
+
+    private fun request(host: String, token: String?, path: String, body: JSONObject? = null): JSONObject {
+        val connection = (URL(host + path).openConnection() as HttpsURLConnection).apply {
+            connectTimeout = 12000
+            readTimeout = if (path.endsWith("/chat") || path.endsWith("/advisory")) 240000 else 18000
+            instanceFollowRedirects = false
+            setRequestProperty("Accept", "application/json")
+            if (!token.isNullOrEmpty()) setRequestProperty("Authorization", "Bearer " + token)
+            if (body != null) {
+                requestMethod = "POST"
+                doOutput = true
+                setRequestProperty("Content-Type", "application/json")
+                outputStream.use { it.write(body.toString().toByteArray(Charsets.UTF_8)) }
+            }
+        }
+        return try {
+            val code = connection.responseCode
+            require(code in 200..299) { "Gateway HTTP $code" }
+            JSONObject(connection.inputStream.bufferedReader().use { it.readText() })
+        } finally { connection.disconnect() }
+    }
+
+    private fun runTask(message: String, job: () -> Unit) {
+        status.text = "◌  " + message
+        workers.execute {
+            try {
+                job()
+            } catch (e: Exception) {
+                runOnUiThread {
+                    showStatus("Connection failed: " + (e.message ?: "Gateway unavailable") +
+                            ". Check the private HTTPS gateway and your account session.")
+                }
+            }
+        }
+    }
+
+    private fun authenticate(register: Boolean) {
+        val host = try { base() } catch (e: Exception) { showStatus(e.message ?: "Gateway required"); return }
+        val user = username.text.toString().trim()
+        val pass = password.text.toString()
+        if (user.length !in 3..80 || pass.length < 12) {
+            showStatus("Username must be 3–80 characters and password at least 12 characters."); return
+        }
+        if (register && confirm.text.toString() != pass) {
+            showStatus("Passwords do not match."); return
+        }
+        if (register && !sharedAck.isChecked) {
+            showStatus("Acknowledge shared workspace visibility before registration."); return
+        }
+        val path = if (register) "/mobile/signup" else "/mobile/login"
+        val body = JSONObject().put("username", user).put("password", pass)
+        if (register) body.put("shared_workspace_acknowledged", true)
+        runTask(if (register) "Requesting approval…" else "Signing in…") {
+            val result = request(host, null, path, body)
+            val profile = if (register) null else request(host, result.getString("session_token"), "/mobile/me")
+            runOnUiThread {
+                password.setText("")
+                confirm.setText("")
+                if (register) {
+                    status.text = "◌  Approval request submitted. An administrator must approve your account."
+                } else {
+                    sessionToken = result.getString("session_token")
+                    chatHistory.clear()
+                    messages.removeAllViews()
+                    addBubble("assistant", "Welcome back, $user. Choose a model and ask me anything.")
+                    identity.text = "●  Signed in: " + result.optString("username", user) +
+                            "\nAccount ID: " + (profile?.optString("account_id") ?: "unavailable") +
+                            "\nPlan: " + (profile?.optString("tier") ?: "community")
+                    status.text = "●  Connected to Niblit Client Portal"
+                    showPage(0)
+                    loadModels()
+                }
+            }
+        }
+    }
+
+    private fun signOut() {
+        val token = sessionToken ?: return
+        val host = try { base() } catch (e: Exception) { showStatus(e.message ?: "Gateway unavailable"); return }
+        sessionToken = null
+        chatHistory.clear()
+        identity.text = "●  Signed out"
+        messages.removeAllViews()
+        addBubble("assistant", "You have signed out. Sign in to continue chatting with Niblit.")
+        advisoryResult.text = "Sign in to view a new market brief."
+        showPage(2)
+        runTask("Signing out…") {
+            try { request(host, token, "/mobile/logout", JSONObject()) }
+            finally { runOnUiThread { status.text = "●  Signed out on this device" } }
+        }
+    }
+
+    private fun loadModels() {
+        val token = sessionToken
+        if (token == null) { showStatus("Sign in through Account first."); showPage(2); return }
+        val host = try { base() } catch (e: Exception) { showStatus(e.message ?: "Gateway unavailable"); return }
+        runTask("Discovering available local models…") {
+            val result = request(host, token, "/mobile/models")
+            val arr = result.optJSONArray("data") ?: JSONArray()
+            val found = mutableListOf<String>()
+            for (i in 0 until arr.length()) {
+                val model = arr.optJSONObject(i)?.optString("id").orEmpty()
+                if (model.isNotBlank()) found.add(model)
+            }
+            runOnUiThread {
+                modelIds.clear()
+                modelIds.addAll(found)
+                (models.adapter as ArrayAdapter<*>).notifyDataSetChanged()
+                status.text = "●  Connected · " + found.size + " local model(s) available"
+            }
+        }
+    }
+
+    private fun sendChat() {
+        val token = sessionToken
+        if (token == null) { showStatus("Sign in through Account to chat."); showPage(2); return }
+        if (generating) { status.text = "◌  Niblit is generating a response…"; return }
+        val host = try { base() } catch (e: Exception) { showStatus(e.message ?: "Gateway unavailable"); return }
+        val message = prompt.text.toString().trim()
+        val model = models.selectedItem?.toString() ?: return
+        if (message.isEmpty()) return
+        if (message.length > 6000) { showStatus("Messages must be 6,000 characters or fewer."); return }
+        val conversation = JSONArray()
+        // Gateway accepts at most 12 messages, including the new prompt.
+        // Preserve five complete prior turns (10 messages) without starting with an orphan reply.
+        for ((role, content) in chatHistory.takeLast(10)) {
+            conversation.put(JSONObject().put("role", role).put("content", content))
+        }
+        conversation.put(JSONObject().put("role", "user").put("content", message))
+        val body = JSONObject().put("model", model).put("messages", conversation).put("max_tokens", 512)
+        generating = true
+        sendButton.isEnabled = false
+        prompt.setText("")
+        addBubble("user", message)
+        runTask("Niblit is thinking · $model") {
+            try {
+                val result = request(host, token, "/mobile/chat", body)
+                val answer = result.optJSONArray("choices")?.optJSONObject(0)
+                    ?.optJSONObject("message")?.optString("content").orEmpty().ifBlank { "(No model response.)" }
+                runOnUiThread {
+                    if (sessionToken != token) return@runOnUiThread
+                    chatHistory.add("user" to message)
+                    chatHistory.add("assistant" to answer)
+                    while (chatHistory.size > 24) chatHistory.removeAt(0)
+                    addBubble("assistant", answer)
+                    status.text = "●  Response from " + result.optString("model", model)
+                }
+            } catch (e: Exception) {
+                runOnUiThread {
+                    if (sessionToken == token) {
+                        addBubble("assistant", "I couldn't complete that request. " + (e.message ?: "Network unavailable"))
+                        status.text = "●  Request failed · Check connection"
+                    }
+                }
+            } finally {
+                runOnUiThread { generating = false; sendButton.isEnabled = true }
+            }
+        }
+    }
+
+    private fun loadMarkets() {
+        val token = sessionToken
+        if (token == null) { showStatus("Sign in first."); showPage(2); return }
+        val host = try { base() } catch (e: Exception) { showStatus(e.message ?: "Gateway unavailable"); return }
+        runTask("Refreshing market observations…") {
+            val result = request(host, token, "/mobile/observations")
+            val arr = result.optJSONArray("observers") ?: JSONArray()
+            val found = mutableListOf<MarketItem>()
+            for (i in 0 until arr.length()) {
+                val row = arr.optJSONObject(i) ?: continue
+                found.add(MarketItem(row.optString("adapter"), row.optString("symbol"),
+                        row.optString("side", "wait")))
+            }
+            runOnUiThread {
+                markets.clear()
+                markets.addAll(found)
+                (marketList.adapter as ArrayAdapter<*>).notifyDataSetChanged()
+                marketResult.text = "Observed markets: " + found.size +
+                        "\nSignals represent observations; no trading controls are exposed."
+                status.text = "●  Market observations refreshed"
+            }
+        }
+    }
+
+    private fun explainMarket() {
+        val token = sessionToken
+        if (token == null) { showStatus("Sign in first."); showPage(2); return }
+        val market = marketList.selectedItem as? MarketItem
+        val model = models.selectedItem?.toString()
+        if (market == null || model.isNullOrBlank()) { showStatus("Select an observed market and AI model."); return }
+        val host = try { base() } catch (e: Exception) { showStatus(e.message ?: "Gateway unavailable"); return }
+        val body = JSONObject().put("adapter", market.adapter).put("symbol", market.symbol).put("model", model)
+        runTask("Reviewing market evidence…") {
+            val result = request(host, token, "/mobile/advisory", body)
+            val analysis = result.optString("advisory", "Analysis unavailable")
+            val evidence = result.optJSONObject("evidence")
+            runOnUiThread {
+                advisoryResult.text = "MODEL  $model\nMARKET  " + market.adapter + " · " + market.symbol +
+                        "\nOBSERVED SIGNAL  " + market.side + "\n\n" + analysis +
+                        "\n\nEVIDENCE\n" + (evidence?.toString(2) ?: "No supporting evidence returned") +
+                        "\n\nRead-only insight · No order submitted."
+                status.text = "●  Market advisory generated"
+            }
+        }
+    }
+
+    override fun onDestroy() {
+        sessionToken = null
+        chatHistory.clear()
+        workers.shutdownNow()
+        super.onDestroy()
+    }
+}

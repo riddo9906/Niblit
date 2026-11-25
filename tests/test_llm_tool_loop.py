@@ -31,6 +31,18 @@ def _tc(name, args=None, tc_id=None):
     }
 
 
+def _plan_tool(name, reason="The request requires this registered capability."):
+    return {"choices": [{"message": {"role": "assistant", "content": json.dumps({
+        "action": "tool", "tool_name": name, "reason": reason, "final_answer": None,
+    })}}]}
+
+
+def _plan_final(answer, reason="No further tool action is required."):
+    return {"choices": [{"message": {"role": "assistant", "content": json.dumps({
+        "action": "final", "tool_name": None, "reason": reason, "final_answer": answer,
+    })}}]}
+
+
 class FakeLoop(LlmToolLoop):
     """Subclass with a scripted Cloud responder instead of real HTTP."""
 
@@ -39,9 +51,11 @@ class FakeLoop(LlmToolLoop):
         self._script = list(script)
         self.requests = []
 
-    def _cloud_chat(self, messages, model, tools=None, tool_choice=None, max_tokens=512):
+    def _cloud_chat(self, messages, model, tools=None, tool_choice=None,
+                    response_format=None, max_tokens=512):
         self.requests.append({"messages": list(messages), "tools": tools,
-                              "tool_choice": tool_choice})
+                              "tool_choice": tool_choice,
+                              "response_format": response_format})
         entry = self._script.pop(0)
         if isinstance(entry, Exception):
             raise entry
@@ -90,7 +104,8 @@ def test_single_tool_turn_executes_and_continuation_receives_observation():
     }
     final_resp = {"choices": [{"message": {"role": "assistant",
                              "content": "Runtime is operational."}}]}
-    loop = FakeLoop([tool_resp, final_resp])
+    loop = FakeLoop([_plan_tool("runtime_status"), tool_resp,
+                      _plan_final("Runtime is operational.")])
     out = loop.chat([{"role": "user", "content": "What is the runtime status?"}],
                      tools=[make_runtime_status_tool()])
     assert out["text"] == "Runtime is operational."
@@ -100,7 +115,20 @@ def test_single_tool_turn_executes_and_continuation_receives_observation():
     t = out["trace"][0]
     assert t["tool"] == "runtime_status" and t["status"] == "success"
     assert t["tool_call_id"] == "call_rt"
-    cont = loop.requests[1]["messages"]
+    assert {
+        "memory_retrieval_ms", "memory_gateway_initialization_ms",
+        "capability_retrieval_ms", "decision_inference_ms",
+        "tool_selection_inference_ms", "post_tool_decision_inference_ms",
+        "structured_argument_inference_ms", "tool_dispatch_ms",
+        "final_inference_ms", "total_ms",
+    } <= set(out["timings_ms"])
+    assert all(value >= 0 for value in out["timings_ms"].values())
+    assert out["timings_ms"]["total_ms"] >= out["timings_ms"]["tool_dispatch_ms"]
+    assert loop.requests[0]["response_format"]["type"] == "json_schema"
+    assert loop.requests[1]["tool_choice"] == {
+        "type": "function", "function": {"name": "runtime_status"}}
+    assert loop.requests[1]["tools"] == [make_runtime_status_tool()]
+    cont = loop.requests[2]["messages"]
     assert "tool" in [m["role"] for m in cont]
     toolmsg = [m for m in cont if m["role"] == "tool"][0]
     assert toolmsg["tool_call_id"] == "call_rt"
@@ -112,24 +140,23 @@ def test_initial_required_tool_choice_is_released_after_observation():
         "tool_calls": [_tc("runtime_status", {}, "call_rt")]}}]}
     final_resp = {"choices": [{"message": {"role": "assistant",
         "content": "Runtime is operational."}}]}
-    loop = FakeLoop([tool_resp, final_resp])
+    loop = FakeLoop([tool_resp, _plan_final("Runtime is operational.")])
     loop.chat([{"role": "user", "content": "What is the runtime status?"}],
               tools=[make_runtime_status_tool()], tool_choice="required")
-    assert loop.requests[0]["tool_choice"] == "required"
-    assert loop.requests[1]["tool_choice"] is None
+    assert len(loop.requests) == 2
+    assert loop.requests[0]["tool_choice"] == {
+        "type": "function", "function": {"name": "runtime_status"}}
+    assert loop.requests[0]["tools"] == [make_runtime_status_tool()]
+    assert loop.requests[1]["response_format"]["type"] == "json_schema"
 
 
-def test_unknown_tool_is_rejected_as_observation_not_executed():
-    tool_resp = {"choices": [{"message": {"role": "assistant", "content": "",
-                          "tool_calls": [_tc("totally_evil_thing", {}, "call_bad")]}}]}
-    final_resp = {"choices": [{"message": {"role": "assistant",
-                          "content": "Tool not permitted."}}]}
-    loop = FakeLoop([tool_resp, final_resp])
-    out = loop.chat([{"role": "user", "content": "do something dangerous"}],
-                   tools=[make_runtime_status_tool()])
+def test_unknown_tool_is_rejected_by_selection_contract_before_dispatch():
+    loop = FakeLoop([_plan_tool("totally_evil_thing")])
+    with pytest.raises(ToolCallError, match="unregistered capability"):
+        loop.chat([{"role": "user", "content": "do something dangerous"}],
+                  tools=[make_runtime_status_tool()])
     assert loop.executor.status_calls == 0
-    assert out["trace"][0]["status"] == "rejected"
-    assert "unknown tool" in out["trace"][0].get("error", "")
+    assert len(loop.requests) == 1
 
 
 def test_explicit_tool_list_restricts_registered_capabilities():
@@ -144,25 +171,20 @@ def test_explicit_tool_list_restricts_registered_capabilities():
                        "properties": {"path": {"type": "string"}},
                        "required": ["path"]}}}
     writes = []
-    loop = FakeLoop([
-        {"choices": [{"message": {"role": "assistant", "content": "",
-          "tool_calls": [_tc("workspace_write", {"path": "note.txt"})]}}]},
-        {"choices": [{"message": {"role": "assistant",
-                                   "content": "Write was denied."}}]},
-    ])
+    loop = FakeLoop([_plan_tool("workspace_write")])
     loop.register_capability("workspace_write", lambda **args: writes.append(args),
                              write_schema)
     loop.register_capability("workspace_read", lambda **args: {"content": "x"},
                              read_schema)
 
-    out = loop.chat([{"role": "user", "content": "Explain this source"}],
-                    tools=[read_schema])
+    with pytest.raises(ToolCallError, match="unregistered capability"):
+        loop.chat([{"role": "user", "content": "Explain this source"}],
+                  tools=[read_schema])
 
     assert writes == []
-    assert out["trace"][0]["status"] == "rejected"
-    assert "unknown tool" in out["trace"][0]["error"]
-    assert [tool["function"]["name"] for tool in loop.requests[0]["tools"]] == [
-        "workspace_read"]
+    catalog = json.loads(loop.requests[0]["messages"][1]["content"].split(
+        "Registered capability catalog (JSON data): ", 1)[1])
+    assert [tool["name"] for tool in catalog] == ["workspace_read"]
 
 
 def test_llm_tool_loop_enforces_mutation_permission(monkeypatch, tmp_path):
@@ -176,13 +198,11 @@ def test_llm_tool_loop_enforces_mutation_permission(monkeypatch, tmp_path):
                                       "content": {"type": "string"}},
                        "required": ["path", "content"]}}}
     writes = []
-    loop = FakeLoop([
-        {"choices": [{"message": {"role": "assistant", "content": "",
-          "tool_calls": [_tc("workspace_write", {
-              "path": "note.txt", "content": "unapproved"})]}}]},
-        {"choices": [{"message": {"role": "assistant",
-                                   "content": "The write was not authorized."}}]},
-    ])
+    tool_resp = {"choices": [{"message": {"role": "assistant", "content": "",
+        "tool_calls": [_tc("workspace_write", {
+            "path": "note.txt", "content": "unapproved"})]}}]}
+    loop = FakeLoop([_plan_tool("workspace_write"), tool_resp,
+                     _plan_final("The write was not authorized.")])
     loop.register_capability("workspace_write", lambda **args: writes.append(args),
                              write_schema)
 
@@ -190,6 +210,10 @@ def test_llm_tool_loop_enforces_mutation_permission(monkeypatch, tmp_path):
 
     assert writes == []
     assert out["trace"][0]["status"] == "authorization_required"
+    assert out["trace"][0]["tool"] == "workspace_write"
+    assert out["trace"][0]["arguments"] == {
+        "path": "note.txt", "content": "unapproved"
+    }
     assert "command.workspace_write" in out["trace"][0]["error"]
     direct = loop.invoke("workspace_write", {
         "path": "note.txt", "content": "also unapproved"
@@ -202,9 +226,10 @@ def test_continuation_preserves_assistant_tool_calls_not_flattened():
     tool_resp = {"choices": [{"message": {"role": "assistant", "content": "",
                           "tool_calls": [_tc("runtime_status", {}, "call_2")]}}]}
     final_resp = {"choices": [{"message": {"role": "assistant", "content": "OK"}}]}
-    loop = FakeLoop([tool_resp, final_resp])
+    loop = FakeLoop([_plan_tool("runtime_status"), tool_resp,
+                     _plan_final("OK")])
     loop.chat([{"role": "user", "content": "go"}], tools=[make_runtime_status_tool()])
-    assistant_msgs = [m for m in loop.requests[1]["messages"] if m["role"] == "assistant"]
+    assistant_msgs = [m for m in loop.requests[2]["messages"] if m["role"] == "assistant"]
     assert assistant_msgs and "tool_calls" in assistant_msgs[0]
 
 
@@ -253,14 +278,7 @@ def test_tool_calls_above_limit_rejected():
     calls = [_tc("runtime_status", {}, f"call_{i}") for i in range(20)]
     resp_single = {"choices": [{"message": {"role": "assistant",
                              "content": "", "tool_calls": calls}}]}
-    loop = FakeLoop([resp_single])
-    with pytest.raises(ToolCallError):
-        loop.chat([{"role": "user", "content": "go"}], tools=[make_runtime_status_tool()])
-def test_tool_calls_above_limit_rejected():
-    calls = [_tc("runtime_status", {}, f"call_{i}") for i in range(20)]
-    resp_single = {"choices": [{"message": {"role": "assistant",
-                             "content": "", "tool_calls": calls}}]}
-    loop = FakeLoop([resp_single])
+    loop = FakeLoop([_plan_tool("runtime_status"), resp_single])
     with pytest.raises(ToolCallError):
         loop.chat([{"role": "user", "content": "go"}], tools=[make_runtime_status_tool()])
 
@@ -278,7 +296,12 @@ def test_identical_call_repetition_triggers_guard_and_forces_answer():
                                   "fallback": False}}
     final_resp = {"choices": [{"message": {"role": "assistant",
                              "content": "Core status: Ready."}}]}
-    loop = FakeLoop([tool_resp, tool_resp, tool_resp, final_resp])
+    loop = FakeLoop([
+        _plan_tool("runtime_status"), tool_resp,
+        _plan_tool("runtime_status"), tool_resp,
+        _plan_tool("runtime_status"), tool_resp,
+        final_resp,
+    ])
     out = loop.chat([{"role": "user", "content": "status?"}],
                     tools=[make_runtime_status_tool()])
     assert out["text"] == "Core status: Ready."
@@ -315,7 +338,11 @@ def test_budget_exhausted_forces_one_final_no_tools_turn():
 
     final_resp = {"choices": [{"message": {"role": "assistant",
                              "content": "Answer from observations."}}]}
-    loop = FakeLoop([resp_with("a"), resp_with("b"), final_resp])
+    loop = FakeLoop([
+        _plan_tool("echo_tool"), resp_with("a"),
+        _plan_tool("echo_tool"), resp_with("b"),
+        final_resp,
+    ])
     loop.max_loop_calls = 2  # exhaust the budget while still tool-calling
     loop.register_capability("echo_tool", lambda **kw: {"echo": kw.get("q", "")},
                              echo_schema)
@@ -346,10 +373,69 @@ def test_distinct_calls_do_not_trip_repetition_guard():
     rb = {"choices": [{"message": {"role": "assistant", "content": "",
                       "tool_calls": [_tc_echo("b", "c2")]}}]}
     final_resp = {"choices": [{"message": {"role": "assistant", "content": "ok"}}]}
-    loop = FakeLoop([ra, rb, ra, final_resp])
+    loop = FakeLoop([
+        _plan_tool("echo_tool"), ra,
+        _plan_tool("echo_tool"), rb,
+        _plan_tool("echo_tool"), ra,
+        _plan_final("ok"),
+    ])
     loop.register_capability("echo_tool", lambda **kw: {"echo": kw.get("q", "")},
                              echo_schema)
     out = loop.chat([{"role": "user", "content": "go"}])
     assert out["text"] == "ok"
     assert out["stopped"] == "final_answer"
     assert all(t["status"] == "success" for t in out["trace"])
+
+def test_invoke_reports_structured_capability_errors_as_errors():
+    schema = {"type": "function", "function": {
+        "name": "guarded_read",
+        "description": "Read through a guarded adapter",
+        "parameters": {"type": "object", "properties": {}, "required": []},
+    }}
+    loop = LlmToolLoop(executor=FakeExecutor())
+    loop.register_capability(
+        "guarded_read",
+        lambda **kwargs: {"error": "blocked_by_niblit_secret_file_policy"},
+        schema,
+    )
+    result = loop.invoke("guarded_read", {})
+    assert result["status"] == "error"
+    assert result["error"] == "blocked_by_niblit_secret_file_policy"
+
+def test_one_time_permission_grant_executes_without_persisting_authority():
+    import uuid
+    from modules import core_tool_runtime
+    from modules.permission_manager import permission_grant_once
+
+    action = "command.mcp.test.once." + uuid.uuid4().hex
+    name = "mcp_test_one_time_write_" + uuid.uuid4().hex[:8]
+    schema = {"type": "function", "function": {
+        "name": name,
+        "description": "Test one-time permission",
+        "parameters": {"type": "object", "properties": {"value": {"type": "string"}}, "required": ["value"]},
+    }}
+    calls = []
+    loop = LlmToolLoop(executor=FakeExecutor())
+    loop.register_capability(name, lambda **args: calls.append(args) or {"written": True}, schema)
+    old_meta = core_tool_runtime.GOVERNED_COMMAND_METADATA.get(name)
+    old_action = core_tool_runtime.COMMAND_PERMISSION_ACTIONS.get(name)
+    core_tool_runtime.GOVERNED_COMMAND_METADATA[name] = {"requires_authorization": True}
+    core_tool_runtime.COMMAND_PERMISSION_ACTIONS[name] = action
+    try:
+        denied = loop.invoke(name, {"value": "one"})
+        assert denied["status"] == "authorization_required"
+        with permission_grant_once(action):
+            approved = loop.invoke(name, {"value": "one"})
+        assert approved["status"] == "success"
+        assert calls == [{"value": "one"}]
+        from modules.core_tool_runtime import _permission_manager
+        assert not _permission_manager().check(action)
+    finally:
+        if old_meta is None:
+            core_tool_runtime.GOVERNED_COMMAND_METADATA.pop(name, None)
+        else:
+            core_tool_runtime.GOVERNED_COMMAND_METADATA[name] = old_meta
+        if old_action is None:
+            core_tool_runtime.COMMAND_PERMISSION_ACTIONS.pop(name, None)
+        else:
+            core_tool_runtime.COMMAND_PERMISSION_ACTIONS[name] = old_action

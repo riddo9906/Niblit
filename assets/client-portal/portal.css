@@ -1,5 +1,50 @@
-:root{font:16px/1.6 system-ui,sans-serif;color:#e3eee9;background:#101b18}body{max-width:980px;margin:auto;padding:32px 20px}header{border-bottom:1px solid #3b5046;margin-bottom:24px}h1{font-size:clamp(30px,5vw,48px);letter-spacing:-2px}h2,h3{line-height:1.3}p{overflow-wrap:anywhere}label{display:block;margin:14px 0}input,textarea,select,button{font:inherit;border:1px solid #587563;border-radius:8px;padding:10px 14px;background:#182a22;color:inherit;max-width:100%;box-sizing:border-box}input,textarea{display:block;width:100%;margin-top:6px}textarea{min-height:100px}button{cursor:pointer;background:#c5ed92;color:#122315;font-weight:600;margin:6px 8px 6px 0}button:disabled{opacity:.5;cursor:wait}article{padding:18px 24px;background:#1d3027;border-radius:12px;margin:16px 0}article p{white-space:pre-wrap}article h3{color:#c5ed92;font-size:14px}#admin{border-top:1px solid #587563;margin-top:40px;padding-top:20px}pre{white-space:pre-wrap;overflow-wrap:anywhere;font-size:13px}#status{color:#c5ed92}form{max-width:700px}[hidden]{display:none!important}
-
-input[type="checkbox"]{display:inline-block;width:auto;margin-right:8px}#registration{margin-top:18px}#signup{padding:20px;border:1px solid #587563;border-radius:12px}
-
-#tool-panel{border:1px solid #587563;border-radius:12px;padding:18px;margin-top:24px}#tool-activity{max-height:360px;overflow:auto}#proposals details{padding:12px;margin:10px 0;background:#1d3027;border-radius:8px}
+:root{color-scheme:dark;font:15px/1.56 Inter,"Segoe UI",system-ui,sans-serif;--bg:#080f1e;--card:#131f35;--line:#2d3c55;--text:#eaf1ff;--muted:#a5b5cc;--accent:#58b9cf;--green:#93e6ba;--alert:#ffc287}
+*{box-sizing:border-box}body{min-height:100vh;max-width:1200px;margin:auto;background:radial-gradient(ellipse 750px 500px at 89% -10%,#153f56 0%,transparent 70%),radial-gradient(ellipse 600px 540px at -15% 30%,#162e4c 0%,transparent 73%),var(--bg);color:var(--text);padding:28px 24px 68px}
+[hidden]{display:none!important}a{color:var(--green);text-underline-offset:4px}header{border:1px solid #2d4560;background:linear-gradient(112deg,rgba(22,44,66,.96),rgba(10,22,39,.9));border-radius:24px;padding:35px;box-shadow:0 28px 85px #04091570;position:relative;overflow:hidden;margin-bottom:22px}
+header:after{content:"";position:absolute;width:260px;height:260px;right:-90px;top:-120px;border:1px solid #5bb7bc35;border-radius:50%;box-shadow:0 0 0 48px #60b5c712,0 0 0 92px #60b5c70c;pointer-events:none}
+header h1{font-size:clamp(32px,5vw,58px);line-height:1.05;letter-spacing:-.055em;margin:12px 0 14px;max-width:740px}
+header h1 strong{color:var(--green)}header p{font-size:16px;color:var(--muted);max-width:700px;margin:8px 0 22px}
+nav{display:flex;gap:12px;flex-wrap:wrap;position:relative;z-index:1}nav a{border:1px solid #4c7182;border-radius:999px;padding:9px 16px;text-decoration:none;color:#e9f5ff;background:#152d43}nav a:hover{background:#24465e}
+.eyebrow{text-transform:uppercase;font-size:11px;font-weight:800;letter-spacing:.23em;color:var(--accent)}
+#status{padding:13px 17px;border:1px solid #36536d;border-radius:12px;background:#122539;color:#9bdded;margin:0 0 22px;min-height:54px}
+#login,#registration,#plans,main#workspace>form,main#workspace>section,main#workspace>p,main#workspace>label,main#workspace>button{background:rgba(19,31,53,.9);border:1px solid var(--line);border-radius:18px;padding:22px;margin:0 0 16px;box-shadow:0 16px 45px #03091235}
+#login,#signup{max-width:none}#login{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px;align-items:end}#login button{grid-column:1/-1}
+#registration{max-width:900px}#plans{max-width:900px}
+#plans h2,#registration h2,#workspace h2{margin:0 0 12px;letter-spacing:-.03em;font-size:23px}
+#plans p,#registration p,#privacy{color:var(--muted);margin:5px 0 14px}
+h3{font-size:16px;letter-spacing:-.015em}
+label{display:block;font-size:13px;font-weight:650;color:#c9d9eb;margin:10px 0}
+input,select,textarea{width:100%;padding:13px 15px;background:#0c192b;border:1px solid #36506d;border-radius:11px;font:inherit;color:var(--text);margin-top:7px;outline:0}
+input::placeholder,textarea::placeholder{color:#8296ac}
+input:focus,select:focus,textarea:focus{border-color:var(--accent);box-shadow:0 0 0 3px #58b9cf2c}
+input[type="checkbox"]{display:inline-block;width:auto;margin:0 9px 0 0;accent-color:var(--green)}
+textarea{min-height:118px;resize:vertical}
+button{border:0;border-radius:11px;padding:12px 18px;margin:5px 9px 5px 0;color:#082a2b;font:inherit;font-weight:760;cursor:pointer;background:linear-gradient(135deg,#9cf0c0,#65cbd6);box-shadow:0 6px 16px #07132160;transition:transform .13s ease,filter .13s ease}
+button:hover{filter:brightness(1.08);transform:translateY(-1px)}button:focus-visible{outline:3px solid #ffffffa5;outline-offset:2px}button:disabled{cursor:wait;filter:grayscale(.4);opacity:.55;transform:none}
+#show-signup{background:#1f3a55;color:#ecf7ff;border:1px solid #54718b;box-shadow:none}
+#signup{background:#12253c;border:1px solid #41617d;padding:20px;border-radius:15px}
+#signup label:has(input[type="checkbox"]){font-weight:400;line-height:1.5}
+#workspace{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+#workspace>*,#workspace>p,#workspace>form,#workspace>section,#workspace>label,#workspace>button{min-width:0}
+#workspace #identity,#workspace #privacy,#workspace #chat,#workspace #messages,#workspace #tool-panel,#workspace #admin,#workspace #learning-panel{grid-column:1/-1}
+#workspace #identity{font-size:17px;font-weight:780;color:var(--green)}
+#workspace #messages{display:grid;gap:12px;max-height:560px;overflow:auto;min-height:110px}
+article{border:1px solid #324862;background:#0e1e32;padding:16px 20px;border-radius:14px}
+article h3{font-size:12px;text-transform:uppercase;letter-spacing:.08em;color:var(--green);margin:0 0 10px}
+article p{white-space:pre-wrap;overflow-wrap:anywhere;margin:0;line-height:1.6}
+#workspace #chat{display:grid;gap:12px}
+#workspace #chat button{justify-self:start}
+#workspace #admin{border-color:#4c657b}
+#workspace #admin>form{padding:18px;background:#0d1a2b;border-radius:14px;border:1px solid #354966}
+#users>p{border:1px solid #354963;background:#0f2134;padding:13px;border-radius:13px;margin:9px 0}
+#users select{max-width:160px;margin:8px 8px 0 0}
+#users>p.approval-focus{border-color:var(--green);box-shadow:0 0 0 3px #92e6ba26}
+#membership,#tool-panel,#learning-panel{border-color:#385871}
+#tool-activity{max-height:360px;overflow:auto}
+#proposals details{padding:12px;margin:10px 0;background:#0b1a2c;border:1px solid #2d4560;border-radius:10px}
+pre{white-space:pre-wrap;overflow-wrap:anywhere;font-size:12px;line-height:1.5;color:#c9dfed}
+#model-status{color:var(--green)}
+.mono{font-family:ui-monospace,Consolas,monospace}
+.portal-footer{margin:30px 0 0;color:#8eabc6;font-size:12px;text-align:center}
+@media(max-width:740px){body{padding:13px 12px 40px}header{padding:25px 20px;border-radius:17px}header h1{font-size:34px}#login{grid-template-columns:1fr}#workspace{display:block}#login,#registration,#plans,main#workspace>*{border-radius:14px;padding:16px}nav a{font-size:12px}#users select{max-width:100%}}
+@media(prefers-reduced-motion:reduce){button{transition:none}button:hover{transform:none}}

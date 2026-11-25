@@ -18,14 +18,19 @@ Generated from source without importing modules. Definitions and docstrings are 
 | [app/cursor_gateway_app.py](../../../Niblit-cloud-server/app/cursor_gateway_app.py) | 59 | 3 | 0 |
 | [app/event_bus.py](../../../Niblit-cloud-server/app/event_bus.py) | 210 | 9 | 0 |
 | [app/federation.py](../../../Niblit-cloud-server/app/federation.py) | 384 | 25 | 0 |
-| [app/local_models.py](../../../Niblit-cloud-server/app/local_models.py) | 190 | 8 | 0 |
-| [app/main.py](../../../Niblit-cloud-server/app/main.py) | 2139 | 39 | 0 |
+| [app/local_models.py](../../../Niblit-cloud-server/app/local_models.py) | 196 | 8 | 0 |
+| [app/main.py](../../../Niblit-cloud-server/app/main.py) | 2185 | 41 | 0 |
+| [app/market_advisory.py](../../../Niblit-cloud-server/app/market_advisory.py) | 95 | 4 | 0 |
 | [app/memory_proposals.py](../../../Niblit-cloud-server/app/memory_proposals.py) | 59 | 3 | 0 |
+| [app/mobile_gateway.py](../../../Niblit-cloud-server/app/mobile_gateway.py) | 219 | 19 | 0 |
 | [app/model_orchestrator.py](../../../Niblit-cloud-server/app/model_orchestrator.py) | 419 | 20 | 0 |
 | [app/model_registry.py](../../../Niblit-cloud-server/app/model_registry.py) | 224 | 15 | 0 |
 | [app/node_identity.py](../../../Niblit-cloud-server/app/node_identity.py) | 175 | 11 | 0 |
+| [app/portal_mobile_auth.py](../../../Niblit-cloud-server/app/portal_mobile_auth.py) | 83 | 5 | 0 |
 | [app/reflection_engine.py](../../../Niblit-cloud-server/app/reflection_engine.py) | 357 | 13 | 0 |
 | [app/runtime.py](../../../Niblit-cloud-server/app/runtime.py) | 617 | 40 | 0 |
+| [app/shared_gguf.py](../../../Niblit-cloud-server/app/shared_gguf.py) | 47 | 3 | 1 |
+| [app/sidecar_gguf.py](../../../Niblit-cloud-server/app/sidecar_gguf.py) | 85 | 6 | 0 |
 | [app/temporal_sync.py](../../../Niblit-cloud-server/app/temporal_sync.py) | 226 | 11 | 0 |
 | [app/trading_runtime_bridge.py](../../../Niblit-cloud-server/app/trading_runtime_bridge.py) | 331 | 13 | 0 |
 | [app/cognitive_gateway/__init__.py](../../../Niblit-cloud-server/app/cognitive_gateway/__init__.py) | 13 | 0 | 0 |
@@ -50,13 +55,15 @@ Generated from source without importing modules. Definitions and docstrings are 
 | [app/debug/stress_test.py](../../../Niblit-cloud-server/app/debug/stress_test.py) | 139 | 4 | 0 |
 | [app/execution/execution_manager.py](../../../Niblit-cloud-server/app/execution/execution_manager.py) | 116 | 23 | 0 |
 | [app/execution/freqtrade_adapters.py](../../../Niblit-cloud-server/app/execution/freqtrade_adapters.py) | 64 | 15 | 0 |
+| [app/mobile_ui/index.html](../../../Niblit-cloud-server/app/mobile_ui/index.html) | 13 | 0 | 0 |
+| [app/mobile_ui/mobile-v2.js](../../../Niblit-cloud-server/app/mobile_ui/mobile-v2.js) | 156 | 0 | 0 |
 | [app/providers/__init__.py](../../../Niblit-cloud-server/app/providers/__init__.py) | 59 | 10 | 0 |
 | [app/providers/anthropic_provider.py](../../../Niblit-cloud-server/app/providers/anthropic_provider.py) | 77 | 7 | 1 |
 | [app/providers/hf_provider.py](../../../Niblit-cloud-server/app/providers/hf_provider.py) | 63 | 7 | 1 |
 | [app/providers/llamacpp_provider.py](../../../Niblit-cloud-server/app/providers/llamacpp_provider.py) | 50 | 7 | 1 |
 | [app/providers/ollama_provider.py](../../../Niblit-cloud-server/app/providers/ollama_provider.py) | 59 | 7 | 1 |
 | [app/providers/openai_provider.py](../../../Niblit-cloud-server/app/providers/openai_provider.py) | 82 | 7 | 1 |
-| [app/providers/qwen_server_provider.py](../../../Niblit-cloud-server/app/providers/qwen_server_provider.py) | 153 | 5 | 0 |
+| [app/providers/qwen_server_provider.py](../../../Niblit-cloud-server/app/providers/qwen_server_provider.py) | 230 | 6 | 0 |
 | [app/providers/registry.py](../../../Niblit-cloud-server/app/providers/registry.py) | 108 | 8 | 0 |
 | [app/providers/remote_provider.py](../../../Niblit-cloud-server/app/providers/remote_provider.py) | 66 | 7 | 1 |
 | [app/providers/vllm_provider.py](../../../Niblit-cloud-server/app/providers/vllm_provider.py) | 50 | 7 | 1 |
@@ -68,8 +75,8 @@ Generated from source without importing modules. Definitions and docstrings are 
 | [app/trading/cognitive_learning_pipeline.py](../../../Niblit-cloud-server/app/trading/cognitive_learning_pipeline.py) | 66 | 4 | 0 |
 | [app/trading/evaluation_engine.py](../../../Niblit-cloud-server/app/trading/evaluation_engine.py) | 48 | 7 | 0 |
 | [app/trading/execution_feedback.py](../../../Niblit-cloud-server/app/trading/execution_feedback.py) | 153 | 10 | 0 |
-| [app/trading/freqtrade_adapter.py](../../../Niblit-cloud-server/app/trading/freqtrade_adapter.py) | 170 | 11 | 0 |
-| [app/trading/freqtrade_supervisor.py](../../../Niblit-cloud-server/app/trading/freqtrade_supervisor.py) | 198 | 23 | 0 |
+| [app/trading/freqtrade_adapter.py](../../../Niblit-cloud-server/app/trading/freqtrade_adapter.py) | 202 | 12 | 0 |
+| [app/trading/freqtrade_supervisor.py](../../../Niblit-cloud-server/app/trading/freqtrade_supervisor.py) | 203 | 23 | 0 |
 | [app/trading/gguf_validator.py](../../../Niblit-cloud-server/app/trading/gguf_validator.py) | 233 | 9 | 0 |
 | [app/trading/lean_algo_manager.py](../../../Niblit-cloud-server/app/trading/lean_algo_manager.py) | 37 | 4 | 0 |
 | [app/trading/lean_bridge.py](../../../Niblit-cloud-server/app/trading/lean_bridge.py) | 221 | 9 | 0 |
@@ -82,25 +89,34 @@ Generated from source without importing modules. Definitions and docstrings are 
 | [app/trading/portfolio_intelligence.py](../../../Niblit-cloud-server/app/trading/portfolio_intelligence.py) | 100 | 9 | 1 |
 | [app/trading/reflection_engine.py](../../../Niblit-cloud-server/app/trading/reflection_engine.py) | 71 | 9 | 0 |
 | [app/trading/risk_engine.py](../../../Niblit-cloud-server/app/trading/risk_engine.py) | 170 | 9 | 0 |
-| [app/trading/router.py](../../../Niblit-cloud-server/app/trading/router.py) | 180 | 17 | 0 |
+| [app/trading/router.py](../../../Niblit-cloud-server/app/trading/router.py) | 173 | 17 | 0 |
 | [app/trading/scheduler_expansion.py](../../../Niblit-cloud-server/app/trading/scheduler_expansion.py) | 49 | 5 | 0 |
 | [app/trading/strategy_evolution.py](../../../Niblit-cloud-server/app/trading/strategy_evolution.py) | 56 | 7 | 0 |
 | [app/trading/trade_intent.py](../../../Niblit-cloud-server/app/trading/trade_intent.py) | 130 | 7 | 0 |
 | [app/trading/trading_supervisor.py](../../../Niblit-cloud-server/app/trading/trading_supervisor.py) | 82 | 7 | 0 |
+| [scripts/Build-Scoped.ps1](../../../Niblit-cloud-server/scripts/Build-Scoped.ps1) | 7 | 0 | 0 |
+| [scripts/smoke_mobile_gateway.py](../../../Niblit-cloud-server/scripts/smoke_mobile_gateway.py) | 31 | 1 | 0 |
+| [scripts/smoke_portal_mobile_v2.py](../../../Niblit-cloud-server/scripts/smoke_portal_mobile_v2.py) | 81 | 2 | 0 |
 | [tests/conftest.py](../../../Niblit-cloud-server/tests/conftest.py) | 29 | 1 | 0 |
+| [tests/core_execution_contract_cases.py](../../../Niblit-cloud-server/tests/core_execution_contract_cases.py) | 259 | 23 | 2 |
 | [tests/test_api.py](../../../Niblit-cloud-server/tests/test_api.py) | 444 | 41 | 0 |
 | [tests/test_base_urls.py](../../../Niblit-cloud-server/tests/test_base_urls.py) | 78 | 7 | 0 |
+| [tests/test_cloud_execution_governance.py](../../../Niblit-cloud-server/tests/test_cloud_execution_governance.py) | 31 | 1 | 0 |
 | [tests/test_cloud_web_ui.py](../../../Niblit-cloud-server/tests/test_cloud_web_ui.py) | 66 | 9 | 0 |
 | [tests/test_cognitive_gateway.py](../../../Niblit-cloud-server/tests/test_cognitive_gateway.py) | 225 | 15 | 0 |
 | [tests/test_cognitive_runtime.py](../../../Niblit-cloud-server/tests/test_cognitive_runtime.py) | 862 | 96 | 0 |
 | [tests/test_cursor_gateway.py](../../../Niblit-cloud-server/tests/test_cursor_gateway.py) | 268 | 16 | 0 |
 | [tests/test_inference_hang_regression.py](../../../Niblit-cloud-server/tests/test_inference_hang_regression.py) | 68 | 5 | 0 |
 | [tests/test_interoperability_bridge.py](../../../Niblit-cloud-server/tests/test_interoperability_bridge.py) | 30 | 1 | 0 |
-| [tests/test_local_models.py](../../../Niblit-cloud-server/tests/test_local_models.py) | 81 | 7 | 0 |
+| [tests/test_local_models.py](../../../Niblit-cloud-server/tests/test_local_models.py) | 94 | 8 | 0 |
+| [tests/test_mobile_gateway.py](../../../Niblit-cloud-server/tests/test_mobile_gateway.py) | 97 | 6 | 0 |
 | [tests/test_model_identity.py](../../../Niblit-cloud-server/tests/test_model_identity.py) | 101 | 6 | 0 |
 | [tests/test_runtime_tooling_layer.py](../../../Niblit-cloud-server/tests/test_runtime_tooling_layer.py) | 674 | 77 | 0 |
-| [tests/test_trading_pipeline.py](../../../Niblit-cloud-server/tests/test_trading_pipeline.py) | 484 | 71 | 0 |
+| [tests/test_shared_gguf.py](../../../Niblit-cloud-server/tests/test_shared_gguf.py) | 85 | 8 | 0 |
+| [tests/test_sidecar_14b.py](../../../Niblit-cloud-server/tests/test_sidecar_14b.py) | 40 | 4 | 0 |
+| [tests/test_trading_pipeline.py](../../../Niblit-cloud-server/tests/test_trading_pipeline.py) | 485 | 71 | 0 |
 | [tests/test_vscode_openai_compat.py](../../../Niblit-cloud-server/tests/test_vscode_openai_compat.py) | 236 | 23 | 0 |
+| [tests/test_windows_model_profile.py](../../../Niblit-cloud-server/tests/test_windows_model_profile.py) | 53 | 4 | 0 |
 | [tools/__init__.py](../../../Niblit-cloud-server/tools/__init__.py) | 1 | 0 | 0 |
 | [tools/check_local_llm.py](../../../Niblit-cloud-server/tools/check_local_llm.py) | 279 | 7 | 0 |
 | [tools/cloud_runtime_ctl.py](../../../Niblit-cloud-server/tools/cloud_runtime_ctl.py) | 338 | 12 | 0 |
@@ -301,14 +317,14 @@ Federation coordination foundation for Niblit cloud runtime.
 
 Central local GGUF model registry — ONE authoritative source.
 
-- `LocalModelSpec` at line 74: Explanation needed.
-- `gguf_model_dir` at line 105: Authoritative local GGUF directory.
-- `_match_canonical_id` at line 110: Explanation needed.
-- `_derive_metadata` at line 118: Explanation needed.
-- `discover_local_models` at line 132: Enumerate ONLY the authoritative GGUF directory and identify models.
-- `resolve_alias` at line 184: Resolve a known alias to its canonical ID; unknown refs pass through.
-- `is_known_alias` at line 189: Explanation needed.
-- `LocalModelSpec.to_dict` at line 88: Explanation needed.
+- `LocalModelSpec` at line 80: Explanation needed.
+- `gguf_model_dir` at line 111: Authoritative local GGUF directory.
+- `_match_canonical_id` at line 116: Explanation needed.
+- `_derive_metadata` at line 124: Explanation needed.
+- `discover_local_models` at line 138: Enumerate ONLY the authoritative GGUF directory and identify models.
+- `resolve_alias` at line 190: Resolve a known alias to its canonical ID; unknown refs pass through.
+- `is_known_alias` at line 195: Explanation needed.
+- `LocalModelSpec.to_dict` at line 94: Explanation needed.
 
 ### app/main.py
 
@@ -318,41 +334,52 @@ Module purpose needs a human explanation.
 - `_get_config` at line 40: Explanation needed.
 - `_normalize_runtime_mode` at line 45: Explanation needed.
 - `ModelEngineResult` at line 55: Explanation needed.
-- `GGUFEngine` at line 63: GGUF inference engine with crash protection and diagnostics.
-- `ModelManager` at line 314: Explanation needed.
-- `ChatCompletionRequest` at line 633: Explanation needed.
-- `CompletionRequest` at line 660: Explanation needed.
-- `InferenceRequest` at line 671: Explanation needed.
-- `_normalize_messages` at line 678: Explanation needed.
-- `_build_chat_response` at line 691: Explanation needed.
-- `create_app` at line 713: Explanation needed.
-- `_try_import_model_registry` at line 1967: Explanation needed.
-- `_print_diagnostics` at line 1978: Explanation needed.
-- `_run_cli` at line 2002: Explanation needed.
-- `main` at line 2132: Explanation needed.
-- `GGUFEngine.__init__` at line 73: Explanation needed.
-- `GGUFEngine._reload_model` at line 125: Reload the GGUF model to recover from native state corruption.
-- `GGUFEngine.metadata` at line 160: Explanation needed.
-- `GGUFEngine._estimate_tokens_rough` at line 163: Explanation needed.
-- `GGUFEngine.validate_prompt` at line 167: Explanation needed.
-- `GGUFEngine.chat` at line 187: Explanation needed.
-- `ModelManager.__init__` at line 315: Explanation needed.
-- `ModelManager.get_default_model_info` at line 393: Explanation needed.
-- `ModelManager.configure_local_specs` at line 399: Adopt per-model runtime contexts + residency from the local registry.
-- `ModelManager.model_context_limit` at line 420: Explanation needed.
-- `ModelManager.model_residency_info` at line 424: Explanation needed.
-- `ModelManager.resolve_model_id` at line 433: Explanation needed.
-- `ModelManager.get_active_model_id` at line 457: Explanation needed.
-- `ModelManager.set_active_model` at line 461: Explanation needed.
-- `ModelManager.reload_model` at line 470: Explanation needed.
-- `ModelManager.list_models` at line 491: Explanation needed.
-- `ModelManager.get_model` at line 494: Explanation needed.
-- `ModelManager.list_models_detailed` at line 499: Explanation needed.
-- `ModelManager.chat` at line 510: Explanation needed.
-- `ModelManager.estimate_inference` at line 555: Explanation needed.
-- `ModelManager.runtime_stats` at line 558: Explanation needed.
-- `ModelManager._estimate_tokens` at line 569: Explanation needed.
-- `ModelManager._prepare_inference` at line 579: Explanation needed.
+- `normalize_tool_calls` at line 63: Explanation needed.
+- `GGUFEngine` at line 98: GGUF inference engine with crash protection and diagnostics.
+- `ModelManager` at line 319: Explanation needed.
+- `ChatCompletionRequest` at line 659: Explanation needed.
+- `CompletionRequest` at line 686: Explanation needed.
+- `InferenceRequest` at line 697: Explanation needed.
+- `_normalize_messages` at line 704: Explanation needed.
+- `_build_chat_response` at line 717: Explanation needed.
+- `create_app` at line 739: Explanation needed.
+- `_try_import_model_registry` at line 2001: Explanation needed.
+- `_print_diagnostics` at line 2012: Explanation needed.
+- `_run_cli` at line 2036: Explanation needed.
+- `main` at line 2178: Explanation needed.
+- `GGUFEngine.__init__` at line 108: Explanation needed.
+- `GGUFEngine._reload_model` at line 160: Reload the GGUF model to recover from native state corruption.
+- `GGUFEngine.metadata` at line 195: Explanation needed.
+- `GGUFEngine._estimate_tokens_rough` at line 198: Explanation needed.
+- `GGUFEngine.validate_prompt` at line 202: Explanation needed.
+- `GGUFEngine.chat` at line 222: Explanation needed.
+- `ModelManager.__init__` at line 320: Explanation needed.
+- `ModelManager.get_default_model_info` at line 398: Explanation needed.
+- `ModelManager.configure_local_specs` at line 404: Adopt per-model runtime contexts + residency from the local registry.
+- `ModelManager.model_context_limit` at line 425: Explanation needed.
+- `ModelManager.model_residency_info` at line 429: Explanation needed.
+- `ModelManager.resolve_model_id` at line 438: Explanation needed.
+- `ModelManager.get_active_model_id` at line 470: Explanation needed.
+- `ModelManager.set_active_model` at line 474: Explanation needed.
+- `ModelManager._engine_type` at line 483: Explanation needed.
+- `ModelManager.reload_model` at line 492: Explanation needed.
+- `ModelManager.list_models` at line 513: Explanation needed.
+- `ModelManager.get_model` at line 518: Explanation needed.
+- `ModelManager.list_models_detailed` at line 523: Explanation needed.
+- `ModelManager.chat` at line 534: Explanation needed.
+- `ModelManager.estimate_inference` at line 579: Explanation needed.
+- `ModelManager.runtime_stats` at line 582: Explanation needed.
+- `ModelManager._estimate_tokens` at line 593: Explanation needed.
+- `ModelManager._prepare_inference` at line 603: Explanation needed.
+
+### app/market_advisory.py
+
+Read-only LLM interpretation of Niblit's measured market evidence.
+
+- `_sanitize` at line 26: Explanation needed.
+- `extract_instrument` at line 41: Explanation needed.
+- `advisory_system_prompt` at line 78: Explanation needed.
+- `model_request` at line 90: Explanation needed.
 
 ### app/memory_proposals.py
 
@@ -361,6 +388,30 @@ Memory proposal interface — preparation for the future memory phase.
 - `MemoryProposal` at line 18: Explanation needed.
 - `MemoryProposal.validate` at line 30: Explanation needed.
 - `MemoryProposal.to_dict` at line 46: Explanation needed.
+
+### app/mobile_gateway.py
+
+Niblit Android API: authenticated loopback adapter, read-only trading view.
+
+- `MobileMessage` at line 22: Explanation needed.
+- `MobileChat` at line 27: Explanation needed.
+- `ensure_local_request` at line 33: Explanation needed.
+- `llama_auth` at line 41: Explanation needed.
+- `is_model_up` at line 46: Explanation needed.
+- `models` at line 56: Explanation needed.
+- `chat` at line 61: Explanation needed.
+- `observations` at line 85: Explanation needed.
+- `mobile_preview` at line 107: Local desktop preview; browser API remains token-authenticated.
+- `PortalCredentials` at line 116: Explanation needed.
+- `PortalSignup` at line 122: Explanation needed.
+- `signup` at line 127: Explanation needed.
+- `login` at line 136: Explanation needed.
+- `account` at line 143: Explanation needed.
+- `logout` at line 148: Explanation needed.
+- `AdvisoryRequest` at line 154: Explanation needed.
+- `advisory` at line 162: Explanation needed.
+- `mobile_script` at line 194: Explanation needed.
+- `download_mobile_apk` at line 209: Explanation needed.
 
 ### app/model_orchestrator.py
 
@@ -422,6 +473,16 @@ app/node_identity.py — Niblit Cognitive Cloud Runtime Node Identity.
 - `NodeIdentity.snapshot` at line 116: Explanation needed.
 - `NodeIdentity.cluster_status` at line 129: Return cluster status (single-node — federation not implemented).
 - `NodeIdentity._emit_init` at line 148: Explanation needed.
+
+### app/portal_mobile_auth.py
+
+Portal-backed individual mobile sign-in.
+
+- `_request` at line 15: Explanation needed.
+- `portal_signup` at line 24: Explanation needed.
+- `portal_login` at line 38: Explanation needed.
+- `portal_session` at line 52: Explanation needed.
+- `portal_logout` at line 72: Explanation needed.
 
 ### app/reflection_engine.py
 
@@ -485,6 +546,26 @@ Niblit Cloud Runtime — Central lifecycle manager.
 - `CloudRuntime._boot_health` at line 551: Layer 19: Health monitor — uses shared ModelManager from config.
 - `CloudRuntime._verify_health` at line 568: Explanation needed.
 - `CloudRuntime._finalize` at line 588: Explanation needed.
+
+### app/shared_gguf.py
+
+Opt-in local shared transport. Existing memory gateway owns every reservation.
+
+- `SharedGGUFEngine` at line 11: Explanation needed.
+- `SharedGGUFEngine.__init__` at line 12: Explanation needed.
+- `SharedGGUFEngine.chat` at line 13: Explanation needed.
+- Review: empty-body at line 12.
+
+### app/sidecar_gguf.py
+
+Dedicated local 14B inference transport: reuses the loaded llama.cpp sidecar.
+
+- `sidecar_base` at line 18: Explanation needed.
+- `sidecar_headers` at line 28: Explanation needed.
+- `sidecar_ready` at line 36: Explanation needed.
+- `Sidecar14BEngine` at line 49: ModelManager-compatible adapter to the already resident 14B process.
+- `Sidecar14BEngine.__init__` at line 51: Explanation needed.
+- `Sidecar14BEngine.chat` at line 56: Explanation needed.
 
 ### app/temporal_sync.py
 
@@ -810,10 +891,11 @@ OpenAI-compatible provider — delegates to OpenAI or compatible APIs.
 Qwen Server Provider — manages qwen_server.sh as a managed backend.
 
 - `QwenServerProvider` at line 16: Manages the qwen_server.sh backend process.
-- `get_qwen_server_provider` at line 146: Return the process-level QwenServerProvider singleton.
+- `get_qwen_server_provider` at line 223: Return the process-level QwenServerProvider singleton.
 - `QwenServerProvider.start` at line 32: Start the qwen server backend.
-- `QwenServerProvider.stop` at line 101: Stop the qwen server backend.
-- `QwenServerProvider.status` at line 126: Return provider health status.
+- `QwenServerProvider._start_native_windows` at line 104: Use the installed llama.cpp directly; no bash, downloads or shell.
+- `QwenServerProvider.stop` at line 176: Stop the qwen server backend.
+- `QwenServerProvider.status` at line 201: Return provider health status.
 
 ### app/providers/registry.py
 
@@ -903,17 +985,18 @@ Phase 9 — Execution Feedback Loop.
 
 Phase 8 — Freqtrade Adapter.
 
-- `FreqtradeAdapter` at line 26: Adapter between Niblit TradeIntents and Freqtrade execution.
-- `get_freqtrade_adapter` at line 165: Explanation needed.
-- `FreqtradeAdapter.__init__` at line 38: Explanation needed.
-- `FreqtradeAdapter.enabled` at line 55: Explanation needed.
-- `FreqtradeAdapter.subscribe` at line 58: Explanation needed.
-- `FreqtradeAdapter.execute` at line 61: Execute a TradeIntent through Freqtrade.
-- `FreqtradeAdapter.sync_open_trades` at line 102: Sync open trades from Freqtrade.
-- `FreqtradeAdapter.get_open_trades` at line 126: Explanation needed.
-- `FreqtradeAdapter.record_execution` at line 130: Record an execution result and notify subscribers.
-- `FreqtradeAdapter.get_execution_history` at line 144: Explanation needed.
-- `FreqtradeAdapter.status` at line 148: Explanation needed.
+- `FreqtradeAdapter` at line 25: Adapter between Niblit TradeIntents and Freqtrade execution.
+- `get_freqtrade_adapter` at line 197: Explanation needed.
+- `FreqtradeAdapter.__init__` at line 37: Explanation needed.
+- `FreqtradeAdapter.enabled` at line 54: Explanation needed.
+- `FreqtradeAdapter.subscribe` at line 57: Explanation needed.
+- `FreqtradeAdapter.execute` at line 60: Legacy proposals are analysis, never transferable Core approval.
+- `FreqtradeAdapter.confirm_core_ticket` at line 65: Delegate an existing human ticket to its Core owner, never a broker.
+- `FreqtradeAdapter.sync_open_trades` at line 134: Sync open trades from Freqtrade.
+- `FreqtradeAdapter.get_open_trades` at line 158: Explanation needed.
+- `FreqtradeAdapter.record_execution` at line 162: Record an execution result and notify subscribers.
+- `FreqtradeAdapter.get_execution_history` at line 176: Explanation needed.
+- `FreqtradeAdapter.status` at line 180: Explanation needed.
 
 ### app/trading/freqtrade_supervisor.py
 
@@ -1136,15 +1219,15 @@ Phase 12 — Trading API Endpoints.
 - `create_proposal` at line 72: Explanation needed.
 - `validate_proposal` at line 80: Explanation needed.
 - `execute_trade` at line 99: Explanation needed.
-- `get_risk_status` at line 118: Explanation needed.
-- `get_pipeline_status` at line 124: Explanation needed.
-- `pause_pipeline` at line 130: Explanation needed.
-- `resume_pipeline` at line 137: Explanation needed.
-- `get_feedback_statistics` at line 144: Explanation needed.
-- `get_proposal_history` at line 150: Explanation needed.
-- `get_validation_history` at line 156: Explanation needed.
-- `get_intent_history` at line 162: Explanation needed.
-- `trading_health` at line 168: Explanation needed.
+- `get_risk_status` at line 111: Explanation needed.
+- `get_pipeline_status` at line 117: Explanation needed.
+- `pause_pipeline` at line 123: Explanation needed.
+- `resume_pipeline` at line 130: Explanation needed.
+- `get_feedback_statistics` at line 137: Explanation needed.
+- `get_proposal_history` at line 143: Explanation needed.
+- `get_validation_history` at line 149: Explanation needed.
+- `get_intent_history` at line 155: Explanation needed.
+- `trading_health` at line 161: Explanation needed.
 
 ### app/trading/scheduler_expansion.py
 
@@ -1192,11 +1275,54 @@ Trading Supervisor — live trade monitoring and anomaly detection.
 - `TradingSupervisor._check_trades` at line 70: Explanation needed.
 - `TradingSupervisor.get_health` at line 76: Explanation needed.
 
+### scripts/smoke_mobile_gateway.py
+
+Local smoke check for Niblit mobile gateway; never prints secret token.
+
+- `main` at line 8: Explanation needed.
+
+### scripts/smoke_portal_mobile_v2.py
+
+Real local Portal -> mobile gateway -> 14B integration check.
+
+- `credentials` at line 12: Explanation needed.
+- `main` at line 21: Explanation needed.
+
 ### tests/conftest.py
 
 Module purpose needs a human explanation.
 
 - `_prefer_git_bash_on_windows` at line 8: Explanation needed.
+
+### tests/core_execution_contract_cases.py
+
+Actual Cloud->Core human-ticket integration; broker is an isolated fixture.
+
+- `boundary` at line 28: Explanation needed.
+- `test_missing_or_forged_authorization_cannot_call_core_or_broker` at line 92: Explanation needed.
+- `test_specialist_approved_intent_cannot_execute_directly` at line 99: Explanation needed.
+- `test_ticket_binding_expiry_and_non_live_identity` at line 107: Explanation needed.
+- `test_core_denial_wins_and_human_token_is_not_forgeable` at line 126: Explanation needed.
+- `test_live_switch_at_core_blocks_valid_preview` at line 134: Explanation needed.
+- `test_core_risk_rejection_cannot_be_overridden` at line 141: Explanation needed.
+- `test_valid_non_live_ticket_delegates_once_and_never_claims_fill` at line 148: Explanation needed.
+- `test_duplicate_modified_after_submission_is_rejected` at line 159: Explanation needed.
+- `test_ambiguous_delivery_and_core_restart_never_resubmit` at line 167: Explanation needed.
+- `test_position_close_requires_exact_existing_human_ticket` at line 181: Explanation needed.
+- `test_core_unavailable_or_bad_response_never_retries` at line 189: Explanation needed.
+- `test_execution_denial_preserves_read_only_market_analysis` at line 205: Explanation needed.
+- `test_supervisor_mutations_fail_closed_without_network` at line 218: Explanation needed.
+- `test_supervisor_reads_remain_available` at line 227: Explanation needed.
+- `test_core_original_confirmation_interface_is_unchanged` at line 241: Explanation needed.
+- `test_running_human_desk_cannot_bypass_unavailable_bound_core` at line 252: Explanation needed.
+- `Unavailable.__enter__` at line 193: Explanation needed.
+- `Unavailable.__exit__` at line 194: Explanation needed.
+- `Unavailable.post` at line 195: Explanation needed.
+- `Response.__enter__` at line 230: Explanation needed.
+- `Response.__exit__` at line 231: Explanation needed.
+- `Response.read` at line 232: Explanation needed.
+- Review: empty-body at line 194.
+- Review: empty-body at line 231.
 
 ### tests/test_api.py
 
@@ -1255,6 +1381,12 @@ Regression tests for /v1 prefix normalization and health semantics.
 - `test_trailing_slash_and_host_variants` at line 60: Explanation needed.
 - `_client` at line 65: Explanation needed.
 - `test_healthz_is_liveness_only` at line 69: Explanation needed.
+
+### tests/test_cloud_execution_governance.py
+
+Run the actual sibling Core/Cloud contract in an isolated interpreter.
+
+- `test_existing_core_cloud_execution_contract` at line 14: Explanation needed.
 
 ### tests/test_cloud_web_ui.py
 
@@ -1439,6 +1571,18 @@ Tests for local GGUF model registry and resolution.
 - `test_explicit_unknown_model_is_not_aliased` at line 59: Unknown model refs must pass through unchanged for clean model_not_found.
 - `test_gguf_dir_from_env` at line 65: The GGUF directory should be configurable via env var.
 - `test_canonical_ids_are_truthful` at line 70: The canonical IDs must match the actual model families.
+- `test_d_drive_four_model_catalog_including_14b` at line 83: Explanation needed.
+
+### tests/test_mobile_gateway.py
+
+Client Portal authenticated, read-only Android/mobile gateway.
+
+- `test_unauthed_calls_have_no_trading_or_inference_access` at line 11: Explanation needed.
+- `test_approved_portal_identity_controls_model_selection` at line 23: Explanation needed.
+- `test_mobile_registration_and_login_reuse_portal` at line 36: Explanation needed.
+- `test_advisory_only_uses_niblit_observed_evidence` at line 55: Explanation needed.
+- `test_login_cannot_expose_broker_mutation_endpoint` at line 77: Explanation needed.
+- `test_private_apk_download_is_fixed_file_and_does_not_grant_access` at line 86: Explanation needed.
 
 ### tests/test_model_identity.py
 
@@ -1533,6 +1677,28 @@ tests/test_runtime_tooling_layer.py — Niblit Phase Ω.8 tooling layer tests.
 - `_DummyClient.switch_model` at line 604: Explanation needed.
 - `_DummyClient.active_model` at line 608: Explanation needed.
 
+### tests/test_shared_gguf.py
+
+Module purpose needs a human explanation.
+
+- `setup` at line 5: Explanation needed.
+- `test_delegation_preserves_parent` at line 19: Explanation needed.
+- `test_direct_client_owns_one_task` at line 26: Explanation needed.
+- `test_failure_no_retry_or_fallback` at line 31: Explanation needed.
+- `test_real_cloud_route_propagates_lease_including_stream` at line 41: Explanation needed.
+- `test_definite_model_rejection_completes_failed_child_without_quarantine` at line 55: Explanation needed.
+- `test_tool_schemas_consume_context_without_being_removed` at line 64: Explanation needed.
+- `test_shared_and_embedded_engines_share_existing_text_tool_normalization` at line 77: Explanation needed.
+
+### tests/test_sidecar_14b.py
+
+Do not substitute the 3B backend when the user selected 14B.
+
+- `test_14b_uses_existing_sidecar_not_duplicate_model_load` at line 8: Explanation needed.
+- `test_unavailable_14b_does_not_claim_readiness_or_fallback` at line 19: Explanation needed.
+- `test_sidecar_url_rejects_network_addresses` at line 29: Explanation needed.
+- `test_sidecar_14b_actual_model_file_is_present` at line 38: Explanation needed.
+
 ### tests/test_trading_pipeline.py
 
 Tests for the complete trading pipeline.
@@ -1547,9 +1713,9 @@ Tests for the complete trading pipeline.
 - `TestRiskEngine` at line 237: Test risk engine.
 - `TestTradeIntentFactory` at line 278: Test trade intent factory.
 - `TestFreqtradeAdapter` at line 313: Test Freqtrade adapter.
-- `TestExecutionFeedback` at line 341: Test execution feedback loop.
-- `TestTradingPipeline` at line 370: Test trading pipeline.
-- `TestTradingAPI` at line 400: Test trading API endpoints.
+- `TestExecutionFeedback` at line 342: Test execution feedback loop.
+- `TestTradingPipeline` at line 371: Test trading pipeline.
+- `TestTradingAPI` at line 401: Test trading API endpoints.
 - `TestDataModels.test_candle` at line 38: Explanation needed.
 - `TestDataModels.test_market_snapshot` at line 43: Explanation needed.
 - `TestDataModels.test_market_state` at line 50: Explanation needed.
@@ -1584,30 +1750,30 @@ Tests for the complete trading pipeline.
 - `TestTradeIntentFactory.test_create_rejected` at line 300: Explanation needed.
 - `TestFreqtradeAdapter.test_singleton` at line 316: Explanation needed.
 - `TestFreqtradeAdapter.test_execute_disabled` at line 322: Explanation needed.
-- `TestFreqtradeAdapter.test_status` at line 334: Explanation needed.
-- `TestExecutionFeedback.test_singleton` at line 344: Explanation needed.
-- `TestExecutionFeedback.test_record_and_retrieve` at line 350: Explanation needed.
-- `TestExecutionFeedback.test_statistics` at line 363: Explanation needed.
-- `TestTradingPipeline.test_singleton` at line 373: Explanation needed.
-- `TestTradingPipeline.test_run_cycle_no_data` at line 379: Explanation needed.
-- `TestTradingPipeline.test_pause_resume` at line 385: Explanation needed.
-- `TestTradingPipeline.test_status` at line 393: Explanation needed.
-- `TestTradingAPI.test_market_state_endpoint` at line 403: Explanation needed.
-- `TestTradingAPI.test_market_snapshot_endpoint` at line 407: Explanation needed.
-- `TestTradingAPI.test_portfolio_endpoint` at line 411: Explanation needed.
-- `TestTradingAPI.test_trades_open_endpoint` at line 415: Explanation needed.
-- `TestTradingAPI.test_trades_history_endpoint` at line 419: Explanation needed.
-- `TestTradingAPI.test_trade_proposal_endpoint` at line 423: Explanation needed.
-- `TestTradingAPI.test_trade_validate_endpoint` at line 427: Explanation needed.
-- `TestTradingAPI.test_trade_execute_endpoint` at line 439: Explanation needed.
-- `TestTradingAPI.test_risk_status_endpoint` at line 452: Explanation needed.
-- `TestTradingAPI.test_pipeline_status_endpoint` at line 456: Explanation needed.
-- `TestTradingAPI.test_pipeline_pause_resume` at line 460: Explanation needed.
-- `TestTradingAPI.test_feedback_statistics_endpoint` at line 466: Explanation needed.
-- `TestTradingAPI.test_proposals_history_endpoint` at line 470: Explanation needed.
-- `TestTradingAPI.test_validations_history_endpoint` at line 474: Explanation needed.
-- `TestTradingAPI.test_intents_history_endpoint` at line 478: Explanation needed.
-- `TestTradingAPI.test_trading_health_endpoint` at line 482: Explanation needed.
+- `TestFreqtradeAdapter.test_status` at line 335: Explanation needed.
+- `TestExecutionFeedback.test_singleton` at line 345: Explanation needed.
+- `TestExecutionFeedback.test_record_and_retrieve` at line 351: Explanation needed.
+- `TestExecutionFeedback.test_statistics` at line 364: Explanation needed.
+- `TestTradingPipeline.test_singleton` at line 374: Explanation needed.
+- `TestTradingPipeline.test_run_cycle_no_data` at line 380: Explanation needed.
+- `TestTradingPipeline.test_pause_resume` at line 386: Explanation needed.
+- `TestTradingPipeline.test_status` at line 394: Explanation needed.
+- `TestTradingAPI.test_market_state_endpoint` at line 404: Explanation needed.
+- `TestTradingAPI.test_market_snapshot_endpoint` at line 408: Explanation needed.
+- `TestTradingAPI.test_portfolio_endpoint` at line 412: Explanation needed.
+- `TestTradingAPI.test_trades_open_endpoint` at line 416: Explanation needed.
+- `TestTradingAPI.test_trades_history_endpoint` at line 420: Explanation needed.
+- `TestTradingAPI.test_trade_proposal_endpoint` at line 424: Explanation needed.
+- `TestTradingAPI.test_trade_validate_endpoint` at line 428: Explanation needed.
+- `TestTradingAPI.test_trade_execute_endpoint` at line 440: Explanation needed.
+- `TestTradingAPI.test_risk_status_endpoint` at line 453: Explanation needed.
+- `TestTradingAPI.test_pipeline_status_endpoint` at line 457: Explanation needed.
+- `TestTradingAPI.test_pipeline_pause_resume` at line 461: Explanation needed.
+- `TestTradingAPI.test_feedback_statistics_endpoint` at line 467: Explanation needed.
+- `TestTradingAPI.test_proposals_history_endpoint` at line 471: Explanation needed.
+- `TestTradingAPI.test_validations_history_endpoint` at line 475: Explanation needed.
+- `TestTradingAPI.test_intents_history_endpoint` at line 479: Explanation needed.
+- `TestTradingAPI.test_trading_health_endpoint` at line 483: Explanation needed.
 
 ### tests/test_vscode_openai_compat.py
 
@@ -1636,6 +1802,15 @@ VS Code / OpenAI-compatibility regression tests.
 - `FakeManager.estimate_inference` at line 50: Explanation needed.
 - `FakeManager.runtime_stats` at line 59: Explanation needed.
 - `FakeManager.chat` at line 62: Explanation needed.
+
+### tests/test_windows_model_profile.py
+
+Module purpose needs a human explanation.
+
+- `profile` at line 11: Explanation needed.
+- `test_invalid_profile_never_executes` at line 27: Explanation needed.
+- `test_tampered_weights_denied` at line 33: Explanation needed.
+- `test_compatible_profile_and_invalid_experiment_fallback` at line 39: Explanation needed.
 
 ### tools/check_local_llm.py
 

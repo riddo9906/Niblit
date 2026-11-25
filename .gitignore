@@ -207,3 +207,10 @@ runtime/client-portal/cloudflare-tunnel-token
 *.token
 *.pfx
 *.p12
+
+# Pytest temporary workspaces created by local acceptance/regression runs.
+# Keep test source and intentional fixtures tracked; ignore only pytest temp roots.
+**/.pytest-*/
+
+# Private key material (public keys/certificates should use explicit, reviewed filenames).
+*.key

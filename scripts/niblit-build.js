@@ -523,7 +523,7 @@ for (const name of ["strategy_manager.py","position_exit_policy.py"]) {
 }
 fs.copyFileSync(path.join(repoRoot,"modules","freqtrade_chart_adapter.py"),path.join(nativeStrategyDir,"niblit_chart_plot.py"));
 
-for (const launcher of ["Start-Niblit-Autotrading.ps1", "Start-Niblit-Autotrading.cmd", "Open-Niblit-Trading.cmd"]) {
+for (const launcher of ["Start-Niblit-Autotrading.ps1", "Start-Niblit-Autotrading.cmd", "Open-Niblit-Trading.cmd", "Open-Niblit-Trading.ps1"]) {
   fs.copyFileSync(path.join(repoRoot,"scripts",launcher),path.join(finalBundleDir,launcher));
 }
 fs.copyFileSync(path.join(repoRoot, "scripts", "Start-Niblit-Testing.ps1"), path.join(finalBundleDir, "Start-Niblit-Testing.ps1"));
@@ -560,6 +560,17 @@ if (preflightReport.bundle_files_ready !== true || preflightReport.services_star
   console.error("[niblit-build] Offline acceptance contract failed"); process.exit(1);
 }
 fs.writeFileSync(path.join(finalBundleDir, "release-preflight.json"), JSON.stringify(preflightReport, null, 2));
+// Bind the validated operator environment to each fresh release; never ship an
+// apparently working executable that silently loses its Freqtrade/Exness paths.
+const operatorManifest = process.env.NIBLIT_BUILD_INSTALLATION_MANIFEST || process.env.NIBLIT_INSTALLATION_MANIFEST;
+if (!operatorManifest && process.env.NIBLIT_ALLOW_UNBOUND_RELEASE !== '1') {
+  throw new Error('Production release requires NIBLIT_BUILD_INSTALLATION_MANIFEST (absolute operator installation manifest).');
+}
+if (operatorManifest) {
+  const { bindRelease } = require('./bind-release-runtime');
+  const bound = bindRelease(finalBundleDir, path.resolve(operatorManifest));
+  console.log('[niblit-build] Verified release runtime binding:', bound.anchorPath);
+}
 
 console.log("\n[niblit-build] ════════════════════════════════════════");
 console.log("[niblit-build]  ✅ Niblit build complete!");

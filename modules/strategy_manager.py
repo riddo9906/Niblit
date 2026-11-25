@@ -161,6 +161,10 @@ def assess_observation(observation, *, now=None):
         result['regime_basis'] = 'Existing rule mean/flat-regime measurements; not a calibrated forecast.'
     material = {'identity': identity, 'candles': rows, 'comparison': comparison}
     result['observation_id'] = hashlib.sha256(json.dumps(material, sort_keys=True, allow_nan=False).encode()).hexdigest()
+    # Observation-only interpretation. Do not feed thesis back into the
+    # executable decision, grant calculation, or recorded entry strategy.
+    from modules.market_thesis import build_market_thesis
+    result['market_thesis'] = build_market_thesis(result, result)
     return result
 
 
@@ -180,6 +184,12 @@ def assess_with_context(candles, context=None):
     """Attach point-in-time context to the six votes without adding votes."""
     decision = assess(candles, 'auto')
     if not context:
+        # Freqtrade and other adapters may supply verified M5 bars without
+        # higher-timeframe context. They still need an observational thesis.
+        from modules.market_thesis import build_market_thesis
+        decision['market_thesis'] = build_market_thesis(decision, {'observation': {
+            'timeframe': 'M5', 'bar': candles[-1].get('timestamp') if candles else None,
+            'source': 'registered-strategy-comparison'}})
         return decision
     for candidate in decision['candidates']:
         frames = CONTEXT_TIMEFRAMES[candidate['strategy']]
@@ -193,6 +203,12 @@ def assess_with_context(candles, context=None):
             frame for frame in frames
             if opposing and context.get(frame, {}).get('trend') == opposing
         ]
+    # Interpret multi-timeframe context only as evidence: the six registered
+    # votes and their execution eligibility remain unchanged.
+    from modules.market_thesis import build_market_thesis
+    decision['market_thesis'] = build_market_thesis(decision, {'observation': {
+        'timeframe': 'M5', 'bar': candles[-1].get('timestamp') if candles else None,
+        'source': 'registered-strategy-comparison'}})
     return decision
 
 

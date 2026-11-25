@@ -1,0 +1,102 @@
+/* Niblit R14 Market Desk · hybrid AIOS x professional trading design */
+:root {
+  font-family: Inter, "Segoe UI Variable", Segoe UI, sans-serif;
+  color-scheme: dark;
+  --ink:#e7f2f4;--muted:#92aeb8;--cyan:#38dccb;--blue:#6ca7fb;
+  --line:rgba(124,179,193,.17);--surface:#0c1b29;--raised:#112536;
+  background:#07121d;color:var(--ink);
+}
+html{scroll-behavior:smooth}
+body{margin:0;padding:0;max-width:none;background:radial-gradient(ellipse at 78% -24%,rgba(35,124,136,.19),transparent 60%),#07121d;color:var(--ink)}
+.desk-shell{display:flex;align-items:stretch;max-width:1800px;margin:auto;min-height:100vh}
+.desk-rail{position:sticky;top:0;align-self:flex-start;display:flex;flex-direction:column;gap:16px;align-items:center;background:#0b1d2b;border-right:1px solid var(--line);padding:25px 13px;height:100vh;min-width:74px;z-index:6}
+.desk-rail a{width:45px;height:45px;display:grid;place-items:center;border:1px solid transparent;border-radius:13px;text-decoration:none;color:#a1c1c8;font-size:26px;transition:.18s background,.18s border-color}
+.desk-rail a:hover,.desk-rail a:focus{background:rgba(56,220,203,.10);border-color:var(--line);color:var(--cyan)}
+.rail-brand{font-size:29px;font-weight:900;letter-spacing:-.08em;color:white;margin:0 0 22px}.rail-brand span{font-size:13px;color:var(--cyan);vertical-align:top;margin-left:2px}
+.desk-content{width:calc(100% - 74px);min-width:0;padding:24px clamp(16px,2.7vw,45px) 65px}
+header{padding:0 0 16px;border-bottom:1px solid var(--line);margin-bottom:23px;gap:12px}
+header small{font-size:11px;letter-spacing:.17em;font-weight:800;color:var(--muted)}
+h1{font-size:25px;letter-spacing:-.04em;margin:2px 0 0;font-weight:780}
+h2{font-size:18px;letter-spacing:-.025em;font-weight:750}
+h3{font-size:15px;letter-spacing:-.018em}
+p,small{color:#acc4cc}
+p{line-height:1.65}
+button,input,select,textarea{border-radius:10px;background:rgba(17,39,53,.88);border:1px solid #335161;color:#e8f5f8;padding:10px 13px;transition:border-color .17s,box-shadow .17s,background .17s;font:inherit;max-width:100%}
+button{font-size:13px;font-weight:680;min-height:40px;cursor:pointer}
+button:hover:enabled{background:#214454;border-color:#47d9c6}
+button:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible{outline:2px solid var(--cyan);outline-offset:3px}
+button:disabled{opacity:.45;cursor:not-allowed}
+input[type=checkbox]{accent-color:#38dccb;margin:0 6px}
+input[type=number]{width:125px}
+#mode{background:rgba(37,193,160,.12);padding:7px 12px;border-radius:100px;font-size:12px;color:#6af4d7;border:1px solid rgba(64,218,192,.18)}
+#core-trading,#exness-demo,.panel,.metric{background:linear-gradient(145deg,rgba(18,40,54,.97),rgba(12,25,39,.99));border:1px solid var(--line);border-radius:18px;box-shadow:0 12px 38px rgba(0,0,0,.09)}
+.panel,.metric{padding:20px}
+#core-trading{padding:24px;margin:15px 0 22px}
+#core-trading>h2{font-size:21px}
+#core-trading label{display:inline-flex;flex-direction:column;align-items:flex-start;vertical-align:top;gap:5px;margin:4px 12px 7px 0;font-size:12px;color:#bbd2d9}
+#core-trading label input,#core-trading label select{margin:0}
+#core-trading label:has(>input[type=checkbox]){flex-direction:row;align-items:center}
+#core-trading section{border:1px solid var(--line);background:rgba(8,20,31,.43);border-radius:13px;padding:17px;margin:14px 0}
+#core-trading section#broker-selector{padding:14px}
+#core-trading [role=status]{max-width:100%;overflow-wrap:anywhere}
+#core-session-state,#core-deployment-policy,#core-activation-readiness{background:rgba(9,28,39,.72);border:1px solid var(--line);border-radius:10px;padding:11px 14px;color:#cce1e4}
+#core-deployment-policy{color:var(--cyan)}
+#core-propose,#core-activate,#core-readiness,button.action-primary{background:linear-gradient(130deg,#25d7c1,#63e3db);color:#062530;border:1px solid rgba(135,248,230,.4);font-weight:800}
+#core-activate:enabled:hover,#core-propose:enabled:hover,#core-readiness:enabled:hover{background:#87f4e5;color:#072b35}
+#core-activate:disabled,#core-propose:disabled,#core-readiness:disabled{background:#244a4d;color:#b5cdcc}
+#core-proposal,#core-readiness-result,#core-observer-list{max-width:100%;overflow-x:auto;overflow-wrap:anywhere}
+#core-readiness-result:not(.readiness-card){font-family:inherit}
+.readiness-card{background:rgba(5,23,35,.65);border-radius:12px;padding:16px;border:1px solid var(--line);white-space:normal;line-height:1.5;margin:12px 0;color:#d5e7eb}
+.readiness-status{display:flex;align-items:center;flex-wrap:wrap;gap:12px;font-size:15px;font-weight:800;margin-bottom:10px}
+.readiness-badge{padding:5px 11px;border-radius:99px;color:#ffd39f;background:rgba(224,148,69,.15);font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.07em}
+.readiness-badge.ok{background:rgba(38,220,181,.13);color:#72efd5}
+.readiness-card ul{margin:8px 0 0;padding-left:20px;color:#b7cbd2;font-size:13px}
+.readiness-card li{margin:8px 0}
+.readiness-card code{color:#6be7d7;font-family:Consolas,monospace}
+.desk-evidence{background:rgba(4,18,30,.58);border-radius:10px;border:1px solid var(--line);padding:10px 14px;margin:12px 0;max-width:100%}
+.desk-evidence>summary{cursor:pointer;color:#a5d4dd;font-weight:650;letter-spacing:.01em;font-size:13px}
+.desk-evidence pre{max-height:440px;overflow:auto;font-size:12px;line-height:1.55;color:#a8c4ce}
+.desk-overview{padding:24px clamp(20px,3vw,35px);background:linear-gradient(115deg,#102a3b 0%,#102333 55%,#0c2c33 100%);border:1px solid rgba(75,197,184,.25);border-radius:22px;position:relative;overflow:hidden;box-shadow:0 20px 60px rgba(0,0,0,.16)}
+.desk-overview:after{content:"";position:absolute;right:-120px;top:-130px;width:350px;height:350px;border:1px solid rgba(66,245,208,.12);border-radius:50%;pointer-events:none}
+.desk-eyebrow{display:flex;align-items:center;gap:10px;font-size:11px;color:#76d6d1;letter-spacing:.14em;font-weight:800}
+.status-dot{width:8px;height:8px;border-radius:50%;background:var(--cyan);box-shadow:0 0 13px rgba(41,245,198,.7)}
+.desk-version{margin-left:auto;color:#80e8d3;border:1px solid rgba(56,220,203,.32);border-radius:999px;padding:5px 11px;letter-spacing:.08em}
+.desk-headline{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:25px;margin:16px 0 23px}
+.desk-headline h2{font-size:clamp(26px,3.5vw,39px);margin:0 0 8px;font-weight:760;color:#effafc;letter-spacing:-.045em}
+.desk-headline p{margin:0;color:#a0bcc8;font-size:13px;max-width:600px}
+.desk-primary-link{background:#2bddc6;color:#062831;text-decoration:none;padding:13px 16px;border-radius:11px;font-size:13px;font-weight:800;white-space:nowrap;z-index:1}
+.desk-primary-link:hover{background:#7df6df}
+.desk-status-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px}
+.desk-stat{background:rgba(7,23,35,.65);border:1px solid rgba(103,185,191,.17);border-radius:13px;padding:16px;min-width:0}
+.desk-stat small{display:block;color:#91aeb9;font-size:11px;letter-spacing:.025em}
+.desk-stat strong{display:block;color:#f3fdfe;font-size:20px;line-height:1.3;margin:8px 0;font-weight:750;overflow-wrap:anywhere}
+.desk-stat span{display:block;color:#7299a7;font-size:11px}
+.desk-activation-guide{margin:18px 0 24px;padding:21px 24px;border:1px solid var(--line);background:#102331;border-radius:18px}
+.guide-heading{display:flex;align-items:flex-start;justify-content:space-between;gap:15px}.guide-heading h2{font-size:21px;margin:6px 0}.guide-heading small{font-size:11px;color:var(--cyan);letter-spacing:.12em;font-weight:800}
+.desk-chip{padding:7px 12px;border-radius:20px;background:#1a3642;color:#abd4dd;font-size:12px;white-space:nowrap}
+.desk-chip.active{background:#155040;color:#6df1ce}
+.demo-steps{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;list-style:none;margin:12px 0;padding:0}
+.demo-steps li{border:1px solid rgba(128,186,202,.15);background:rgba(3,17,29,.32);border-radius:12px;padding:15px;min-width:0}
+.demo-steps strong{display:block;font-size:13px;color:#e0f9f5;margin-bottom:8px}
+.demo-steps span{font-size:12px;color:#91aebc;line-height:1.5}
+.desk-guidance{border-left:3px solid #67dcca;background:rgba(49,195,177,.06);border-radius:8px;margin:14px 0;padding:12px;color:#c5e0e3;font-size:13px;white-space:pre-line}
+.desk-inline-link{font-size:12px;color:var(--cyan)}
+.scope-hint{display:block;max-width:430px;color:#74bec2;font-size:11px}
+.metrics{gap:13px}
+.metric strong{font-size:25px;color:#effffb}
+main{grid-template-columns:minmax(0,1.6fr) minmax(300px,1fr)}
+#mt5-chart,#chart{max-width:100%;min-width:0;border-radius:12px;background:#071a27}
+#mt5-workspace>section:first-child{min-width:0}
+#core-alerts{max-height:300px;overflow:auto}
+#core-alerts p{border-bottom:1px solid var(--line);padding:9px 4px;font-size:12px;margin:0}
+#mt5-positions,#mt5-history{overflow:auto}
+table th{background:rgba(18,48,60,.65);color:#a9cbd3}
+table tbody tr:hover{background:rgba(47,126,134,.09)}
+#auto-status,#error{overflow-wrap:anywhere}
+#core-trading pre,#core-trading textarea{white-space:pre-wrap;overflow-wrap:anywhere}
+dialog{background:#122a38;border-color:rgba(56,220,203,.34);border-radius:16px}
+body[data-remote-observation] .desk-overview,body[data-remote-observation] .desk-activation-guide,body[data-remote-observation] .desk-rail{display:none!important}
+body[data-remote-observation] .desk-content{width:100%}
+@media(max-width:1100px){.desk-status-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.demo-steps{grid-template-columns:1fr}}
+@media(max-width:740px){.desk-shell{display:block}.desk-rail{height:56px;position:sticky;top:0;width:100%;flex-direction:row;justify-content:space-around;padding:6px;min-width:0;border-right:0;border-bottom:1px solid var(--line)}.desk-rail a{width:42px;height:42px;font-size:22px}.rail-brand{margin:0;font-size:22px}.desk-content{width:100%;padding:12px 12px 48px}.desk-overview{padding:19px}.desk-status-grid{gap:8px}.desk-stat{padding:12px}.desk-stat strong{font-size:17px}.desk-headline{gap:16px}.desk-primary-link{width:100%;text-align:center}.desk-activation-guide{padding:15px}.panel,#core-trading{padding:15px}main{grid-template-columns:1fr}main>.panel{grid-column:1!important}.metric{padding:15px}header{padding:12px 0}.desk-rail{z-index:20}}
+@media(prefers-reduced-motion:reduce){html{scroll-behavior:auto}*{transition:none!important}}
