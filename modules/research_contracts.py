@@ -217,6 +217,7 @@ class EvidenceItem:
     relevance_score: float = 0.0
     audit_status: str = "unaudited"   # unaudited|pass|rejected
     audit_notes: str = ""
+    native_cognition: Dict[str, Any] = field(default_factory=dict)
     evidence_id: str = field(default_factory=lambda: uuid.uuid4().hex)
 
     def has_provenance(self) -> bool:

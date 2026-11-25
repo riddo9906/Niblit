@@ -83,27 +83,24 @@ def test_gateway_restart_rejects_old_preview(service):
     assert not api.sent
 
 
-def test_persistent_emergency_stop(service):
-    s,api,t=service;p=prepare(s);s.dispatch('emergency-stop',{})
+def test_demo_gateway_restart_does_not_create_emergency_latch(service):
+    s,api,t=service
     other=demo.DemoService(s.cfg,s.state,api)
-    assert other.dispatch('status',{})['emergency_stopped']
-    with pytest.raises(PermissionError):other.dispatch('submit',{'ticket':p['ticket'],'expires':time.time()+60})
+    assert 'emergency_stopped' not in other.dispatch('status',{})
+    with pytest.raises(ValueError):
+        other.dispatch('emergency-stop',{})
     assert not api.sent
 
 
-def test_persistent_remote_stop_rearms_once_for_exact_reviewed_demo_scope(service):
+def test_remote_scope_authorization_is_single_use_and_bound(service):
     s,api,t=service
-    s.dispatch('emergency-stop',{})
     body={'session_id':'a'*32,'spec_hash':'b'*64,'expires':time.time()+60,
           'gateway_id':s.identity,'account_identity':s.cfg['account']['identity'],
           'acknowledgement':'REARM_REVIEWED_DEMO_SCOPE'}
     with pytest.raises(PermissionError):
-        prepare(s)
-    with pytest.raises(PermissionError):
         s.dispatch('resume',{**body,'account_identity':'wrong'})
-    assert s.dispatch('status',{})['emergency_stopped']
     result=s.dispatch('resume',body)
-    assert result['rearmed'] and not s.dispatch('status',{})['emergency_stopped']
+    assert result['rearmed'] and 'emergency_stopped' not in s.dispatch('status',{})
     with pytest.raises(PermissionError,match='already consumed'):
         s.dispatch('resume',body)
     assert not api.sent
@@ -115,7 +112,6 @@ def test_remote_rearm_rejects_wrong_demo_identity_and_unresolved_tickets(service
           'gateway_id':s.identity,'account_identity':s.cfg['account']['identity'],
           'acknowledgement':'REARM_REVIEWED_DEMO_SCOPE'}
     p=prepare(s)
-    s.dispatch('emergency-stop',{})
     t.connected=False
     with pytest.raises(PermissionError):s.dispatch('resume',body)
     t.connected=True
@@ -123,7 +119,7 @@ def test_remote_rearm_rejects_wrong_demo_identity_and_unresolved_tickets(service
         db.execute("UPDATE mt5_tickets SET state='unknown' WHERE id=?",(p['ticket'],))
     with pytest.raises(PermissionError,match='Unresolved'):
         s.dispatch('resume',body)
-    assert s.dispatch('status',{})['emergency_stopped']
+    assert s.dispatch('status',{})['unresolved_deliveries'] == 1
     assert not api.sent
 
 
@@ -166,10 +162,10 @@ def test_existing_six_strategy_core_to_remote_ticket_pipeline(service,tmp_path,m
     assert len(api.sent)==1,bot.error
     assert api.sent[0]['volume']==.01 and api.sent[0]['sl'] and api.sent[0]['tp']
     bot.step();assert len(api.sent)==1
-    core.stop(emergency=True);assert s.dispatch('status',{})['emergency_stopped']
+    core.stop();assert core.session(p['id'])['state']=='stopped'
 
 
-def test_core_and_gateway_stops_recover_only_with_reviewed_demo_ack(service,tmp_path,monkeypatch):
+def test_normal_core_stop_and_new_reviewed_demo_scope(service,tmp_path,monkeypatch):
     s,api,t=service
     adapter=object.__new__(RemoteDemoAdapter)
     adapter.profile={'account':s.cfg['account'],'gateway_id':s.identity}
@@ -180,18 +176,11 @@ def test_core_and_gateway_stops_recover_only_with_reviewed_demo_ack(service,tmp_
         MemoryRuntime(FixtureGateway(tmp_path/'rearm-canonical.sqlite')),
         {'exness_demo':adapter},journal=tmp_path/'rearm-decisions.sqlite',
         notify=lambda _:None)
-    core.stop(emergency=True)
-    assert s.dispatch('status',{})['emergency_stopped']
-    assert core.status()['emergency_stopped']
+    core.stop()
+    assert 'emergency_stopped' not in s.dispatch('status',{})
     scope=core.propose('exness_demo','BTCUSDm',60)
-    with pytest.raises(PermissionError,match='reset'):
-        core.activate(scope['id'],scope['spec_hash'],threaded=False)
-    assert core.status()['emergency_stopped'] and s.dispatch('status',{})['emergency_stopped']
-    assert core.session(scope['id'])['state']=='pending'
-    result=core.activate(scope['id'],scope['spec_hash'],clear_stop=True,threaded=False)
+    result=core.activate(scope['id'],scope['spec_hash'],threaded=False)
     assert result['state']=='active'
-    assert not core.status()['emergency_stopped']
-    assert not s.dispatch('status',{})['emergency_stopped']
     assert not api.sent
     core.stop()
     assert core.session(scope['id'])['state']=='stopped'

@@ -121,4 +121,3 @@ class RemoteDemoAdapter:
 
     def reconcile(self,order):return self.call('reconcile',{'order':order})
     def cancel_prepared(self,order):return self.call('cancel-prepared',{'order':order})
-    def emergency_stop(self):return self.call('emergency-stop',{})

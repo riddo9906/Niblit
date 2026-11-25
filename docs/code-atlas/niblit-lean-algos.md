@@ -96,10 +96,11 @@ Generated from source without importing modules. Definitions and docstrings are 
 | [niblit_lean_algos/api/__init__.py](../../../niblit-lean-algos/niblit_lean_algos/api/__init__.py) | 5 | 0 | 0 |
 | [niblit_lean_algos/api/trading_api.py](../../../niblit-lean-algos/niblit_lean_algos/api/trading_api.py) | 15 | 0 | 0 |
 | [persistence/__init__.py](../../../niblit-lean-algos/persistence/__init__.py) | 1 | 0 | 0 |
-| [persistence/execution_repository.py](../../../niblit-lean-algos/persistence/execution_repository.py) | 394 | 25 | 0 |
+| [persistence/execution_repository.py](../../../niblit-lean-algos/persistence/execution_repository.py) | 383 | 25 | 0 |
 | [risk/__init__.py](../../../niblit-lean-algos/risk/__init__.py) | 1 | 0 | 0 |
-| [risk/engine.py](../../../niblit-lean-algos/risk/engine.py) | 123 | 3 | 0 |
+| [risk/engine.py](../../../niblit-lean-algos/risk/engine.py) | 140 | 3 | 0 |
 | [risk/policy.py](../../../niblit-lean-algos/risk/policy.py) | 51 | 2 | 0 |
+| [scripts/Build-Scoped.ps1](../../../niblit-lean-algos/scripts/Build-Scoped.ps1) | 7 | 0 | 0 |
 | [scripts/backtest_all.py](../../../niblit-lean-algos/scripts/backtest_all.py) | 186 | 3 | 0 |
 | [scripts/deploy_all_to_qc.py](../../../niblit-lean-algos/scripts/deploy_all_to_qc.py) | 228 | 3 | 0 |
 | [scripts/diagnose_qc.py](../../../niblit-lean-algos/scripts/diagnose_qc.py) | 130 | 4 | 0 |
@@ -110,6 +111,7 @@ Generated from source without importing modules. Definitions and docstrings are 
 | [scripts/ft_live.py](../../../niblit-lean-algos/scripts/ft_live.py) | 254 | 10 | 0 |
 | [scripts/list_projects.py](../../../niblit-lean-algos/scripts/list_projects.py) | 130 | 2 | 0 |
 | [scripts/live_trading.py](../../../niblit-lean-algos/scripts/live_trading.py) | 432 | 13 | 0 |
+| [scripts/paper_acceptance.py](../../../niblit-lean-algos/scripts/paper_acceptance.py) | 208 | 2 | 0 |
 | [scripts/qc_client.py](../../../niblit-lean-algos/scripts/qc_client.py) | 521 | 33 | 0 |
 | [scripts/sync_signal.py](../../../niblit-lean-algos/scripts/sync_signal.py) | 405 | 5 | 0 |
 | [scripts/update_project.py](../../../niblit-lean-algos/scripts/update_project.py) | 219 | 3 | 0 |
@@ -117,7 +119,7 @@ Generated from source without importing modules. Definitions and docstrings are 
 | [services/__init__.py](../../../niblit-lean-algos/services/__init__.py) | 1 | 0 | 0 |
 | [services/ccxt_market_data_provider.py](../../../niblit-lean-algos/services/ccxt_market_data_provider.py) | 379 | 18 | 0 |
 | [services/decision_validator.py](../../../niblit-lean-algos/services/decision_validator.py) | 130 | 3 | 0 |
-| [services/execution_coordinator.py](../../../niblit-lean-algos/services/execution_coordinator.py) | 268 | 6 | 0 |
+| [services/execution_coordinator.py](../../../niblit-lean-algos/services/execution_coordinator.py) | 277 | 6 | 0 |
 | [services/execution_reconciler.py](../../../niblit-lean-algos/services/execution_reconciler.py) | 150 | 7 | 0 |
 | [services/market_data_provider.py](../../../niblit-lean-algos/services/market_data_provider.py) | 117 | 14 | 3 |
 | [services/market_state.py](../../../niblit-lean-algos/services/market_state.py) | 201 | 12 | 0 |
@@ -132,9 +134,11 @@ Generated from source without importing modules. Definitions and docstrings are 
 | [tests/test_freqtrade_adapter.py](../../../niblit-lean-algos/tests/test_freqtrade_adapter.py) | 315 | 36 | 0 |
 | [tests/test_governance_contract.py](../../../niblit-lean-algos/tests/test_governance_contract.py) | 195 | 31 | 0 |
 | [tests/test_governance_gate.py](../../../niblit-lean-algos/tests/test_governance_gate.py) | 88 | 8 | 0 |
+| [tests/test_governed_paper_replay.py](../../../niblit-lean-algos/tests/test_governed_paper_replay.py) | 110 | 5 | 0 |
 | [tests/test_package_imports.py](../../../niblit-lean-algos/tests/test_package_imports.py) | 88 | 7 | 0 |
 | [tests/test_paper_accounting.py](../../../niblit-lean-algos/tests/test_paper_accounting.py) | 91 | 8 | 0 |
 | [tests/test_phase3_execution_authority.py](../../../niblit-lean-algos/tests/test_phase3_execution_authority.py) | 262 | 41 | 0 |
+| [tests/test_r3_execution_safety.py](../../../niblit-lean-algos/tests/test_r3_execution_safety.py) | 64 | 7 | 0 |
 | [tests/test_replay_worker.py](../../../niblit-lean-algos/tests/test_replay_worker.py) | 44 | 5 | 0 |
 | [tests/test_runtime_adapter.py](../../../niblit-lean-algos/tests/test_runtime_adapter.py) | 46 | 3 | 0 |
 | [tests/test_sync_signal_schema.py](../../../niblit-lean-algos/tests/test_sync_signal_schema.py) | 45 | 2 | 0 |
@@ -1348,32 +1352,32 @@ SQLite-backed execution repository for idempotent trading execution.
 - `ExecutionRepository.__init__` at line 88: Explanation needed.
 - `ExecutionRepository._ensure_schema` at line 99: Create the executions table if missing, else migrate in place.
 - `ExecutionRepository._migrate_columns` at line 116: Add any lifecycle columns that are missing (idempotent ALTERs).
-- `ExecutionRepository.record_request` at line 129: Create (or refresh) an execution record for a decision.
-- `ExecutionRepository.record_result` at line 190: Record the execution result for a decision (backward-compatible).
-- `ExecutionRepository.has_decision` at line 217: Return True if an execution record exists for a decision.
-- `ExecutionRepository.get_status` at line 225: Return the persisted status for a decision.
-- `ExecutionRepository.get_execution` at line 233: Return the full execution record for a decision (or None).
-- `ExecutionRepository.list_executions` at line 243: Return a list of execution records with optional filters.
-- `ExecutionRepository.find_by_provider_trade_id` at line 267: Return execution records matching a provider trade id.
-- `ExecutionRepository.mark_status` at line 278: Generic lifecycle transition used by all typed marks.
-- `ExecutionRepository.mark_submitting` at line 314: Persist that a provider submission is in-flight (NOT yet accepted).
-- `ExecutionRepository.mark_submitted` at line 329: Mark provider-accepted only after a response proves acceptance.
-- `ExecutionRepository.mark_confirmed_open` at line 337: Explanation needed.
-- `ExecutionRepository.mark_confirmed_closed` at line 340: Explanation needed.
-- `ExecutionRepository.mark_ambiguous` at line 343: Explanation needed.
-- `ExecutionRepository.mark_rejected` at line 346: Explanation needed.
-- `ExecutionRepository.mark_failed` at line 349: Explanation needed.
-- `ExecutionRepository.update_reconciliation` at line 354: Persist reconciliation results for a decision.
-- `ExecutionRepository._row_to_dict` at line 380: Explanation needed.
-- `ExecutionRepository.close` at line 391: Explanation needed.
+- `ExecutionRepository.record_request` at line 129: Atomically claim a decision; never overwrite earlier delivery evidence.
+- `ExecutionRepository.record_result` at line 179: Record the execution result for a decision (backward-compatible).
+- `ExecutionRepository.has_decision` at line 206: Return True if an execution record exists for a decision.
+- `ExecutionRepository.get_status` at line 214: Return the persisted status for a decision.
+- `ExecutionRepository.get_execution` at line 222: Return the full execution record for a decision (or None).
+- `ExecutionRepository.list_executions` at line 232: Return a list of execution records with optional filters.
+- `ExecutionRepository.find_by_provider_trade_id` at line 256: Return execution records matching a provider trade id.
+- `ExecutionRepository.mark_status` at line 267: Generic lifecycle transition used by all typed marks.
+- `ExecutionRepository.mark_submitting` at line 303: Persist that a provider submission is in-flight (NOT yet accepted).
+- `ExecutionRepository.mark_submitted` at line 318: Mark provider-accepted only after a response proves acceptance.
+- `ExecutionRepository.mark_confirmed_open` at line 326: Explanation needed.
+- `ExecutionRepository.mark_confirmed_closed` at line 329: Explanation needed.
+- `ExecutionRepository.mark_ambiguous` at line 332: Explanation needed.
+- `ExecutionRepository.mark_rejected` at line 335: Explanation needed.
+- `ExecutionRepository.mark_failed` at line 338: Explanation needed.
+- `ExecutionRepository.update_reconciliation` at line 343: Persist reconciliation results for a decision.
+- `ExecutionRepository._row_to_dict` at line 369: Explanation needed.
+- `ExecutionRepository.close` at line 380: Explanation needed.
 
 ### risk/engine.py
 
 Deterministic risk engine for the Niblit trading runtime.
 
-- `RiskEngine` at line 17: Evaluates trading decisions against a deterministic risk policy.
-- `RiskEngine.__init__` at line 23: Explanation needed.
-- `RiskEngine.assess` at line 26: Explanation needed.
+- `RiskEngine` at line 18: Evaluates trading decisions against a deterministic risk policy.
+- `RiskEngine.__init__` at line 24: Explanation needed.
+- `RiskEngine.assess` at line 27: Explanation needed.
 
 ### risk/policy.py
 
@@ -1476,6 +1480,13 @@ scripts/live_trading.py — Manage live (and paper) trading algorithms on
 - `cmd_log` at line 309: Tail the live algorithm log for a project.
 - `_require_project_id` at line 339: Return project_id from args, exiting if not provided.
 - `main` at line 352: Explanation needed.
+
+### scripts/paper_acceptance.py
+
+Offline replay driver over the EXISTING PaperAdapter and execution authority.
+
+- `guard` at line 19: Explanation needed.
+- `replay` at line 37: Explanation needed.
 
 ### scripts/qc_client.py
 
@@ -1585,8 +1596,8 @@ Execution coordinator for validated trading decisions.
 - `ExecutionCoordinator` at line 33: Coordinates validation → risk → execution for trading decisions.
 - `ExecutionCoordinator.__init__` at line 47: Explanation needed.
 - `ExecutionCoordinator.process_decision` at line 63: Explanation needed.
-- `ExecutionCoordinator._reject` at line 242: Return a deterministic rejection (NO provider order call, no record).
-- `ExecutionCoordinator._check_execution_mode` at line 258: Enforce observe / paper / live safety modes.
+- `ExecutionCoordinator._reject` at line 249: Return a deterministic rejection (NO provider order call, no record).
+- `ExecutionCoordinator._check_execution_mode` at line 265: Enforce observe / paper / live safety modes.
 
 ### services/execution_reconciler.py
 
@@ -1806,6 +1817,16 @@ Module purpose needs a human explanation.
 - `GovernanceGateTests.test_confidence_decay_under_instability_can_block` at line 67: Explanation needed.
 - `GovernanceGateTests.test_high_disagreement_penalizes_position` at line 78: Explanation needed.
 
+### tests/test_governed_paper_replay.py
+
+Real offline integration: no mocked strategy votes, fills or risk decisions.
+
+- `launch` at line 17: Explanation needed.
+- `test_real_rules_risk_fills_exits_and_accounting` at line 30: Explanation needed.
+- `test_real_inflight_cancellation_stops_subsequent_fills` at line 59: Explanation needed.
+- `test_offline_guard_denies_network_and_outside_writes` at line 80: Explanation needed.
+- `test_lost_controller_lease_stops_without_automatic_reentry` at line 96: Explanation needed.
+
 ### tests/test_package_imports.py
 
 Packaging/import contract tests for the ``niblit_lean_algos`` namespace.
@@ -1876,6 +1897,18 @@ Phase 3 — trading authority, safety gates, lifecycle, reconciliation, idempote
 - `TestExecutionReconciler.test_not_found_with_reliable_evidence` at line 238: Explanation needed.
 - `TestMaximumTotalExposure.test_exposure_exceeds_limit_rejected` at line 244: Explanation needed.
 - `TestMaximumTotalExposure.test_exposure_within_limit_approved` at line 253: Explanation needed.
+
+### tests/test_r3_execution_safety.py
+
+Module purpose needs a human explanation.
+
+- `decision` at line 12: Explanation needed.
+- `test_invalid_risk_values` at line 17: Explanation needed.
+- `test_atomic_claim_between_connections_preserves_audit` at line 24: Explanation needed.
+- `adapter` at line 39: Explanation needed.
+- `test_real_money_blocked_even_with_legacy_acknowledgement` at line 42: Explanation needed.
+- `test_uncertain_adapter_exception_is_ambiguous_and_not_retried` at line 48: Explanation needed.
+- `test_concurrent_coordinators_submit_once` at line 57: Explanation needed.
 
 ### tests/test_replay_worker.py
 

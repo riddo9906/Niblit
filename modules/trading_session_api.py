@@ -15,18 +15,22 @@ class Proposal(BaseModel):
     close_order_id:str|None=Field(default=None,pattern=r'^[a-f0-9]{64}$')
 
 
+class ObservationBatch(BaseModel):
+    model_config={'extra':'forbid'}
+    adapter:Literal['mt5','freqtrade','exness_demo']
+    symbols:list[str]=Field(min_length=1,max_length=12)
+
+
 class Activation(BaseModel):
     model_config={'extra':'forbid'}
     id:str=Field(pattern=r'^[a-f0-9]{32}$')
     spec_hash:str=Field(pattern=r'^[a-f0-9]{64}$')
     acknowledgement:Literal['ACTIVATE_BOUNDED_DEMO_SESSION']
-    clear_emergency_stop:bool=False
 
 
 class Stop(BaseModel):
     model_config={'extra':'forbid'}
     id:str|None=None
-    emergency:bool=False
 
 
 class NativeReceipt(BaseModel):
@@ -59,30 +63,24 @@ def demo_control_policy(status):
     unresolved=[o for o in status.get('orders',[]) if o.get('state') in unresolved_states]
     # Read-only recovery facts. Never clear the stop or infer safe broker outcomes
     # from this limited status projection (which is capped at recent orders).
-    recovery={'stop_latched':bool(status.get('emergency_stopped')),
-              'requires_reviewed_scope':bool(status.get('emergency_stopped')),
-              'unresolved_orders_visible':len(unresolved),
+    recovery={'unresolved_orders_visible':len(unresolved),
               'broker_reconciliation_required':bool(unresolved),
-              'transport_configured':delivery_authorized,
-              'automatic_rearm_allowed':False}
+              'transport_configured':delivery_authorized}
     activation_blockers=[]
     if locked:activation_blockers.append('Installed Core is observation-only')
     if not delivery_authorized:activation_blockers.append('No verified demo delivery transport')
-    if unresolved:activation_blockers.append('Unresolved broker delivery requires reconciliation')
-    # A latched stop is NOT an automatic rearm and is not cleared by checking
-    # readiness. It can be reviewed only during a fresh bounded demo activation.
-    if recovery['stop_latched']:
-        activation_blockers.append('Emergency stop requires explicit reviewed demo rearm')
+    # A delivery claim belongs to its original broker account. Do not block
+    # unrelated demo platforms here; account-specific admission checks remain
+    # in demo_readiness and CoreTradingSessions.
     recovery['activation_blockers']=activation_blockers
-    recovery['activation_ready']=not locked and delivery_authorized and not unresolved and not recovery['stop_latched']
+    recovery['activation_ready']=not locked and delivery_authorized
     return {'mode':'observation_and_intercepted_rehearsal' if locked else 'scoped_demo_only',
         'review_available':True,'activation_available':not locked,
         'delivery_authorized':delivery_authorized,'delivery_blocker':delivery_blocker,
         'recovery':recovery,'funded_execution_available':False,
-        'emergency_stopped':bool(status.get('emergency_stopped')),
         'platform_delivery_enabled':{'mt5':mt5_enabled,'freqtrade':ft_enabled,'exness_demo':remote_enabled},
         'blocker':None if not locked else 'Deployment observation-only lock; no scope activation permitted',
-        'stop_notice':'Review and simulation do not clear the emergency stop.'}
+        'stop_notice':'Demo sessions require approved account-bound scopes.'}
 
 
 def demo_readiness(control,adapter,symbol,limits=None):
@@ -95,7 +93,6 @@ def demo_readiness(control,adapter,symbol,limits=None):
     def block(code,reason):blockers.append({'code':code,'reason':str(reason)[:500]})
     if not policy['activation_available']:block('deployment_lock',policy['blocker'])
     if not policy['platform_delivery_enabled'].get(adapter,False):block('platform_delivery_disabled','This platform demo transport is not explicitly enabled; no implicit cross-platform permission')
-    if policy['emergency_stopped']:block('emergency_stop','Persisted stop is latched; only an explicit future operator action may reset it')
     result={'id':'demo-review-'+uuid.uuid4().hex,'observed_at':time.time(),'adapter':adapter,'symbol':symbol,
         'policy':policy,'blockers':blockers,'execution_authorized':False,'activation_eligible':False,
         'review_only':True,'order_ticket_created':False,'external_send_count':0,
@@ -103,6 +100,16 @@ def demo_readiness(control,adapter,symbol,limits=None):
     try:
         if adapter not in control.adapters:raise PermissionError('Platform adapter unavailable')
         a=control.adapters[adapter];snap=a.snapshot(symbol)
+        if adapter=='mt5':
+            from modules.mt5_orders import require_exclusive_demo_core, require_selected_mt5_symbol
+            try:
+                require_selected_mt5_symbol(symbol)
+            except (PermissionError,ValueError) as exc:
+                block('instrument_scope',exc)
+            try:
+                require_exclusive_demo_core()
+            except (PermissionError,ValueError) as exc:
+                block('demo_runtime_conflict',exc)
         result.update(account=snap['account'],environment=snap['environment'],quote=snap.get('quote'),
             account_binding={k:v for k,v in snap.get('account_binding',{}).items() if k!='login'},
             exposure={k:snap.get(k) for k in ('currency','equity','available','margin','exposure','open_risk')},
@@ -110,7 +117,8 @@ def demo_readiness(control,adapter,symbol,limits=None):
         active=any(r.get('state')=='active' and all(r.get('spec',{}).get(k)==v for k,v in
             {'adapter':adapter,'symbol':symbol,'account':snap['account'],'environment':snap['environment']}.items()) for r in state.get('sessions',[]))
         if not active:block('no_scoped_authority','No active account-bound session for this platform and instrument')
-        claims=[o for o in state.get('orders',[]) if o.get('instrument')==snap['instrument'] and o.get('action')=='open'
+        claims=[o for o in state.get('orders',[]) if o.get('adapter')==adapter and o.get('account')==snap['account']
+            and o.get('instrument')==snap['instrument'] and o.get('action')=='open'
             and o.get('state') in ('prepared','sending','unknown','submitted','open','partial')]
         result['order_receipts']=[{k:o.get(k) for k in ('id','adapter','symbol','state','updated')} for o in claims]
         if claims:block('outstanding_claim','Existing position or unresolved delivery claim; reconcile its original account before another entry. No blind retry.')
@@ -156,7 +164,7 @@ def demo_readiness(control,adapter,symbol,limits=None):
         result['monitoring']={'contract_available':callable(getattr(a,'reconcile',None)),
             'running':any(o.get('adapter')==adapter and o.get('symbol')==symbol and o.get('running') for o in state.get('observers',[])),
             'exit_authority':'Only exact Core-owned positions within an approved scope; historical positions remain untouched'}
-        authorization_codes={'deployment_lock','platform_delivery_disabled','wrong_environment','market_validation','strategy_mismatch','engine_stopped','position_capacity','missing_cost_bounds','incomplete_costs','entry_preflight','entry_preflight_pending','risk_preflight','outstanding_claim'}
+        authorization_codes={'deployment_lock','platform_delivery_disabled','instrument_scope','demo_runtime_conflict','wrong_environment','market_validation','strategy_mismatch','engine_stopped','position_capacity','missing_cost_bounds','incomplete_costs','entry_preflight','entry_preflight_pending','risk_preflight','outstanding_claim'}
         result['activation_eligible']=not any(b['code'] in authorization_codes for b in blockers)
     except (ValueError,PermissionError,KeyError) as exc:block('unavailable_or_unverified',exc)
     except Exception as exc:block('dependency_unavailable',type(exc).__name__)
@@ -277,15 +285,19 @@ def register_trading_routes(app,provider,*,native_callback=None):
             control=service(request,True,safe_control=True);control.observe(body.adapter,body.symbol)
             return {'observation_started':True,'execution_started':False}
         return run(apply)
+    @app.post('/api/trading/sessions/observe-many')
+    def observe_many(body:ObservationBatch,request:Request):
+        return run(lambda:service(request,True,safe_control=True).observe_many(body.adapter,body.symbols))
+
     @app.post('/api/trading/sessions/propose')
     def propose(body:Proposal,request:Request):
         return run(lambda:service(request,True,safe_control=True).propose(body.adapter,body.symbol,body.seconds,body.limits,close_order_id=body.close_order_id))
     @app.post('/api/trading/sessions/activate')
     def activate(body:Activation,request:Request):
-        return run(lambda:service(request,True).activate(body.id,body.spec_hash,clear_stop=body.clear_emergency_stop))
+        return run(lambda:service(request,True).activate(body.id,body.spec_hash))
     @app.post('/api/trading/sessions/stop')
     def stop(body:Stop,request:Request):
-        return run(lambda:service(request,True,safe_control=True).stop(body.id,emergency=body.emergency))
+        return run(lambda:service(request,True,safe_control=True).stop(body.id))
     @app.post('/api/trading/sessions/alerts/{ident}/delivered')
     def delivered(ident:str,request:Request):
         return run(lambda:service(request,True).acknowledge_alert(ident) or {'recorded':True})

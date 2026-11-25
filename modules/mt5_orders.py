@@ -2,6 +2,8 @@
 from contextlib import contextmanager
 import json
 import math
+import os
+import socket
 from pathlib import Path
 import secrets
 import sqlite3
@@ -10,6 +12,64 @@ import time
 from modules.mt5_bridge import LOCK, MT5Unavailable
 
 MAGIC = 29102026
+
+
+def require_exclusive_demo_core():
+    """Refuse this runtime's broker delivery while another configured Core is listening.
+
+    The previous frozen Core does not join the new advisory lease registry.
+    This explicit handover check is therefore required at each broker send;
+    configured ports must be local, fixed and never include the current Core.
+    """
+    configured = os.getenv('NIBLIT_MT5_COMPETING_CORE_PORTS', '').strip()
+    if not configured:
+        return
+    import psutil
+    current = int(os.getenv('NIBLIT_API_PORT', '5000'))
+    ports = set()
+    for raw in configured.split(','):
+        if not raw.isdigit():
+            raise ValueError('Invalid competing Core port')
+        port = int(raw)
+        if not 1024 <= port <= 65535 or port == current:
+            raise ValueError('Invalid competing Core port')
+        ports.add(port)
+    try:
+        # On Windows, recently closed loopback endpoints can TIME_WAIT and
+        # cause a TCP connect timeout despite having no listening process.
+        # Inspect socket ownership rather than treating that transient as a
+        # missing or active broker-execution owner.
+        listeners = psutil.net_connections(kind='tcp')
+        for connection in listeners:
+            if connection.status == psutil.CONN_LISTEN and connection.laddr and connection.laddr.port in ports:
+                raise PermissionError(
+                    'Another trading Core is still listening on port '
+                    + str(connection.laddr.port))
+        # Also detect the old frozen process during its boot *before* it has
+        # opened its HTTP listener. The image path is a fixed local install
+        # supplied by the explicit handover profile.
+        old_image = os.getenv('NIBLIT_MT5_COMPETING_CORE_IMAGE', '').strip()
+        if not old_image or not os.path.isabs(old_image):
+            raise PermissionError('Competing Core executable identity not configured')
+        old_image = os.path.normcase(os.path.abspath(old_image))
+        for process in psutil.process_iter(['name', 'exe']):
+            if str(process.info.get('name') or '').lower() == 'niblit.exe':
+                executable = process.info.get('exe')
+                if executable and os.path.normcase(os.path.abspath(executable)) == old_image:
+                    raise PermissionError('Previous trading Core process has not exited')
+    except PermissionError:
+        raise
+    except (psutil.Error, OSError, TypeError, ValueError) as exc:
+        raise PermissionError('Competing Core state unavailable') from exc
+
+
+def require_selected_mt5_symbol(symbol):
+    """Pin this installation's broker demo actions to an explicit symbol set."""
+    raw = os.getenv('NIBLIT_MT5_EXECUTION_SYMBOLS', '').strip()
+    if raw:
+        symbols = {item.strip() for item in raw.split(',') if item.strip()}
+        if not symbols or symbol not in symbols:
+            raise PermissionError('MT5 instrument is outside the reviewed demo release scope')
 
 
 class DemoOrders:
@@ -60,6 +120,7 @@ class DemoOrders:
         if not account.trade_allowed or not getattr(account,'trade_expert',False) or not terminal.trade_allowed or terminal.tradeapi_disabled:
             raise ValueError('MT5 or broker trading permission is disabled')
         symbol=body['symbol']; volume=body['volume']
+        require_selected_mt5_symbol(symbol)
         info=api.symbol_info(symbol)
         if info is None or not info.visible: raise ValueError('Select a visible broker symbol')
         if body.get('action') not in ('open','close') or body.get('side') not in ('buy','sell'):
@@ -82,8 +143,11 @@ class DemoOrders:
                 raise ValueError('Only the exact current Niblit test position may be closed')
             side='sell' if position.type==api.ORDER_TYPE_BUY else 'buy'
         else:
-            if any(p.symbol==symbol or p.magic==MAGIC for p in positions):
-                raise ValueError('Close the existing Niblit test position before another entry; existing symbol exposure is blocked')
+            # Other symbols' already-protected positions contribute to the
+            # Core-wide exposure/risk budget but must not impersonate this
+            # symbol's ownership claim. The same broker symbol is exclusive.
+            if any(p.symbol==symbol for p in positions):
+                raise ValueError('Existing exposure in the selected symbol is blocked')
             pending=api.orders_get()
             if pending is None or any(o.symbol==symbol or o.magic==MAGIC for o in pending):
                 raise ValueError('Pending order state prevents another entry')
@@ -169,6 +233,7 @@ class DemoOrders:
                 raise ValueError('Reconcile the earlier delivery before submitting another ticket')
             if time.time()-row['created']>30: raise ValueError('Review expired; refresh and review again')
             body=json.loads(row['body'])
+            require_exclusive_demo_core()
             if body.get('core_owned') and guard is None:raise PermissionError('Core-owned ticket requires current Core session guard')
             if self.crypto_stops and body['intent']['action']!='close' and body['review'].get('crypto_protection_required',True) and not body['review'].get('protection'):
                 raise PermissionError('Reviewed crypto protection required; create a fresh ticket')
@@ -198,6 +263,7 @@ class DemoOrders:
                 try:
                     final_account = api.account_info()
                     final_terminal = api.terminal_info()
+                    require_exclusive_demo_core()
                     safe = (final_account is not None and final_terminal is not None and final_terminal.connected
                             and final_account.trade_mode == api.ACCOUNT_TRADE_MODE_DEMO
                             and self.bridge.account_record(api,final_account,final_terminal) == review['account_binding']

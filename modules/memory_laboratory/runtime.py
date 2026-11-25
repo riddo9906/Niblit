@@ -129,12 +129,29 @@ class MemoryRuntime:
                     meta["provenance"][field] = item
         return self.enqueue(source=source_root + "/" + digest(key), content=text, metadata=meta, _db=_db)
 
-    def tick(self, limit=8):
+    def tick(self, limit=8, *, sources=None):
         """Serial, durable groups of <=4 small events; large sources stay alone.
 
-        Claim/ack commits are shared, but each source keeps its original UUIDs,
-        permission checks, verified projection and300s lease. No parallel worker.
+        Optional exact-source filtering supports bounded repair/replay of a
+        known set of records without consuming unrelated work from the shared
+        outbox. Normal workers omit it and retain the existing oldest-ready
+        fairness policy. Claim/ack, permissions and leases are unchanged.
         """
+        source_filter = None
+        if sources is not None:
+            if isinstance(sources, (str, bytes)):
+                raise TypeError("sources must be an iterable of exact source strings")
+            source_filter = tuple(dict.fromkeys(
+                value for value in sources
+                if isinstance(value, str) and value.strip()
+            ))
+            if not source_filter:
+                return {"completed": 0, "failed": 0, "metrics": {
+                    "chunks": 0, "unique_chunks": 0, "adapter_calls": 0,
+                    "cache_hits": 0, "prefetch_generated": 0, "stages": {},
+                }}
+            if len(source_filter) > 32:
+                raise ValueError("source filter exceeds bounded limit")
         completed=failed=chunks=unique_chunks=calls=cache_hits=prefetch_generated=0
         timings={};remaining=max(1,min(limit,32))
         def record(profile):
@@ -149,10 +166,17 @@ class MemoryRuntime:
             with self.gateway.db() as db:
                 db.execute('BEGIN IMMEDIATE')
                 for _ in range(min(4,remaining)):
-                    row=db.execute("""SELECT * FROM ingestion_outbox AS job WHERE (state='pending' OR state='processing') AND next_attempt<=?
+                    query = """SELECT * FROM ingestion_outbox AS job
+                        WHERE (state='pending' OR state='processing') AND next_attempt<=?
                         AND json_extract(body,'$.namespace')=? AND json_extract(body,'$.principal')=?
-                        AND NOT EXISTS(SELECT 1 FROM ingestion_outbox AS busy WHERE busy.source=job.source AND busy.state='processing' AND busy.next_attempt>? AND busy.id<>job.id)
-                        ORDER BY rowid LIMIT 1""",(time.time(),self.scope['namespace'],self.scope['principal'],time.time())).fetchone()
+                        AND NOT EXISTS(SELECT 1 FROM ingestion_outbox AS busy WHERE busy.source=job.source AND busy.state='processing' AND busy.next_attempt>? AND busy.id<>job.id)"""
+                    params = [time.time(), self.scope['namespace'],
+                              self.scope['principal'], time.time()]
+                    if source_filter is not None:
+                        query += " AND job.source IN (" + ",".join("?" for _ in source_filter) + ")"
+                        params.extend(source_filter)
+                    query += " ORDER BY rowid LIMIT 1"
+                    row=db.execute(query,params).fetchone()
                     if row is None:break
                     parsed_at=time.perf_counter();body=json.loads(row['body'])
                     timings['content_retrieval']=timings.get('content_retrieval',0)+time.perf_counter()-parsed_at
@@ -380,15 +404,23 @@ class MemoryRuntime:
             self._last_sync = time.monotonic()
         if self.stop_event.is_set():
             return
-        head = self._phase("general_projection", lambda:self.tick(4))
+        # Bounded per-cycle projection work. Defaults preserve the original 32/8 pass.
+        def bounded(name, default, ceiling):
+            try:
+                return max(1, min(ceiling, int(os.getenv(name, str(default)))))
+            except (ValueError, TypeError):
+                return default
+        general_limit = bounded('NIBLIT_MEMORY_GENERAL_JOBS_PER_CYCLE', 32, 32)
+        market_limit = bounded('NIBLIT_MEMORY_MARKET_JOBS_PER_CYCLE', 8, 8)
+        head = self._phase("general_projection", lambda:self.tick(min(4, general_limit)))
         if self.stop_event.is_set():
             return
-        self._phase("market_partitions", lambda:self.tick_market_partitions(8))
+        self._phase("market_partitions", lambda:self.tick_market_partitions(market_limit))
         if self.stop_event.is_set():
             return
         # A failed general backend pass already has a durable retry/backoff.
-        if not (isinstance(head,dict) and head.get("failed")):
-            self._phase("general_projection_tail", lambda:self.tick(28))
+        if general_limit > 4 and not (isinstance(head,dict) and head.get("failed")):
+            self._phase("general_projection_tail", lambda:self.tick(general_limit - 4))
         if self.stop_event.is_set():
             return
         from .market import MarketJournal

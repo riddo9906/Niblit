@@ -37,6 +37,11 @@ class Signup(Login):
     shared_workspace_acknowledged: bool
 
 
+class PasswordUpdate(BaseModel):
+    current_password: str = Field(min_length=1,max_length=256)
+    new_password: str = Field(min_length=12,max_length=256)
+
+
 class Message(BaseModel):
     content: str = Field(min_length=1, max_length=4000)
     workspace: str = Field(default='shared',max_length=80)
@@ -71,7 +76,12 @@ class ServerManager:
             CREATE TABLE IF NOT EXISTS audit(id INTEGER PRIMARY KEY,name TEXT,action TEXT,created REAL);
             CREATE TABLE IF NOT EXISTS attempts(name TEXT PRIMARY KEY,count INTEGER,until REAL);
             CREATE TABLE IF NOT EXISTS signups(name TEXT PRIMARY KEY,created REAL,state TEXT);
+            CREATE TABLE IF NOT EXISTS signup_notifications(name TEXT PRIMARY KEY,state TEXT,attempts INTEGER,updated REAL);
+            CREATE TABLE IF NOT EXISTS account_profiles(name TEXT PRIMARY KEY,account_id TEXT UNIQUE NOT NULL,created REAL NOT NULL);
             ''')
+            db.execute("INSERT OR IGNORE INTO account_profiles(name,account_id,created) "
+                       "SELECT name,lower(hex(randomblob(16))),strftime('%s','now') "
+                       "FROM users")
             # Never retry model work after a process interruption.
             db.execute("UPDATE messages SET state='interrupted' WHERE state='pending'")
         from modules.portal_workspaces import Workspaces
@@ -101,6 +111,8 @@ class ServerManager:
         salt = secrets.token_hex(16)
         with self.db() as db:
             db.execute('INSERT INTO users VALUES(?,?,?,?,?)', (name, salt, self.password(password, salt), role,0 if pending else 1))
+            db.execute('INSERT INTO account_profiles VALUES(?,?,?)',
+                       (name,secrets.token_hex(16),time.time()))
             if pending:
                 db.execute("INSERT INTO signups VALUES(?,?,'pending')",(name,time.time()))
                 db.execute('INSERT INTO audit(name,action,created) VALUES(?,?,?)',(name,'signup.requested',time.time()))
@@ -192,7 +204,11 @@ class ServerManager:
 
 
 def create_app(manager=None, origin='http://127.0.0.1:8768'):
-    manager = manager or ServerManager(ROOT/'runtime/client-portal/session.sqlite3')
+    # Packaged desktop releases use the persistent Client Portal DB selected
+    # by the installation environment, preserving existing approved accounts.
+    # Never create an unreviewed replacement during an explicit DB migration.
+    manager = manager or ServerManager(Path(os.getenv(
+        'NIBLIT_PORTAL_DB_PATH', str(ROOT/'runtime/client-portal/session.sqlite3'))))
     app = FastAPI(docs_url=None, redoc_url=None, openapi_url=None)
     secure = origin.startswith('https://')
     from modules.portal_remote import remote_origin,client_path
@@ -272,21 +288,33 @@ def create_app(manager=None, origin='http://127.0.0.1:8768'):
             count=db.execute("SELECT COUNT(*) FROM signups WHERE state='pending'").fetchone()[0]
         if count>=100:
             raise HTTPException(429,'Registration queue is full; contact the administrator')
+        created=False
         try:
             manager.add_user(body.username,body.password,'viewer',pending=True)
+            created=True
         except ValueError:
             raise HTTPException(400,'Use 3–80 letters, numbers, dots, hyphens or underscores and a password of at least 12 characters')
         except sqlite3.IntegrityError:
             # Same response for existing and new users: never reset a password or
             # reactivate a revoked account through public registration.
             pass
+        if created:
+            from modules.portal_notifications import notify_pending_signup
+            notify_pending_signup(manager,body.username)
         return {'message':'If this username is available, your request is awaiting administrator approval. No workspace access has been granted.'}
 
     @app.get('/api/session')
     def session(request:Request,workspace:str='shared'):
         user=auth(request)
         role=manager.workspaces.access(user,workspace)
-        return {'remote_client':request.state.remote_client,'user':user,'session':workspace,'namespace':'client:'+workspace,'workspace_role':role,'tier':manager.workspaces.tier(user['name']),'workspaces':manager.workspaces.list(user),'messages':manager.history(workspace)}
+        with manager.db() as db:
+            profile=db.execute('SELECT account_id FROM account_profiles WHERE name=?',
+                               (user['name'],)).fetchone()
+        return {'remote_client':request.state.remote_client,
+                'user':{**user,'account_id':profile['account_id'] if profile else None},
+                'session':workspace,'namespace':'client:'+workspace,'workspace_role':role,
+                'tier':manager.workspaces.tier(user['name']),
+                'workspaces':manager.workspaces.list(user),'messages':manager.history(workspace)}
 
     @app.post('/api/messages')
     def message(body:Message,request:Request):
@@ -351,6 +379,23 @@ def create_app(manager=None, origin='http://127.0.0.1:8768'):
         manager.workspaces.set_plan(auth(request,write=True,admin=True),name,body.tier)
         return {'ok':True}
 
+    @app.post('/api/account/password')
+    def change_password(body:PasswordUpdate,request:Request):
+        user=auth(request,write=True)
+        with manager.db() as db:
+            stored=db.execute('SELECT salt,hash FROM users WHERE name=? AND active=1',
+                              (user['name'],)).fetchone()
+            if not stored or not hmac.compare_digest(
+                    manager.password(body.current_password,stored['salt']),stored['hash']):
+                raise HTTPException(403,'Current password is incorrect')
+            salt=secrets.token_hex(16)
+            db.execute('UPDATE users SET salt=?,hash=? WHERE name=?',
+                       (salt,manager.password(body.new_password,salt),user['name']))
+            db.execute('DELETE FROM logins WHERE name=?',(user['name'],))
+            db.execute('INSERT INTO audit(name,action,created) VALUES(?,?,?)',
+                       (user['name'],'account.password.changed',time.time()))
+        return {'ok':True,'requires_login':True}
+
     @app.post('/api/logout')
     def logout(request:Request):
         auth(request,write=True)
@@ -362,7 +407,19 @@ def create_app(manager=None, origin='http://127.0.0.1:8768'):
     def admin(request:Request):
         auth(request,admin=True)
         with manager.db() as db:
-            return {'users':[dict(r) for r in db.execute("SELECT u.name,u.role,u.active,s.state AS signup_state,COALESCE(p.tier,'community') AS tier FROM users u LEFT JOIN signups s ON s.name=u.name LEFT JOIN plans p ON p.name=u.name")], 'audit':[dict(r) for r in db.execute('SELECT * FROM audit ORDER BY id DESC LIMIT 100')]}
+            return {'users':[dict(r) for r in db.execute("SELECT u.name,u.role,u.active,s.state AS signup_state,COALESCE(p.tier,'community') AS tier,COALESCE(n.state,'not_sent') AS approval_email_state FROM users u LEFT JOIN signups s ON s.name=u.name LEFT JOIN plans p ON p.name=u.name LEFT JOIN signup_notifications n ON n.name=u.name")], 'audit':[dict(r) for r in db.execute('SELECT * FROM audit ORDER BY id DESC LIMIT 100')]}
+
+    @app.post('/api/admin/notify/{name}')
+    def resend_approval_email(name:str,request:Request):
+        auth(request,write=True,admin=True)
+        with manager.db() as db:
+            record=db.execute("SELECT state FROM signups WHERE name=?",(name,)).fetchone()
+            if not record or record['state']!='pending':
+                raise HTTPException(404,'No pending registration')
+        from modules.portal_notifications import notify_pending_signup
+        if not notify_pending_signup(manager,name):
+            raise HTTPException(503,'Approval email is queued; configure Portal SMTP credentials or retry delivery')
+        return {'ok':True,'notification':'sent'}
 
     @app.post('/api/admin/approve/{name}')
     def approve(name:str,request:Request):

@@ -3,6 +3,7 @@ import json
 import os
 import threading
 import re
+import time
 from pathlib import Path
 
 from .gateway import MemoryGateway
@@ -43,9 +44,14 @@ def augment_messages(messages, *, gateway=None, scope=None):
     # Scope comes from trusted runtime/operator configuration, never source text
     # or an LLM tool argument. No ingestion or consolidation is run here.
     working = [dict(m) for m in messages]
-    report = {"enabled": False, "citations": [], "issues": []}
+    report = {"enabled": False, "citations": [], "issues": [],
+              "timings_ms": {}, "stats": {}}
     try:
+        gateway_started = time.perf_counter()
         gateway = gateway if gateway is not None else runtime_gateway()
+        report["timings_ms"]["gateway_initialization_ms"] = (
+            time.perf_counter() - gateway_started
+        ) * 1000
         if gateway is None:
             return working, report
         report["enabled"] = True
@@ -57,7 +63,13 @@ def augment_messages(messages, *, gateway=None, scope=None):
         if not isinstance(query, str) or not query.strip():
             return working, report
         identifiers = re.findall(r'\b[0-9a-fA-F]{8}-(?:[0-9a-fA-F]{4}-){3}[0-9a-fA-F]{12}\b', query)
+        retrieval_started = time.perf_counter()
         result = gateway.retrieve(query, namespace=namespace, principal=principal, limit=12 if identifiers else 4)
+        report["timings_ms"]["gateway_retrieve_total_ms"] = (
+            time.perf_counter() - retrieval_started
+        ) * 1000
+        report["timings_ms"].update(result.get("timings_ms") or {})
+        report["stats"] = result.get("stats") or {}
         report["issues"] = result["issues"]
         hits = result['results']
         if identifiers:
@@ -78,6 +90,7 @@ def augment_messages(messages, *, gateway=None, scope=None):
                      "matched_identifiers": h.get('matched_identifiers', [])} for h in hits[:4]]
         report["citations"] = [h["source_location"] for h in evidence]
         if evidence:
+            evidence_started = time.perf_counter()
             # The policy is constant trusted code; no retrieved bytes enter a
             # system role. JSON quoting prevents source text creating roles.
             index = next((i for i, m in enumerate(working) if m.get("role") != "system"), len(working))
@@ -87,6 +100,9 @@ def augment_messages(messages, *, gateway=None, scope=None):
             question_index = max(i for i, m in enumerate(working) if m.get("role") == "user")
             working.insert(question_index, {"role": "user", "content":
                 "UNTRUSTED_MEMORY_EVIDENCE_JSON\n" + json.dumps(evidence, ensure_ascii=False)})
+            report["timings_ms"]["evidence_formatting_ms"] = (
+                time.perf_counter() - evidence_started
+            ) * 1000
     except Exception as exc:
         report["issues"].append(type(exc).__name__)
     return working, report

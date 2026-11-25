@@ -41,7 +41,7 @@ async function refresh(){if(loading)return;loading=true;try{const data=await cal
  const remote=data.remote_gateway, remotePanel=el('remote-gateway-status');
  if(remotePanel){
    window.renderRemoteObservation(remote);
-   if(remote?.configured && el('environment').value==='mt5'){
+   if(remote?.verified && el('environment').value==='mt5' && controls?.platform_delivery_enabled?.mt5!==true){
      for(const id of ['core-propose','core-propose-close','core-activate','auto-start','core-observe'])el(id).disabled=true;
    }
  }
@@ -49,20 +49,20 @@ async function refresh(){if(loading)return;loading=true;try{const data=await cal
 controls=data.execution_controls||{activation_available:false,review_available:false,blocker:'Core policy unavailable'};
  window.niblitDemoActivationAvailable=controls.activation_available===true;
  const recovery=controls.recovery||{};
- const pendingRecovery=recovery.broker_reconciliation_required?` · ${recovery.unresolved_orders_visible} unresolved broker delivery claim(s) visible; reconcile before another entry`:'';
- const stopRecovery=recovery.stop_latched?' · emergency stop LATCHED; only a new reviewed demo activation can re-arm':' · emergency stop not latched';
- el('core-deployment-policy').textContent=`${controls.mode||'UNKNOWN'} · ${controls.blocker||controls.delivery_blocker||'Verified demo transport required'}${stopRecovery}${pendingRecovery}. No automatic reset or retry.`;
+ const pendingRecovery=recovery.broker_reconciliation_required?` · ${recovery.unresolved_orders_visible} historical broker delivery claim(s) require reconciliation on their original account`:'';
+
+ el('core-deployment-policy').textContent=`${controls.mode||'UNKNOWN'} · ${controls.blocker||controls.delivery_blocker||'Verified demo transport required'}${pendingRecovery}. No automatic reset or retry.`;
  const selectedAdapter=el('environment').value;
  const selectedTransport=controls.platform_delivery_enabled?.[selectedAdapter]===true;
  const reasons=[...new Set([...(recovery.activation_blockers||[]),...(!selectedTransport?[`Selected ${selectedAdapter} demo transport is not verified or enabled`]:[])])];
  el('core-activation-readiness').textContent=selectedTransport&&reasons.length===0?'Execution prerequisites reported available; a fresh account-bound scope and final broker review are still required.':`Execution activation not ready for ${selectedAdapter}: ${reasons.join('; ')||'Complete a fresh readiness review'}. No broker execution was authorized.`;
  el('core-readiness').disabled=readinessBusy||!controls.review_available;
  el('core-rehearse').disabled=!(document.querySelector('meta[name="desk-base"]')?.content||'').startsWith('/')||rehearsalBusy;
- el('core-observe').disabled=Boolean(remote?.configured&&el('environment').value==='mt5');
+ el('core-observe').disabled=Boolean(remote?.verified&&el('environment').value==='mt5');
  el('core-propose').disabled=!controls.review_available;
  el('core-propose-close').disabled=!controls.review_available;
- el('core-activate').disabled=!proposal||!controls.activation_available||!readiness?.activation_eligible;
- lastAccountStatus=data;renderAccountRecords(data);el('core-session-state').textContent=remote?.configured?'REAL-MONEY EXECUTION DISABLED · Remote observation only':data.emergency_stopped?'Emergency stop is latched. Observation and reconciliation continue.':'REAL-MONEY EXECUTION DISABLED — r9.1 VERIFICATION MODE · Explicit demo activation required';
+ el('core-activate').disabled=!proposal||!controls.activation_available;
+ lastAccountStatus=data;renderAccountRecords(data);el('core-session-state').textContent=remote?.verified?'REMOTE DEMO OBSERVATION · Local MT5 scope unavailable':'R14 DEMO EXECUTION · REAL-MONEY DISABLED · Account-bound scope required';
  el('core-session-list').textContent=data.sessions.map(s=>`${s.spec.adapter} ${s.spec.symbol} · ${s.spec.environment} · ${s.spec.account_binding?.login||s.spec.account} · ${s.state} · ${s.entries}/${s.spec.limits.max_entries} entries · ${s.expires?'expires '+new Date(s.expires*1000).toLocaleTimeString():'not activated; '+s.spec.seconds+'s begins on activation'}${s.reason?' · '+s.reason:''}`).join('\n')||'No session approved.';
  el('core-owned-orders').textContent=(data.orders||[]).filter(o=>o.adapter==='mt5'&&o.action==='open'&&o.state==='open').map(o=>o.symbol+' · Core order '+o.id).join('\n');
  el('core-observer-list').textContent=data.observers.map(o=>`${o.adapter} ${o.symbol} · ${o.running?'observing':'stopped'} · ${o.error||o.assessment?.selection_reason||'Awaiting first observation'} ${(o.assessment?.candidates||[]).map(c=>c.strategy+':'+c.side+(c.context?(' ['+Object.entries(c.context).map(([frame,data])=>frame+' '+(data.trend||data.status)).join(', ')+']'):'')).join(' · ')}`).join('\n');
@@ -83,7 +83,7 @@ controls=data.execution_controls||{activation_available:false,review_available:f
  remotePanel.textContent='CORE UNAVAILABLE · remote observations unavailable · REAL-MONEY EXECUTION DISABLED';
  }
  }finally{loading=false;}}
-async function propose(closeOrderId=null){try{await refresh();await reviewReadiness();const scope=selection();if(closeOrderId)scope.close_order_id=closeOrderId;const generation=reviewGeneration;const reviewed=await call('propose',scope);if(generation!==reviewGeneration)return;proposal=reviewed;el('core-proposal').textContent=JSON.stringify({account:proposal.spec.account,environment:proposal.spec.environment,adapter:proposal.spec.adapter,symbol:proposal.spec.symbol,strategies:proposal.spec.strategies,duration_seconds:proposal.spec.seconds,limits:proposal.spec.limits,position_actions:proposal.spec.position_actions,account_binding:proposal.spec.account_binding,position_identifier:proposal.spec.position_identifier,close_order_id:proposal.spec.close_order_id,notice:'Broker stops remain after expiry. No live money. No session is active until you activate this exact scope.'},null,2);el('core-activate').disabled=!controls?.activation_available||!readiness?.activation_eligible;}catch(e){el('core-session-state').textContent=e.message;}}
+async function propose(closeOrderId=null){try{await refresh();await reviewReadiness();const scope=selection();if(closeOrderId)scope.close_order_id=closeOrderId;const generation=reviewGeneration;const reviewed=await call('propose',scope);if(generation!==reviewGeneration)return;proposal=reviewed;el('core-proposal').textContent=JSON.stringify({account:proposal.spec.account,environment:proposal.spec.environment,adapter:proposal.spec.adapter,symbol:proposal.spec.symbol,strategies:proposal.spec.strategies,duration_seconds:proposal.spec.seconds,limits:proposal.spec.limits,position_actions:proposal.spec.position_actions,account_binding:proposal.spec.account_binding,position_identifier:proposal.spec.position_identifier,close_order_id:proposal.spec.close_order_id,notice:'Broker stops remain after expiry. No live money. No session is active until you activate this exact scope.'},null,2);el('core-activate').disabled=!controls?.activation_available;}catch(e){el('core-session-state').textContent=e.message;}}
 el('core-propose').onclick=()=>propose();
 el('core-propose-close').onclick=()=>{
  const id=el('core-close-order').value.trim();
@@ -91,9 +91,14 @@ el('core-propose-close').onclick=()=>{
  return propose(id);
 };
 el('core-observe').onclick=async()=>{try{await refresh();await call('observe',selection());await refresh();}catch(e){el('core-session-state').textContent=e.message;}};
-el('core-activate').onclick=async()=>{if(!proposal)return;const reset=lastAccountStatus?.emergency_stopped===true;const message=reset?'Activate this exact demo scope and clear the previous emergency stop? Eligible demo orders and owned-position exits may run until expiry.':'Activate this exact bounded demo scope? Eligible demo orders and owned-position exits may run until expiry.';if(!window.confirm(message))return;try{await call('activate',{id:proposal.id,spec_hash:proposal.spec_hash,acknowledgement:'ACTIVATE_BOUNDED_DEMO_SESSION',clear_emergency_stop:reset});proposal=null;el('core-activate').disabled=true;await refresh();}catch(e){el('core-session-state').textContent=e.message;}};
-el('core-stop').onclick=async()=>{try{await call('stop',{emergency:false});await refresh();}catch(e){el('core-session-state').textContent=e.message;}};
-el('core-emergency').onclick=async()=>{try{await call('stop',{emergency:true});await refresh();}catch(e){el('core-session-state').textContent=e.message;}};
+el('core-observe-many').onclick=async()=>{try{await refresh();const adapter=el('environment').value;
+ const symbols=[...new Set(el('core-watch-symbols').value.split(/[,;\n]+/).map(s=>s.trim()).filter(Boolean))];
+ if(!symbols.length||symbols.length>12)throw Error('Select 1–12 exact broker symbols');
+ const result=await call('observe-many',{adapter,symbols});
+ el('core-session-state').textContent=`Observing ${result.observers} ${adapter} markets; independent analysis, no order submitted.`;
+ await refresh();}catch(e){el('core-session-state').textContent=e.message;}};
+el('core-activate').onclick=async()=>{if(!proposal)return;const message='Activate this exact bounded demo scope? Eligible demo orders and owned-position exits may run until expiry.';if(!window.confirm(message))return;try{await call('activate',{id:proposal.id,spec_hash:proposal.spec_hash,acknowledgement:'ACTIVATE_BOUNDED_DEMO_SESSION'});proposal=null;el('core-activate').disabled=true;await refresh();}catch(e){el('core-session-state').textContent=e.message;}};
+el('core-stop').onclick=async()=>{try{await call('stop',{id:null});await refresh();}catch(e){el('core-session-state').textContent=e.message;}};
 el('core-notifications').onclick=async()=>{if(!('Notification'in window)){el('core-session-state').textContent='Popup notifications unavailable here; durable alerts remain in Market Desk.';return;}const permission=await Notification.requestPermission();el('core-session-state').textContent='Desktop notification permission: '+permission;};
 for(const id of ['core-quiet-from','core-quiet-to']){el(id).value=localStorage.getItem('niblit-'+id)||'';el(id).onchange=()=>localStorage.setItem('niblit-'+id,el(id).value);}
 for(const id of ['core-execution-symbol','core-demo-volume','auto-entries','auto-minutes','mt5-symbol','environment','pair','core-risk-cash','core-risk-percent','core-margin-percent','core-positions','exness-symbol','exness-minutes','exness-volume','exness-entries','exness-risk-cash','exness-risk-percent','exness-margin-percent','exness-positions']){for(const event of ['input','change'])el(id).addEventListener(event,()=>{reviewGeneration++;proposal=null;readiness=null;el('core-activate').disabled=true;el('core-proposal').textContent='Settings changed. Review a fresh scope.';if(id==='environment')void refresh();});}
@@ -122,3 +127,219 @@ el('core-rehearse').onclick=async()=>{
 };
 setInterval(()=>{if(!document.hidden)void refresh();},5000);void refresh();
 })();
+
+
+/* Niblit R14 modern Market Desk presentation — no broker write paths. */
+(() => {
+ "use strict";
+ const q = id => document.getElementById(id);
+ const instrument=q("core-execution-symbol");
+ const recap=q("desk-blocker-summary");
+ let lastReview="", lastStatusAt=0, refreshing=false;
+ const text=(node,val)=>{if(node && node.textContent!==val)node.textContent=val};
+ const el=(tag,cls,content)=>{
+   const n=document.createElement(tag);
+   if(cls)n.className=cls;
+   if(content!==undefined)n.textContent=String(content);
+   return n;
+ };
+ function humanIssue(b) {
+   const code=b.code||"",reason=b.reason||"";
+   if(code==="instrument_scope")
+     return "This broker symbol is outside R14's reviewed demo execution scope. Choose ETHUSDm in Execution-controller instrument. BTCUSDm remains observable.";
+   if(code==="risk_preflight"&&/capacity|exposure/i.test(reason))
+     return "The BTCUSDm position already uses one account position slot. Review a maximum of 2 simultaneous positions for an ETHUSDm session; the unchanged risk/margin checks still apply.";
+   if(code==="no_scoped_authority")
+     return "No session is active yet. After a valid readiness review, propose and explicitly activate the exact demo scope.";
+   if(code==="consensus_abstention"||code==="entry_preflight_pending")
+     return "No qualifying entry now. A session can observe until a valid strategy setup is confirmed; observation is not an order.";
+   return reason||code||"Unknown review response";
+ }
+ function renderReview(raw){
+   if(!raw||raw[0]!=="{")return;
+   let data;
+   try{data=JSON.parse(raw);}catch{return;}
+   if(!data||!Array.isArray(data.blockers)||!Object.prototype.hasOwnProperty.call(data,"activation_eligible"))return;
+   const node=q("core-readiness-result");
+   if(!node)return;
+   lastReview=raw;
+   const eligible=data.activation_eligible===true;
+   const header=el("div","readiness-status",eligible?"Broker review passed — proposal available":"Review requires attention");
+   const badge=el("span","readiness-badge"+(eligible?" ok":""),eligible?"Ready to propose":"Review required");
+   header.append(badge);
+   const intro=el("p","",eligible?
+     "Account, transport and session rules permit a proposal. Nothing has been activated and no broker order has been sent.":
+     "The selected scope cannot be activated as shown. Resolve the applicable items below, then review again.");
+   const list=el("ul");
+   for(const b of data.blockers)list.append(el("li","",humanIssue(b)));
+   if(!data.blockers.length)list.append(el("li","","No blockers returned by Core."));
+   const details=el("details","desk-evidence");
+   details.append(el("summary","", "Complete broker / strategy evidence (JSON)"));
+   details.append(el("pre","",raw));
+   node.replaceChildren(header,intro,list,details);
+   text(recap,eligible?
+      "ETHUSDm is ready for an account-bound proposal. Select “2 · Propose reviewed demo session”, then “3 · Activate confirmed demo session”. A strategy must still qualify before an entry occurs.":
+      data.blockers.map(humanIssue).filter((x,i,a)=>a.indexOf(x)===i).slice(0,3).join("\n"));
+ }
+ const reviewNode=q("core-readiness-result");
+ if(reviewNode){
+   const observer=new MutationObserver(()=>{
+     const raw=reviewNode.textContent.trim();
+     if(raw!==lastReview)renderReview(raw);
+   });
+   observer.observe(reviewNode,{subtree:true,childList:true,characterData:true});
+ }
+ async function status(){
+   if(refreshing)return;
+   refreshing=true;
+   try{
+     const r=await fetch("/api/trading/sessions",{
+       method:"GET",headers:{"Accept":"application/json"},
+       credentials:"same-origin",signal:AbortSignal.timeout(9000)});
+     if(!r.ok)throw Error("Core status unavailable");
+     const data=await r.json();
+     text(q("desk-core-health"),"Online");
+     const active=(data.sessions||[]).filter(s=>s.state==="active");
+     text(q("desk-active-count"),String(active.length));
+     const account=data.mt5_accounts?.active;
+     text(q("desk-account-mode"),account?.environment==="demo"?"DEMO CONNECTED":"Verification needed");
+     text(q("desk-execution-market"),instrument?.value.trim()||"Not selected");
+     const chip=q("desk-activation-chip");
+     if(chip){
+       chip.textContent=active.length?"Active · "+active.map(s=>s.spec?.symbol||"MT5").join(", "):"Awaiting activation";
+       chip.classList.toggle("active",active.length>0);
+     }
+     const selected=instrument?.value.trim();
+     if(selected==="BTCUSDm"){
+       text(recap,"BTCUSDm is available for observation, not R14 demo entry. R14 currently permits ETHUSDm execution. Select ETHUSDm and review the two-position scope.");
+     }else if(!active.length&&!lastReview){
+       text(recap,"ETHUSDm · 0.10 lot ceiling · 60 minutes · 2-position account capacity. One BTCUSDm position already exists. Click “1 · Review broker and scope”.");
+     }
+     lastStatusAt=Date.now();
+   }catch{
+     text(q("desk-core-health"),"Reconnecting");
+     if(!lastStatusAt)text(recap,"R14 Core is unavailable. No session can be activated until it reconnects.");
+   }finally{refreshing=false}
+ }
+ instrument?.addEventListener("input",()=>{
+   lastReview="";
+   text(q("desk-execution-market"),instrument.value.trim()||"Not selected");
+   text(recap,"Scope changed. Run a fresh broker review before proposing or activating.");
+ });
+ setInterval(()=>{if(!document.hidden)void status()},12000);
+ void status();
+})();
+
+
+
+/* Read-only cognition evidence viewer for the canonical R14 Market Desk. */
+(() => {
+  "use strict";
+  const root = document.getElementById("cognition-proof");
+  if (!root) return;
+  const byId = id => document.getElementById(id);
+  let busy=false;
+  function set(id, value) {
+    const node=byId(id);
+    if (node) node.textContent = String(value);
+  }
+  function row(label,value) {
+    const div=document.createElement("div");
+    div.className="cognition-evidence-row";
+    const key=document.createElement("span");
+    const val=document.createElement("strong");
+    key.textContent=label;
+    val.textContent=String(value??"Unavailable");
+    div.append(key,val);
+    return div;
+  }
+  function date(value) {
+    const d=new Date(Number(value)*1000);
+    return Number.isFinite(d.getTime()) ? d.toLocaleString() : "Time unavailable";
+  }
+  async function refresh() {
+    if (busy) return;
+    busy=true;
+    const button=byId("cognition-refresh");
+    if (button) button.disabled=true;
+    try {
+      const response=await fetch("/api/trading/sessions",{
+        headers:{"Accept":"application/json"},
+        credentials:"same-origin",
+        signal:AbortSignal.timeout(12000)});
+      if(!response.ok) throw new Error("Core replied "+response.status);
+      const status=await response.json();
+      const events=Array.isArray(status.events)?status.events.slice(0,100):[];
+      const kind=name=>events.filter(e=>e&&e.kind===name);
+      const signals=kind("signal");
+      const reversals=kind("position_reversal_evaluation");
+      const outcomes=kind("trading_outcome");
+      set("cognition-signal-count",signals.length);
+      set("cognition-reversal-count",reversals.length);
+      set("cognition-outcome-count",outcomes.length);
+      set("cognition-data-scope","Latest "+events.length+" Core events · Not a lifetime total");
+      const latest=signals[0];
+      const assessment=latest?.payload?.assessment||{};
+      const marketThesis=assessment.market_thesis||{};
+      set("cognition-current-strategy",assessment.strategy||"No selected strategy");
+      set("cognition-current-direction",assessment.side||"No entry");
+      set("cognition-current-thesis",marketThesis.classification||"No evidence-linked thesis");
+      set("cognition-current-reason",assessment.selection_reason||"No recent rule selection");
+      const selected=byId("cognition-votes");
+      if(selected) {
+        selected.replaceChildren();
+        const candidates=Array.isArray(assessment.candidates)?assessment.candidates:[];
+        for(const candidate of candidates.slice(0,16)){
+          if(!candidate || typeof candidate!=="object")continue;
+          selected.append(row(String(candidate.strategy||"Unidentified strategy"),
+                              String(candidate.side||"wait").toUpperCase()));
+        }
+        if(!selected.children.length)selected.append(row("Strategy votes","Not available"));
+      }
+      const rev=byId("cognition-last-reversal");
+      if(rev){
+        rev.replaceChildren();
+        const latestReversal=reversals[0];
+        if(latestReversal) {
+          const payload=latestReversal.payload||{};
+          const report=payload.report||{};
+          rev.append(
+            row("Instrument",payload.symbol||"Unknown"),
+            row("Evaluation",String(report.action||"unknown").toUpperCase()),
+            row("Evidence reason",report.reason||"Unspecified"),
+            row("Recorded",date(latestReversal.created)));
+        } else rev.append(row("Exit cognition","No recent reversal evaluations in this event window"));
+      }
+      const history=byId("cognition-verified-outcomes");
+      if(history){
+        history.replaceChildren();
+        for(const outcome of outcomes.slice(0,5)){
+          const p=outcome.payload||{};
+          const e=p.evidence||{};
+          const perf=p.performance||{};
+          const item=document.createElement("div");
+          item.className="cognition-outcome";
+          const net=(typeof e.realized_net==="number" && Number.isFinite(e.realized_net))?
+            e.realized_net.toFixed(2)+" account currency units":"Not broker verified";
+          const nr=(typeof perf.net_realized_r==="number" && Number.isFinite(perf.net_realized_r))?
+            perf.net_realized_r.toFixed(3)+" R":"R unavailable";
+          item.append(row(String(p.symbol||"MT5")+" · "+String(p.strategy||"unknown"),
+                          net+" · "+nr));
+          history.append(item);
+        }
+        if(!history.children.length)history.append(row("Broker outcomes","None in this event window"));
+      }
+      set("cognition-proof-status","Read-only Core evidence · "+new Date().toLocaleTimeString());
+    }catch(error) {
+      set("cognition-proof-status","Core evidence unavailable: "+String(error?.message||error));
+    }finally{
+      busy=false;
+      if(button)button.disabled=false;
+    }
+  }
+  byId("cognition-refresh")?.addEventListener("click",refresh);
+  document.addEventListener("visibilitychange",()=>{if(!document.hidden)refresh()});
+  setInterval(()=>{if(!document.hidden)refresh()},20000);
+  refresh();
+})();
+

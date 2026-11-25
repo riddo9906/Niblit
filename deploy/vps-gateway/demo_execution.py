@@ -1,7 +1,7 @@
 """Exness demo transport for the existing Core adapter and durable DemoOrders.
 
 No strategy, login, permission switch, automatic authorization or retry lives here.
-The XM observer and its latched breaker use their original database and scope.
+The separate funded XM observation breaker retains its original scope.
 """
 from contextlib import closing
 import hashlib
@@ -107,8 +107,8 @@ class DemoService:
         self.adapter = MT5SessionAdapter(self.bridge,self.orders)
         self.identity = hashlib.sha256(json.dumps(cfg,sort_keys=True).encode()).hexdigest()
         with self.orders.db() as db:
-            db.execute('CREATE TABLE IF NOT EXISTS remote_demo_meta(id INTEGER PRIMARY KEY, binding TEXT, stopped INTEGER)')
-            db.execute('INSERT OR IGNORE INTO remote_demo_meta VALUES(1,?,0)',(self.identity,))
+            db.execute('CREATE TABLE IF NOT EXISTS remote_demo_meta(id INTEGER PRIMARY KEY, binding TEXT)')
+            db.execute('INSERT OR IGNORE INTO remote_demo_meta(id,binding) VALUES(1,?)',(self.identity,))
             if db.execute('SELECT binding FROM remote_demo_meta').fetchone()[0] != self.identity:
                 raise PermissionError('Demo database belongs to another binding')
             db.execute('CREATE TABLE IF NOT EXISTS remote_demo_prepared(ticket TEXT PRIMARY KEY, payload TEXT)')
@@ -119,10 +119,6 @@ class DemoService:
             db.execute("UPDATE mt5_tickets SET state='rejected',result=? WHERE state='preview'",
                        (json.dumps({'message':'Gateway restarted before delivery; fresh Core review required'}),))
 
-    def enabled(self):
-        with self.orders.db() as db:
-            if db.execute('SELECT stopped FROM remote_demo_meta').fetchone()[0]:
-                raise PermissionError('Persistent demo emergency stop active; no automatic reset')
 
     def symbol(self, value):
         if value not in self.cfg['symbols']:
@@ -139,21 +135,16 @@ class DemoService:
     def dispatch(self, action, body):
         # One shared lock spans prepare/confirm and all local SDK identity checks.
         with LOCK:
-            if action == 'emergency-stop':
-                with self.orders.db() as db:
-                    db.execute('UPDATE remote_demo_meta SET stopped=1')
-                return {'stopped':True,'positions_closed':False}
             self.bridge.connect()
             if action == 'status':
                 with self.orders.db() as db:
-                    stopped=bool(db.execute('SELECT stopped FROM remote_demo_meta').fetchone()[0])
                     uncertain=db.execute("SELECT COUNT(*) FROM mt5_tickets WHERE state IN ('sending','unknown','placed','partial')").fetchone()[0]
                 a,t = self.bridge.verify()
                 return {'schema_version':VERSION,'gateway_id':self.identity,'account':self.cfg['account'],
                         'observed_at':time.time(),'symbols':self.cfg['symbols'],'balance':a.balance,'equity':a.equity,
                         'margin':a.margin,'free_margin':a.margin_free,'terminal_trade_allowed':t.trade_allowed,
                         'python_tradeapi_disabled':t.tradeapi_disabled,'account_trade_allowed':a.trade_allowed,
-                        'emergency_stopped':stopped,'unresolved_deliveries':uncertain,
+                        'unresolved_deliveries':uncertain,
                         'max_volume':self.bridge.max_volume,'review_price_drift_fraction':.0001,
                         'protection_policy':crypto_policy(),
                         'funded_execution_enabled':False,'execution_at_startup':False}
@@ -176,7 +167,7 @@ class DemoService:
                 a,t=self.bridge.verify()
                 if not a.trade_allowed or not t.trade_allowed or t.tradeapi_disabled:
                     raise PermissionError('Verified demo terminal trading is disabled')
-                # A broker inventory must be readable before any reset. Never
+                # Broker inventory must be readable before authorizing a new scope. Never
                 # dismiss ambiguous delivery or partial fills as an empty book.
                 positions=self.bridge.raw.positions_get()
                 pending=self.bridge.raw.orders_get()
@@ -191,10 +182,9 @@ class DemoService:
                         raise PermissionError('Demo resume already consumed; review a new scope')
                     uncertain=db.execute("SELECT COUNT(*) FROM mt5_tickets WHERE state IN ('sending','unknown','placed','partial')").fetchone()[0]
                     if uncertain:
-                        raise PermissionError('Unresolved demo delivery must be reconciled before reset')
+                        raise PermissionError('Unresolved demo delivery must be reconciled before authorization')
                     db.execute('INSERT INTO remote_demo_resumptions VALUES(?,?,?,?)',
                                (session_id,spec_hash,self.cfg['account']['identity'],time.time()))
-                    db.execute('UPDATE remote_demo_meta SET stopped=0 WHERE id=1 AND binding=?',(self.identity,))
                 return {'rearmed':True,'account_identity':self.cfg['account']['identity'],
                         'session_id':session_id,'funded_execution_enabled':False}
             if action == 'market':
@@ -225,7 +215,6 @@ class DemoService:
             if action == 'identity':
                 return self.adapter.reconciliation_identity()
             if action == 'prepare':
-                self.enabled()
                 with self.orders.db() as db:
                     if db.execute("SELECT 1 FROM mt5_tickets WHERE state='partial' LIMIT 1").fetchone():
                         raise PermissionError('Partial demo delivery requires explicit reconciliation')
@@ -259,7 +248,6 @@ class DemoService:
                                (prepared['ticket'],json.dumps(prepared,allow_nan=False)))
                 return prepared
             if action == 'submit':
-                self.enabled()
                 expires=body['expires']
                 if type(expires) not in (int,float) or not math.isfinite(expires) or not time.time()<expires<=time.time()+3600:
                     raise PermissionError('Core demo scope expired')
@@ -268,7 +256,7 @@ class DemoService:
                 if row is None:raise PermissionError('No durable prepared demo ticket')
                 prepared=json.loads(row[0])
                 def guard():
-                    self.enabled();self.bridge.verify()
+                    self.bridge.verify()
                     if time.time()>=expires:raise PermissionError('Demo scope expired before delivery')
                 try:
                     return self.adapter.submit(prepared,guard)

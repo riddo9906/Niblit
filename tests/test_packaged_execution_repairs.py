@@ -46,7 +46,7 @@ def test_missing_cost_schedule_still_fails_closed(tmp_path):
     f.service.shutdown()
 
 
-def test_observation_profile_still_allows_authenticated_emergency_stop(monkeypatch):
+def test_observation_profile_still_allows_authenticated_ordinary_stop(monkeypatch):
     from fastapi import FastAPI
     from fastapi.testclient import TestClient
     from unittest.mock import Mock
@@ -56,10 +56,10 @@ def test_observation_profile_still_allows_authenticated_emergency_stop(monkeypat
     control=Mock();control.nonce='fixture-stop-token';control.stop.return_value={'stopped':True}
     app=FastAPI();register_trading_routes(app,lambda:control)
     with TestClient(app,base_url='http://127.0.0.1:5200') as client:
-        assert client.post('/api/trading/sessions/stop',json={'emergency':True},headers={'origin':'http://tauri.localhost'}).status_code==403
-        response=client.post('/api/trading/sessions/stop',json={'emergency':True},headers={'origin':'http://tauri.localhost','x-niblit-trading-nonce':control.nonce})
+        assert client.post('/api/trading/sessions/stop',json={},headers={'origin':'http://tauri.localhost'}).status_code==403
+        response=client.post('/api/trading/sessions/stop',json={},headers={'origin':'http://tauri.localhost','x-niblit-trading-nonce':control.nonce})
         assert response.status_code==200 and response.json()['stopped']
-    control.stop.assert_called_once_with(None,emergency=True)
+    control.stop.assert_called_once_with(None)
 
 
 def test_native_callback_authentication_does_not_mint_a_claim(tmp_path,monkeypatch):
@@ -111,3 +111,96 @@ def test_freqtrade_missing_conflicting_or_stale_cost_bounds_are_not_complete(tmp
     assert not a.draft_entry(s,'buy',configured_limits())['costs']['costs_complete']
     assert f.api.sent==[]
     f.service.shutdown()
+
+
+def test_native_fee_uses_exact_paper_profile_only():
+    from modules.trading_session_adapters import native_dry_run_fee
+    private={'dry_run':True,'strategy':'NiblitCoreManaged','exchange':{'name':'binance'},
+             'trading_mode':'futures','fee':.0002}
+    engine={'dry_run':True,'strategy':'NiblitCoreManaged','exchange':'binance','trading_mode':'futures'}
+    assert native_dry_run_fee(engine,private)==(.0002,'private_dry_run_simulation_assumption')
+    assert native_dry_run_fee(engine|{'strategy':'OtherStrategy'},private)[0] is None
+    assert native_dry_run_fee(engine|{'dry_run':False},private)[0] is None
+    assert native_dry_run_fee(engine,private|{'fee':float('nan')})[0] is None
+
+
+def test_freqtrade_symbol_cost_profiles_are_bound_to_the_selected_pair(tmp_path):
+    f,a,s,schedule=ft_cost_case(tmp_path)
+    a.cost_schedule={'schema_version':'niblit-paper-costs/1',
+                     'by_symbol':{s['symbol']:schedule}}
+    assert a.draft_entry(s,'buy',configured_limits())['costs']['costs_complete']
+    a.cost_schedule={'by_symbol':{'another/symbol':schedule}}
+    assert not a.draft_entry(s,'buy',configured_limits())['costs']['costs_complete']
+    assert f.api.sent==[]
+    f.service.shutdown()
+
+
+def test_paper_cost_schedule_is_bound_to_verified_mt5_demo_identity(tmp_path):
+    f=fixture(tmp_path);a=f.service.adapters['mt5'];a.cost_model=None
+    s=a.snapshot('EURUSD')
+    schedule=schedule_for(s)|{'provenance':'simulation_assumption','scope':'local_demo_only',
+                                'source':'FIXTURE_PAPER_ONLY_NOT_BROKER_CERTIFIED'}
+    assert bound_cost_schedule(s,.01,schedule,side='buy',now=time.time()) is not None
+    a.cost_schedule=schedule
+    draft=a.draft_entry(s,'buy',configured_limits()|{'max_volume':.01})
+    assert draft['costs']['costs_complete'] is True
+    assert draft['costs']['provenance']=='simulation_assumption'
+    assert f.api.sent==[]
+    assert bound_cost_schedule(s|{'environment':'live'},.01,schedule,side='buy',now=time.time()) is None
+    assert bound_cost_schedule(s,.01,schedule|{'scope':'live'},side='buy',now=time.time()) is None
+    assert bound_cost_schedule(s,.01,schedule|{'account_binding':{'broker':'other','server':'other','terminal_id':'other'}},side='buy',now=time.time()) is None
+    assert bound_cost_schedule(s,.01,schedule|{'binding':{'account':'other','environment':'demo','symbol':'EURUSD'}},side='buy',now=time.time()) is None
+    assert bound_cost_schedule(s,.01,schedule|{'expires':1},side='buy',now=time.time()) is None
+    f.service.shutdown()
+
+
+def test_freqtrade_submit_passes_exact_core_receipt_to_native_guard():
+    """A valid scoped Core receipt must survive the protection wrapper."""
+    from types import SimpleNamespace
+    from modules.trading_session_adapters import FreqtradeSessionAdapter
+    calls=[]
+    receipt={'environment':'dry-run','adapter':'freqtrade','ticket':'fixture-ticket',
+             'account':'fixture-account','symbol':'ETH/USDT:USDT','action':'open','expires':time.time()+60}
+    def confirm(ticket,expected=None,guard=None):
+        assert ticket=='fixture-ticket'
+        result=guard()
+        calls.append(result)
+        return {'state':'submitted','receipt':result}
+    desk=SimpleNamespace(confirm=confirm)
+    prepared={'ticket':'fixture-ticket','expected':{'core_owned':True}}
+    def core_guard():
+        calls.append('core_guard_invoked')
+        return receipt
+    result=FreqtradeSessionAdapter(desk).submit(prepared,core_guard)
+    assert calls==['core_guard_invoked',receipt]
+    assert result['receipt'] is receipt
+
+
+def test_freqtrade_submit_preserves_receipt_after_native_protection_check():
+    """The production protection-check path must not discard the receipt."""
+    from types import SimpleNamespace
+    from modules.trading_session_adapters import FreqtradeSessionAdapter
+    receipt={'adapter':'freqtrade','environment':'dry-run','action':'open','ticket':'paper-ticket',
+             'account':'demo-id','symbol':'ETH/USDT:USDT','expires':time.time()+90}
+    private={'dry_run':True,'strategy':'NiblitCoreManaged','exchange':{'name':'binance'},
+             'trading_mode':'futures','stake_currency':'USDT','db_url':'sqlite:///paper.sqlite','fee':0.0002}
+    public={'dry_run':True,'strategy':'NiblitCoreManaged','exchange':'binance',
+            'trading_mode':'futures','stake_currency':'USDT','stoploss':-0.005,'minimal_roi':{'0':0.01}}
+    checks=[]
+    def api(path):
+        assert path=='show_config'
+        checks.append('native_protection_rechecked')
+        return public
+    def confirm(ticket,expected=None,guard=None):
+        assert ticket=='paper-ticket'
+        result=guard()
+        checks.append('receipt_forwarded')
+        assert result is receipt
+        return {'state':'submitted'}
+    desk=SimpleNamespace(api=api,connection=lambda:(private,None),confirm=confirm)
+    from modules.trading_session_adapters import native_dry_run_fee
+    fee,_=native_dry_run_fee(public,private)
+    prepared={'ticket':'paper-ticket','expected':{},'native_stoploss':-0.005,
+              'native_roi':{'0':0.01},'native_fee':fee}
+    assert FreqtradeSessionAdapter(desk).submit(prepared,lambda:receipt)=={'state':'submitted'}
+    assert checks==['native_protection_rechecked','receipt_forwarded']

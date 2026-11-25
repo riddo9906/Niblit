@@ -38,6 +38,46 @@ def test_durable_queue_outage_reopen_correction_and_backup(tmp_path):
         assert db.execute("PRAGMA integrity_check").fetchone()[0] == "ok"
 
 
+def test_tick_exact_source_filter_leaves_unrelated_outbox_work_untouched(tmp_path):
+    backend = Backend()
+    g = gateway(tmp_path, backend)
+    runtime = MemoryRuntime(g, scope={"namespace": "test", "principal": "operator"})
+    runtime.enqueue(source="older/unrelated", content="Unrelated queued evidence.")
+    selected_source = "native://niblit/foundation/keyword_structure/v0.2.0"
+    selected_id = runtime.enqueue(
+        source=selected_source,
+        content="Native keyword structure is a retrieval cue, not a truth label.",
+    )
+
+    result = runtime.tick(limit=1, sources=[selected_source])
+
+    assert result["completed"] == 1 and result["failed"] == 0
+    with g.db() as db:
+        selected = db.execute(
+            "SELECT state FROM ingestion_outbox WHERE id=?", (selected_id,)
+        ).fetchone()
+        unrelated = db.execute(
+            "SELECT state FROM ingestion_outbox WHERE source='older/unrelated'"
+        ).fetchone()
+    assert selected["state"] == "complete"
+    assert unrelated["state"] == "pending"
+    assert "Native keyword structure" in g.retrieve(
+        "keyword structure", **runtime.scope
+    )["results"][0]["content"]
+
+
+def test_tick_rejects_unbounded_or_ambiguous_source_filters(tmp_path):
+    runtime = MemoryRuntime(
+        gateway(tmp_path, Backend()),
+        scope={"namespace": "test", "principal": "operator"},
+    )
+    with pytest.raises(TypeError):
+        runtime.tick(sources="native://single-source")
+    with pytest.raises(ValueError):
+        runtime.tick(sources=[f"source-{index}" for index in range(33)])
+    assert runtime.tick(sources=[])["completed"] == 0
+
+
 def test_import_prose_confidence_secrets_and_review(tmp_path):
     g = gateway(tmp_path, Backend())
     runtime = MemoryRuntime(g, scope={"namespace": "test", "principal": "operator"})

@@ -32,6 +32,8 @@ ledger retains source evidence, while Qdrant supplies a searchable projection.
 A restricted hosted client service is a separate development track from access
 to the owner's private desktop.
 
+The mandatory project-wide design standard is [Niblit Foundational Architecture and Strict Engineering Doctrine](docs/architecture/NIBLIT_ENGINEERING_DOCTRINE.md). It governs every subsystem and integration: research the real discipline and official contracts, implement the actual logical integration, and verify it with evidence. Workarounds and monkey patches must not substitute for correct engineering.
+
 Read [desktop runtime connections](docs/DESKTOP_RUNTIME_ARCHITECTURE.md) and
 [memory responsibilities](docs/MEMORY_STRUCTURE.md). Historical design notes are
 retained in [the previous README](docs/history/README_PRE_20261029.md); its older

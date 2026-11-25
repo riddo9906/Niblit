@@ -1525,7 +1525,11 @@ def main(argv=None):
         io.out(f"{timestamp()} ⚠️ Final readiness checks failed: {exc}")
     RUNTIME_LOGGER.info("boot complete", event="startup", component="main", state=_BOOT_STATUS.runtime_mode)
 
-    if _args.serve or (os.getenv("NIBLIT_API_AUTOSTART", "0") == "1" and _args.headless):
+    # A packaged mobile-enabled Niblit installation brings up the desktop Core
+    # API and the private Android gateway when the main niblit.exe launches,
+    # including ordinary desktop mode (not just the explicit --serve route).
+    if (_args.serve or os.getenv("NIBLIT_MOBILE_GATEWAY_AUTOSTART", "0") == "1"
+            or (os.getenv("NIBLIT_API_AUTOSTART", "0") == "1" and _args.headless)):
         from modules.niblit_ui_launcher import _start_api_server_thread
         handles = _start_api_server_thread(core, int(os.getenv("NIBLIT_API_PORT", "5000")), io.out)
         if handles is not None:

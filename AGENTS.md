@@ -1,3 +1,7 @@
+# Mandatory architecture and engineering doctrine
+
+Before proposing or changing Niblit architecture, source code, integrations, model infrastructure, trading systems or OS components, read and obey `docs/architecture/NIBLIT_ENGINEERING_DOCTRINE.md`. This is a strict project-wide design constraint. Research and follow the real engineering discipline, official documentation, specifications, standards and supported interfaces for the capability being built. Implement the actual logical integration and verify it with evidence. Do not substitute monkey patches, superficial workarounds, compatibility shims, stubs or simulations for correct engineering or represent them as complete. Temporary exceptions must be isolated, explicitly non-production, justified by a documented blocker, assigned a removal condition and fail-closed where required. Preserve existing work and report blockers honestly. The directive defines the intended architecture; it does not certify existing code as complete.
+
 # Niblit product direction
 
 Riyaad reaffirmed on 2026-10-28 that Niblit's UI must be a programmer's toolbox, with Niblit itself as an integrated tool that can learn, grow and perform useful work on the PC.

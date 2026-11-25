@@ -695,88 +695,229 @@ class MemoryGateway:
             raise ValueError("invalid category")
         if not query.strip() or len(query) > 4000 or not 1 <= limit <= 20:
             raise ValueError("invalid bounded query")
+
         issues, ranks = [], {}
+        timings_ms = {}
+        stats = {
+            "lexical_candidate_count": 0,
+            "dense_candidate_count": 0,
+            "unique_candidate_count": 0,
+            "candidate_pool_limit": None,
+            "candidate_rows_fetched": 0,
+        }
         tokens = re.findall(r"\w+", query)[:40]
+        lexical_limit = min(200, max(limit * 16, 64))
+        identifiers = re.findall(
+            r"\b[0-9a-fA-F]{8}-(?:[0-9a-fA-F]{4}-){3}[0-9a-fA-F]{12}\b",
+            query,
+        )
+        eligible = {}
+        exact = set()
+
+        # Normal semantic/lexical retrieval does not need every payload in the
+        # ledger. Resolve collection names through the scoped SQL index, then
+        # retrieve only the bounded lexical and dense candidate IDs. Exact
+        # record-ID queries retain the exhaustive path so split historical
+        # chunks remain discoverable without weakening exact-match semantics.
+        ledger_started = time.perf_counter()
         with self.db() as db:
-            rows = db.execute("SELECT * FROM records WHERE namespace=? AND principal=? AND active=1 AND projection='verified'",
-                              (namespace, principal)).fetchall()
-            eligible = {r["id"]: json.loads(r["payload"]) for r in rows}
-            eligible = {key: p for key, p in eligible.items()
-                        if p["lifecycle"] == "active" and p["verification"] != "rejected" and (not category or p["category"] == category)
-                        and principal in p["access_principals"]}
-            identifiers = re.findall(r'\b[0-9a-fA-F]{8}-(?:[0-9a-fA-F]{4}-){3}[0-9a-fA-F]{12}\b', query)
-            exact = {key for key, payload in eligible.items() if identifiers and all(
-                identifier.casefold() in payload['content'].casefold() for identifier in identifiers)}
             if identifiers:
+                rows = db.execute(
+                    "SELECT * FROM records WHERE namespace=? AND principal=? AND active=1 AND projection='verified'",
+                    (namespace, principal),
+                ).fetchall()
+                eligible = {row["id"]: json.loads(row["payload"]) for row in rows}
+                eligible = {
+                    key: payload for key, payload in eligible.items()
+                    if payload["lifecycle"] == "active"
+                    and payload["verification"] != "rejected"
+                    and (not category or payload["category"] == category)
+                    and principal in payload["access_principals"]
+                }
+                exact = {
+                    key for key, payload in eligible.items()
+                    if all(identifier.casefold() in payload["content"].casefold()
+                           for identifier in identifiers)
+                }
                 # Historical fixed-size chunks may split the identifier itself.
                 # Check contiguous offsets only, without modifying canonical data.
                 chunks = {}
                 for key, payload in eligible.items():
-                    root, separator, offset = payload['source_location'].rpartition('#offset=')
+                    root, separator, offset = payload["source_location"].rpartition("#offset=")
                     if separator and offset.isdigit():
-                        chunks[(root, int(offset))] = (key, payload['content'])
+                        chunks[(root, int(offset))] = (key, payload["content"])
                 for (root, offset), (key, content) in chunks.items():
                     following = chunks.get((root, offset + len(content)))
-                    if following and all(identifier.casefold() in
-                            (content[-36:] + following[1][:36]).casefold() for identifier in identifiers):
+                    if following and all(
+                        identifier.casefold() in
+                        (content[-36:] + following[1][:36]).casefold()
+                        for identifier in identifiers
+                    ):
                         exact.update((key, following[0]))
+                collections = {
+                    row["collection"] for row in rows if row["id"] in eligible
+                }
+            else:
+                rows = []
+                collection_rows = db.execute(
+                    "SELECT DISTINCT collection FROM records "
+                    "WHERE namespace=? AND principal=? AND active=1 AND projection='verified'",
+                    (namespace, principal),
+                ).fetchall()
+                collections = {row[0] for row in collection_rows}
+            timings_ms["ledger_scan_and_decode_ms"] = (
+                time.perf_counter() - ledger_started
+            ) * 1000
+
+            lexical_started = time.perf_counter()
             if tokens:
-                lexical = db.execute("""SELECT lexical.id FROM lexical JOIN records ON lexical.id=records.id
+                lexical_rows = db.execute(
+                    """SELECT lexical.id FROM lexical JOIN records ON lexical.id=records.id
                     WHERE lexical MATCH ? AND records.namespace=? AND records.principal=?
                     AND records.active=1 AND records.projection='verified'
-                    ORDER BY lexical.rank LIMIT 200""",
-                    (" OR ".join('"' + t + '"' for t in tokens), namespace, principal)).fetchall()
-                lexical = [r[0] for r in lexical if r[0] in eligible]
-                for rank, key in enumerate(lexical):
+                    ORDER BY lexical.rank LIMIT ?""",
+                    (" OR ".join('"' + token + '"' for token in tokens),
+                     namespace, principal, lexical_limit),
+                ).fetchall()
+                lexical_ids = [row[0] for row in lexical_rows]
+                if identifiers:
+                    lexical_ids = [key for key in lexical_ids if key in eligible]
+                stats["lexical_candidate_count"] = len(lexical_ids)
+                for rank, key in enumerate(lexical_ids):
                     ranks[key] = 1 / (60 + rank + 1)
-            # Identifiers are references, not semantic topics. Always return
-            # authorized exact anchors before approximate/related memories.
             for key in exact:
                 ranks[key] = 100.0
+            timings_ms["lexical_and_exact_match_ms"] = (
+                time.perf_counter() - lexical_started
+            ) * 1000
+
+        dense_started = time.perf_counter()
         try:
-            if os.getenv('NIBLIT_MEMORY_DENSE_ENABLED', '1') == '0':
-                raise ConnectionError('Dense retrieval explicitly disabled')
+            if os.getenv("NIBLIT_MEMORY_DENSE_ENABLED", "1") == "0":
+                raise ConnectionError("Dense retrieval explicitly disabled")
+            embedding_started = time.perf_counter()
             vector = validate_vector(self.backend.embedder.embed(query, query=True))
-            collections = {r["collection"] for r in rows if r["id"] in eligible}
-            # Old model revisions require a separate migration; never query with
-            # a new embedding against old vectors just because dimensions match.
-            permitted = {self.config.collection(c, len(vector)) for c in CATEGORIES}
+            timings_ms["dense_embedding_ms"] = (
+                time.perf_counter() - embedding_started
+            ) * 1000
+            qdrant_started = time.perf_counter()
+            permitted = {
+                self.config.collection(category_name, len(vector))
+                for category_name in CATEGORIES
+            }
             if collections - permitted:
                 issues.append("embedding_migration_required")
             for collection in collections & permitted:
-                hits = self.backend.request("POST", f"/collections/{collection}/points/query", json={
-                    "query": vector, "limit": min(limit * 4, 80), "with_payload": True,
-                    "filter": {"must": [
-                        {"key": "namespace", "match": {"value": namespace}},
-                        {"key": "access_principals", "match": {"value": principal}},
-                        {"key": "lifecycle", "match": {"value": "active"}}]}})["points"]
+                hits = self.backend.request(
+                    "POST", f"/collections/{collection}/points/query", json={
+                        "query": vector,
+                        "limit": min(limit * 4, 80),
+                        "with_payload": True,
+                        "filter": {"must": [
+                            {"key": "namespace", "match": {"value": namespace}},
+                            {"key": "access_principals", "match": {"value": principal}},
+                            {"key": "lifecycle", "match": {"value": "active"}},
+                        ]},
+                    },
+                )["points"]
+                stats["dense_candidate_count"] += len(hits)
                 for rank, hit in enumerate(hits):
                     key = str(hit["id"])
-                    if key in eligible:
-                        ranks[key] = ranks.get(key, 0) + 1 / (60 + rank + 1)
+                    ranks[key] = ranks.get(key, 0) + 1 / (60 + rank + 1)
+            timings_ms["qdrant_query_ms"] = (
+                time.perf_counter() - qdrant_started
+            ) * 1000
         except Exception:
+            timings_ms["dense_retrieval_error_ms"] = (
+                time.perf_counter() - dense_started
+            ) * 1000
             issues.append("dense_retrieval_unavailable")
+
+        candidate_started = time.perf_counter()
+        if not identifiers:
+            # Preserve a generous recall pool while avoiding JSON decoding for
+            # every lexical/dense neighbour when the caller needs only a few hits.
+            candidate_pool_limit = min(320, max(limit * 16, 64))
+            stats["unique_candidate_count"] = len(ranks)
+            stats["candidate_pool_limit"] = candidate_pool_limit
+            candidate_ids = sorted(ranks, key=ranks.get, reverse=True)[:candidate_pool_limit]
+            ranks = {key: ranks[key] for key in candidate_ids}
+            if candidate_ids:
+                fetched_rows = []
+                with self.db() as db:
+                    # Candidate sets are bounded by the lexical and Qdrant
+                    # limits. Chunk the IN clause for SQLite portability.
+                    for offset in range(0, len(candidate_ids), 400):
+                        batch = candidate_ids[offset:offset + 400]
+                        placeholders = ",".join("?" for _ in batch)
+                        fetched_rows.extend(db.execute(
+                            "SELECT * FROM records WHERE id IN (" + placeholders + ") "
+                            "AND namespace=? AND principal=? AND active=1 AND projection='verified'",
+                            (*batch, namespace, principal),
+                        ).fetchall())
+                stats["candidate_rows_fetched"] = len(fetched_rows)
+                eligible = {
+                    row["id"]: json.loads(row["payload"]) for row in fetched_rows
+                }
+                eligible = {
+                    key: payload for key, payload in eligible.items()
+                    if payload["lifecycle"] == "active"
+                    and payload["verification"] != "rejected"
+                    and (not category or payload["category"] == category)
+                    and principal in payload["access_principals"]
+                }
+                # A Qdrant point or FTS row is only a candidate. The SQLite
+                # source ledger remains authoritative for scope and lifecycle.
+                ranks = {key: score for key, score in ranks.items() if key in eligible}
+        timings_ms["candidate_record_fetch_and_decode_ms"] = (
+            time.perf_counter() - candidate_started
+        ) * 1000
+
+        ranking_started = time.perf_counter()
         results, seen = [], set()
         for key, score in ranks.items():
             payload = eligible[key]
-            age = max(0, (datetime.now(timezone.utc) - datetime.fromisoformat(payload["updated_at"])).total_seconds())
+            age = max(
+                0,
+                (datetime.now(timezone.utc) -
+                 datetime.fromisoformat(payload["updated_at"])).total_seconds(),
+            )
             weight = 1 + .1 * payload["importance"] + .05 / (1 + age / 86400)
             if payload["verification"] == "verified":
                 weight += .1
-            results.append({"id": key, "content": payload["content"],
-                "citation": payload["source_location"], "score": score * weight,
-                "confidence": payload["confidence"], "verification": payload["verification"],
-                "content_hash": payload["content_hash"], "provenance": payload["provenance"]})
+            results.append({
+                "id": key,
+                "content": payload["content"],
+                "citation": payload["source_location"],
+                "score": score * weight,
+                "confidence": payload["confidence"],
+                "verification": payload["verification"],
+                "content_hash": payload["content_hash"],
+                "provenance": payload["provenance"],
+            })
             if key in exact:
-                results[-1]['matched_identifiers'] = identifiers
+                results[-1]["matched_identifiers"] = identifiers
         selected = []
-        for hit in sorted(results, key=lambda h: h["score"], reverse=True):
+        for hit in sorted(results, key=lambda item: item["score"], reverse=True):
             if hit["content_hash"] not in seen:
                 seen.add(hit["content_hash"])
                 selected.append(hit)
             if len(selected) == limit:
                 break
-        return {"results": selected, "issues": issues, "mode": "hybrid" if not issues else "lexical_degraded"}
+        timings_ms["ranking_and_deduplication_ms"] = (
+            time.perf_counter() - ranking_started
+        ) * 1000
+        timings_ms = {key: round(value, 1) for key, value in timings_ms.items()}
+        if identifiers:
+            stats["unique_candidate_count"] = len(ranks)
+            stats["candidate_rows_fetched"] = len(eligible)
+        return {
+            "results": selected,
+            "issues": issues,
+            "mode": "hybrid" if not issues else "lexical_degraded",
+            "timings_ms": timings_ms,
+            "stats": stats,
+        }
 
     def status(self, *, namespace, principal):
         self.require("read", namespace, principal)

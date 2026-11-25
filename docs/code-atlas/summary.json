@@ -1,29 +1,29 @@
 {
   "Niblit": {
-    "files": 1050,
-    "lines": 289940,
-    "symbols": 14389,
-    "documented_symbols": 5956,
-    "review_signals": 62
+    "files": 1302,
+    "lines": 324107,
+    "symbols": 16249,
+    "documented_symbols": 6140,
+    "review_signals": 79
   },
   "Niblit-cloud-server": {
-    "files": 113,
-    "lines": 21123,
-    "symbols": 1217,
-    "documented_symbols": 371,
-    "review_signals": 12
+    "files": 129,
+    "lines": 22678,
+    "symbols": 1308,
+    "documented_symbols": 375,
+    "review_signals": 15
   },
   "niblit-ui": {
-    "files": 75,
-    "lines": 7817,
+    "files": 81,
+    "lines": 8180,
     "symbols": 0,
     "documented_symbols": 0,
     "review_signals": 0
   },
   "niblit-lean-algos": {
-    "files": 137,
-    "lines": 28074,
-    "symbols": 1267,
+    "files": 141,
+    "lines": 28478,
+    "symbols": 1281,
     "documented_symbols": 516,
     "review_signals": 16
   },

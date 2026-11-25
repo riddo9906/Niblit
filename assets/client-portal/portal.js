@@ -9,6 +9,7 @@ const s=await api('/api/session?workspace='+encodeURIComponent(workspace));csrf=
 el('login').hidden=true;el('registration').hidden=true;el('workspace').hidden=false;
 if(adminPage&&(s.user.role!=='admin'||s.remote_client)){el('workspace').hidden=true;el('login').hidden=false;status('Administrator access required. Sign in with your approved owner account.');return;}
 el('identity').textContent=`${s.user.name} · ${s.tier} · ${s.workspace_role}`;
+el('account-details').textContent=`Account ID: ${s.user.account_id || 'pending'}\nUsername: ${s.user.name}\nAccess: ${s.user.role}\nPlan: ${s.tier}`;
 el('workspace-picker').replaceChildren(...s.workspaces.map(w=>{const o=document.createElement('option');o.value=w.id;o.textContent=w.title;return o;}));el('workspace-picker').value=workspace;
 el('privacy').textContent=workspace==='shared'?'Shared: all approved portal accounts can read this conversation.':'Private: workspace members can access this conversation. The server owner administers storage.';
 el('chat').hidden=s.workspace_role==='viewer';if(Date.now()-modelCheckAt>20000){const model=await api('/api/model-status');modelCheckAt=Date.now();modelReady=model.ready;el('model-status').textContent=model.message+(model.model?' · '+model.model:'');}el('chat').querySelector('button').disabled=!modelReady;el('create-workspace').hidden=s.tier==='community';
@@ -16,9 +17,14 @@ el('messages').replaceChildren(...s.messages.map(m=>{const a=document.createElem
 el('membership').hidden=s.workspace_role!=='owner';
 if(s.workspace_role==='owner'){el('invite').hidden=s.tier!=='team';const members=await api('/api/workspaces/'+workspace+'/members');el('member-list').replaceChildren(...members.members.map(m=>{const p=document.createElement('p');p.textContent=`${m.name} · ${m.role} `;if(m.role!=='owner')p.append(button('Remove member',()=>api('/api/workspaces/'+workspace+'/members',{username:m.name,role:null})));return p;}));}
 el('admin').hidden=(s.user.role!=='admin'||s.remote_client);el('tool-mode').hidden=(s.user.role!=='admin'||s.remote_client);el('tool-panel').hidden=(s.user.role!=='admin'||s.remote_client);el('learning-panel').hidden=(s.user.role!=='admin'||s.remote_client);if(s.user.role==='admin'&&!s.remote_client)await refreshTools();
-if(s.user.role==='admin'&&!s.remote_client){if(adminPage&&!adminFocused){el('admin').scrollIntoView();adminFocused=true;}const a=await api('/api/admin');el('users').replaceChildren(...a.users.map(u=>{const p=document.createElement('p');p.textContent=`${u.name} · ${u.role} · ${u.signup_state==='pending'?'pending approval':u.active?'active':'revoked'} `;
-if(u.signup_state==='pending')p.append(button('Approve as viewer',()=>api('/api/admin/approve/'+encodeURIComponent(u.name),{})));
+if(s.user.role==='admin'&&!s.remote_client){if(adminPage&&!adminFocused){el('admin').scrollIntoView();adminFocused=true;}const a=await api('/api/admin');el('users').replaceChildren(...a.users.map(u=>{const p=document.createElement('p');p.textContent=`${u.name} · ${u.role} · ${u.signup_state==='pending'?'pending approval':u.active?'active':'revoked'} · Approval email: ${u.approval_email_state||'not sent'} `;
+if(new URLSearchParams(location.search).get('review')===u.name){p.classList.add('approval-focus');p.setAttribute('data-review-target','true');}
+if(u.signup_state==='pending'){
+  p.append(button('Approve account',()=>api('/api/admin/approve/'+encodeURIComponent(u.name),{})));
+  p.append(button('Send approval email',()=>api('/api/admin/notify/'+encodeURIComponent(u.name),{})));
+}
 if((u.active||u.signup_state==='pending')&&u.name!==s.user.name)p.append(button('Revoke access',()=>api('/api/admin/revoke/'+encodeURIComponent(u.name),{})));
+if(new URLSearchParams(location.search).get('review')===u.name){p.setAttribute('aria-label','Approval requested from email: '+u.name);}
 const select=document.createElement('select');select.setAttribute('aria-label','Tier for '+u.name);for(const tier of ['community','personal','pro','team']){const o=document.createElement('option');o.value=tier;o.textContent=tier;select.append(o);}select.value=u.tier;p.append(select,button('Assign pilot tier',()=>api('/api/admin/plan/'+encodeURIComponent(u.name),{tier:select.value})));return p;}));el('audit').textContent=a.audit.map(x=>`${new Date(x.created*1000).toLocaleString()} ${x.name}: ${x.action}`).join('\n');}
 }catch(e){status(e.message);if(e.message==='Workspace not found'){workspace='shared';el('messages').replaceChildren();return refresh();}if(e.message==='Please log in'){el('workspace').hidden=true;el('login').hidden=false;el('registration').hidden=adminPage;el('messages').replaceChildren();}}}
 el('login').onsubmit=async e=>{e.preventDefault();try{const s=await api('/api/login',Object.fromEntries(new FormData(e.target)));csrf=s.csrf;e.target.reset();status('Connected.');await refresh();}catch(e){status(e.message);}};
@@ -44,3 +50,18 @@ async function refreshLearning(){try{const d=await api('/api/learning');el('lear
 el('learning-start').onclick=async()=>{try{await api('/api/learning/start',{});await refreshLearning();}catch(e){status(e.message);}};
 el('learning-stop').onclick=async()=>{try{await api('/api/learning/stop',{});await refreshLearning();}catch(e){status(e.message);}};
 setInterval(()=>{if(!el('learning-panel').hidden)refreshLearning();},5000);
+
+
+// Portal account identity: password changes revoke old sessions immediately.
+el('change-password').onsubmit=async event=>{
+  event.preventDefault();
+  try {
+    const payload=Object.fromEntries(new FormData(event.target));
+    await api('/api/account/password',payload);
+    event.target.reset();
+    csrf='';workspace='shared';
+    el('workspace').hidden=true;
+    el('login').hidden=false;
+    status('Password updated. Sign in again with your new password.');
+  } catch(error) { status(error.message); }
+};

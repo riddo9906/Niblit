@@ -81,6 +81,16 @@ LEAN_ALGOS_ROOT = next(
 # ---------------------------------------------------------------------------
 
 datas = []
+# Ship the account-scoped read-only handover inspection and its companion
+# scripts. These are explicit operator tools, never autostarted in the Core.
+for _handover_script in (
+    'mt5_handover_observer.py', 'mt5_active_exit_advisory.py',
+    'mt5_readonly_reconciliation.py', 'Start-R13-Handover-Observer.ps1',
+):
+    _handover_source = REPO_ROOT / 'scripts' / _handover_script
+    if not _handover_source.is_file():
+        raise SystemExit(f'Required handover utility missing: {_handover_source}')
+    datas.append((str(_handover_source), 'tools/handover'))
 # Optional native Core-managed strategy: stage beside existing catalog through
 # the original installer; never switch a profile or start a broker during build.
 datas += [(str(REPO_ROOT / 'deploy/freqtrade-lab/NiblitCoreManaged.py'), 'integrations/freqtrade'),
@@ -171,6 +181,8 @@ if STAGED_TAURI_EXE.is_file():
 # ---------------------------------------------------------------------------
 
 hiddenimports = [
+    "ccxt",  # Freqtrade stopped-bot public OHLCV fallback imports CCXT lazily
+    "ccxt.binanceusdm",
     "aiohttp",
     "duckduckgo_search",
     "ddgs",

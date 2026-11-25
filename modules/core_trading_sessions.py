@@ -46,7 +46,8 @@ def configured_limits():
         max_daily_loss=limit('NIBLIT_MAX_DAILY_LOSS',.03,.03),
         max_drawdown=limit('NIBLIT_AUTO_MAX_DRAWDOWN',.02,.02),
         max_session_loss=limit('NIBLIT_AUTO_MAX_SESSION_LOSS',.02,.02),
-        max_positions=int(limit('NIBLIT_MAX_OPEN_POSITIONS',3,5)),max_entries=3)
+        max_positions=int(limit('NIBLIT_MAX_OPEN_POSITIONS',5,5)),
+        max_entries=int(limit('NIBLIT_MAX_SESSION_ENTRIES',10,10)))
 
 
 def scoped_limits(adapter,snap,limits=None):
@@ -54,11 +55,16 @@ def scoped_limits(adapter,snap,limits=None):
     if adapter in ('mt5','exness_demo'):
         ceiling['max_volume']=min(.10,number(float(os.getenv('NIBLIT_AUTO_MAX_LOTS','.10')),'demo lot ceiling',positive=True),snap.get('demo_volume_ceiling',.01))
     selected=dict(ceiling)
-    selected['max_volume']=min(.01,ceiling['max_volume'])
+    # Use the actual broker minimum for the default proposal when it fits the
+    # configured demo ceiling; money-risk and aggregate exposure are evaluated
+    # independently before any ticket is delivered. BTC still defaults to .01.
+    minimum=number(snap.get('demo_volume_min',.01),'broker minimum lot',positive=True)
+    selected['max_volume']=min(ceiling['max_volume'],max(.01,minimum))
     for name,value in (limits or {}).items():
         if name not in ceiling:raise ValueError('Unknown risk limit')
         value=number(value,name,positive=True)
-        if value>ceiling[name]:raise ValueError('Risk limit exceeds configured ceiling')
+        if value>ceiling[name]:
+            raise ValueError(f'{name} requested {value:g} exceeds configured demo ceiling {ceiling[name]:g}')
         if name in ('max_entries','max_positions'):
             if int(value)!=value:raise ValueError('Whole-number entry/position limit required')
             value=int(value)
@@ -99,7 +105,10 @@ class CoreTradingSessions:
                 CREATE TABLE IF NOT EXISTS trading_orders(
                     id TEXT PRIMARY KEY,session_id TEXT,adapter TEXT,account TEXT,instrument TEXT,
                     symbol TEXT,action TEXT,state TEXT,payload TEXT,result TEXT,updated REAL);
-                CREATE UNIQUE INDEX IF NOT EXISTS trading_instrument_claim ON trading_orders(instrument)
+                -- Legacy instrument-only uniqueness wrongly tied unrelated broker accounts.
+                DROP INDEX IF EXISTS trading_instrument_claim;
+                CREATE UNIQUE INDEX IF NOT EXISTS trading_account_instrument_claim
+                    ON trading_orders(adapter, account, instrument)
                     WHERE action='open' AND state IN ('prepared','sending','unknown','submitted','open','partial');
             ''')
             # A prepared claim proves that Core's final guard was never consumed.
@@ -220,7 +229,24 @@ class CoreTradingSessions:
                 bot.worker.start()
         return bot
 
+    def observe_many(self,adapter,symbols,*,threaded=True):
+        """Run one independent read-only observer per explicitly selected symbol."""
+        if not isinstance(symbols,list) or not 1<=len(symbols)<=12:
+            raise ValueError('Select 1-12 broker symbols')
+        selected=[]
+        for symbol in symbols:
+            if not isinstance(symbol,str) or not symbol.strip() or len(symbol)>80:
+                raise ValueError('Exact broker symbol required')
+            symbol=symbol.strip()
+            if symbol not in selected:selected.append(symbol)
+        observers=[self.observe(adapter,symbol,threaded=threaded) for symbol in selected]
+        return {'adapter':adapter,'symbols':selected,'observers':len(observers),
+                'observation_started':True,'execution_started':False}
+
     def propose(self,adapter,symbol,seconds=1800,limits=None,*,close_order_id=None):
+        if adapter == 'mt5':
+            from modules.mt5_orders import require_selected_mt5_symbol
+            require_selected_mt5_symbol(symbol)
         if adapter == 'mt5' and self.remote_gateway is not None:
             raise PermissionError('XM remote profile cannot authorize broker operations')
         if isinstance(seconds,bool) or not isinstance(seconds,int) or not 60<=seconds<=3600:raise ValueError('Session must be 60–3600 seconds')
@@ -275,7 +301,7 @@ class CoreTradingSessions:
         result=dict(row);result['spec']=json.loads(result['spec'])
         return result
 
-    def activate(self,ident,fingerprint,*,clear_stop=False,threaded=True):
+    def activate(self,ident,fingerprint,*,threaded=True):
         with self.lock:
             row=self.session(ident);spec=row['spec']
             if spec['adapter'] == 'mt5' and self.remote_gateway is not None:
@@ -292,9 +318,7 @@ class CoreTradingSessions:
                     raise PermissionError('Pinned remote demo identity unverified')
                 if remote.get('unresolved_deliveries'):
                     raise PermissionError('Remote demo deliveries must be reconciled before activation')
-                if remote.get('emergency_stopped') and not clear_stop:
-                    raise PermissionError('Remote demo emergency stop needs an explicit reviewed reset')
-            self.pm.activate_trading(self.gateway,ident,fingerprint,self.runtime_id,clear_stop=clear_stop)
+            self.pm.activate_trading(self.gateway,ident,fingerprint,self.runtime_id)
             try:
                 if spec['adapter']=='exness_demo':
                     # No worker starts until both persistent Core and gateway
@@ -303,9 +327,8 @@ class CoreTradingSessions:
                 binder=getattr(adapter,'bind_demo_delivery',None)
                 if callable(binder):binder(snap)
             except Exception:
-                # A failed or ambiguous rearm cannot leave an active Core grant.
-                # When resetting a stop, conservatively re-latch both stores.
-                self.stop(ident,emergency=clear_stop)
+                # Failed remote activation must revoke the pending Core session.
+                self.stop(ident)
                 raise
             self.emit('session_activated',{'session':ident,**spec},alert=True)
             bot=self.observe(spec['adapter'],spec['symbol'],threaded=False)
@@ -313,15 +336,12 @@ class CoreTradingSessions:
             if threaded:self.observe(spec['adapter'],spec['symbol'])
         return self.session(ident)
 
-    def stop(self,ident=None,*,emergency=False):
+    def stop(self,ident=None):
         with self.lock:
-            self.pm.stop_trading(self.gateway,ident,emergency=emergency)
+            self.pm.stop_trading(self.gateway,ident)
             telemetry_pending=False
-            if emergency and 'exness_demo' in self.adapters:
-                try:self.adapters['exness_demo'].emergency_stop()
-                except Exception:telemetry_pending=True
             try:
-                self.emit('emergency_stop' if emergency else 'session_stopped',
+                self.emit('session_stopped',
                     {'session':ident or 'all','notice':'No new broker calls; an in-flight delivery may already have completed. Observation/reconciliation remain active.'},alert=True)
             except Exception:
                 # PermissionManager has already persisted stop and its audit in
@@ -414,10 +434,9 @@ class CoreTradingSessions:
                 account = digest({k:active_mt5.get(k) for k in ('login','server','terminal_id','environment')})
                 funded = db.execute('SELECT payload FROM funded_risk_evaluations WHERE account=? ORDER BY created DESC LIMIT 1',
                                     (account,)).fetchone()
-            stopped=bool(db.execute('SELECT stopped FROM trading_control WHERE singleton=1').fetchone()[0])
         for row in rows:row['spec']=json.loads(row['spec'])
         for event in events:event['payload']=json.loads(event['payload'])
-        return dict(sessions=rows,events=events,orders=orders,emergency_stopped=stopped,
+        return dict(sessions=rows,events=events,orders=orders,
             mt5_accounts=self.mt5_account_status(active_mt5) if self.remote_gateway is None and getattr(self.adapters.get('mt5'),'bridge',None) is not None else None,
             observers=[{'adapter':key[0],'symbol':key[1],'error':bot.error,'assessment':getattr(bot,'manager',None),
                         'running':bool(bot.worker and bot.worker.is_alive())} for key,bot in self.bots.items()],
@@ -560,10 +579,20 @@ class CoreTradingSessions:
                     'environment':s['environment'],'evidence':report},alert=report['state'] in ('open','closed','rejected'))
             if order['action'] == 'open' and report['state'] == 'closed' and 'realized_net' in report:
                 thesis = json.loads(order['payload'])
+                with self.gateway.db() as db:
+                    watched = db.execute("SELECT payload FROM trading_events WHERE kind='position_watch' "
+                        "AND json_extract(payload,'$.order')=? ORDER BY created DESC LIMIT 1",(order['id'],)).fetchone()
+                previous = json.loads(watched['payload']).get('performance') if watched else None
+                from modules.trade_performance_metrics import summarise_closed
+                performance = summarise_closed(entry_risk_cash=thesis['prepared']['risk'],
+                    realized_net=report['realized_net'],prior=previous)
+                from modules.market_decision_trace import outcome_attribution
+                attribution = outcome_attribution(thesis, report, performance)
                 self.emit('trading_outcome', {
                     'session':order['session_id'], 'order':order['id'], 'symbol':order['symbol'],
                     'environment':s['environment'], 'strategy':thesis['context']['strategy'],
                     'initial_estimated_risk':thesis['prepared']['risk'], 'evidence':report,
+                    'performance':performance, 'decision_attribution':attribution,
                 }, key=digest({'trading_outcome':order['id']}))
             with self.gateway.db() as db:
                 db.execute('UPDATE trading_orders SET state=?,result=?,updated=? WHERE id=?',(report['state'],encoded,self.clock(),order['id']))
@@ -588,9 +617,19 @@ class CoreTradingSessions:
             if position is None:
                 continue
             mark = snapshot['quote']['bid' if position['side'] == 'buy' else 'ask']
+            with self.gateway.db() as db:
+                thesis = db.execute('SELECT payload FROM trading_orders WHERE id=?',(row['id'],)).fetchone()
+                previous = db.execute("SELECT payload FROM trading_events WHERE kind='position_watch' "
+                    "AND json_extract(payload,'$.order')=? ORDER BY created DESC LIMIT 1",(row['id'],)).fetchone()
+            context = json.loads(thesis['payload'])['context'] if thesis else {}
+            old = json.loads(previous['payload']).get('performance') if previous else None
+            from modules.trade_performance_metrics import observed_excursion
+            performance = observed_excursion(side=position['side'],entry=position['entry'],
+                initial_stop=context['initial_stop'],mark=mark,prior=old)
             evidence = {'session': row['session_id'], 'order': row['id'], 'bar': bar,
                         'symbol': snapshot['symbol'], 'environment': snapshot['environment'],
-                        'observed_at': snapshot['observed_at'], 'mark': mark, 'position': position}
+                        'observed_at': snapshot['observed_at'], 'mark': mark, 'position': position,
+                        'performance': performance}
             key = digest({'position_watch': row['id'], 'bar': bar,
                           'stop': position.get('stop_loss'), 'target': position.get('take_profit')})
             self.emit('position_watch', evidence, key=key)
@@ -633,7 +672,36 @@ class CoreTradingSessions:
             self._reconcile(bot,adapter.reconciliation_identity())
             s=adapter.snapshot(symbol)
             self.validate_snapshot(s,symbol)
-            decision=assess_with_context(s['candles'],s.get('market_context'));bot.manager=decision;bot.error=None
+            decision=assess_with_context(s['candles'],s.get('market_context'))
+            # New regime detector is an observation-only *shadow* feature.
+            # Data gaps, insufficient bars or indicator errors never suppress
+            # the existing deterministic strategy/exit/MT5 execution path.
+            try:
+                from modules.market_regime_evidence import observe_regime
+                decision['regime_evidence'] = observe_regime(
+                    symbol=symbol, account=s['account'], cutoff=s['observed_at'],
+                    candles_by_timeframe={'M5':s['candles']}, quote=s.get('quote'))
+            except Exception as exc:
+                decision['regime_evidence'] = {
+                    'schema':'niblit.market-regime-evidence/1',
+                    'regime':'uncertain','uncertainty':'unavailable',
+                    'reason':'Shadow indicator input unavailable: '+type(exc).__name__,
+                    'execution_authorized':False,'learning_action':'record_only'}
+            # Preserve exact broker/market provenance for all venues, including
+            # Freqtrade without a higher-timeframe context payload. Informational
+            # only; entry/exit policy and execution authority are unchanged.
+            from modules.market_thesis import build_market_thesis
+            decision['market_thesis'] = build_market_thesis(decision, {'observation': {
+                'symbol': symbol, 'venue': bot.session['adapter'], 'account_scope': s['account'],
+                'timeframe': '5m', 'mode': s['environment'],
+                'source': 'broker-observer', 'bar': decision.get('bar')}})
+            # Immutable observation-only trace: identify what each registered
+            # strategy voted before order authorization or broker delivery.
+            from modules.market_decision_trace import decision_trace
+            decision['decision_trace'] = decision_trace(
+                decision, adapter=bot.session['adapter'], symbol=symbol,
+                account=s['account'], environment=s['environment'])
+            bot.manager=decision;bot.error=None
             signal={'adapter':bot.session['adapter'],'account':s['account'],'environment':s['environment'],
                 'symbol':symbol,'session':ident,'timeframe':'5m','bar':decision.get('bar'),'assessment':decision,'quote':s['quote']}
             self.emit('signal',signal,alert=decision['side'] in ('buy','sell'),key=digest({'signal':signal['adapter'],'session':ident,'account':s['account'],'symbol':symbol,'bar':decision.get('bar'),'assessment':decision}))
@@ -683,16 +751,27 @@ class CoreTradingSessions:
                 position['stop_loss']=position.get('stop_loss') or payload['prepared']['stop_loss']
                 position['take_profit']=position.get('take_profit') or payload['prepared']['take_profit']
                 held=assess(s['candles'],'auto',held_strategy=context['strategy'])
-                exit_report=assess_exit({'type':0 if position['side']=='buy' else 1,'price_open':position['entry']},s['candles'],s['quote'],context)
+                from modules.position_exit_policy import assess_reversal
+                owned={'type':0 if position['side']=='buy' else 1,'price_open':position['entry']}
+                exit_report=assess_exit(owned,s['candles'],s['quote'],context)
+                reversal_report=assess_reversal(owned,s['candles'],s['quote'],context,
+                    observed_profit=position.get('profit'))
+                self.emit('position_reversal_evaluation',{
+                    'session':ident,'order':entry['id'],'symbol':symbol,'environment':s['environment'],
+                    'bar':decision.get('bar'),'report':reversal_report},
+                    key=digest({'reversal_evaluation':entry['id'],'bar':decision.get('bar'),
+                                'action':reversal_report['action'],
+                                'score':reversal_report.get('evidence',{}).get('score',0)}))
                 mark=s['quote']['bid'] if position['side']=='buy' else s['quote']['ask']
                 crossed=(mark<=position['stop_loss'] or mark>=position['take_profit']) if position['side']=='buy' else (mark>=position['stop_loss'] or mark<=position['take_profit'])
                 opposite=held['assessment_complete'] and held['side'] in ('buy','sell') and held['side']!=position['side']
                 with self.gateway.db() as db:
                     payload['context']=context;db.execute('UPDATE trading_orders SET payload=? WHERE id=?',(json.dumps(payload,allow_nan=False),entry['id']))
-                if halt or protection_missing or crossed or opposite or exit_report['action']=='close':
+                if halt or protection_missing or crossed or opposite or exit_report['action']=='close' or reversal_report['action']=='close':
                     exit_reason = ('Account risk limit' if halt else 'Broker protection missing' if protection_missing
                                    else 'Broker protection level crossed' if crossed else 'Entry strategy reversed'
-                                   if opposite else exit_report.get('reason') or 'Entry strategy exit condition')
+                                   if opposite else exit_report.get('reason') if exit_report['action']=='close'
+                                   else reversal_report['reason'])
                     action='close';side='sell' if position['side']=='buy' else 'buy';break
                 return
             else:
@@ -814,7 +893,8 @@ def install_core_trading(core):
         desk=Desk(root,config_path=ft_config or None,api_base=ft_api or None,native_demo_delivery=(os.getenv('NIBLIT_FREQTRADE_DEMO_DELIVERY_ENABLED')=='1' and os.getenv('NIBLIT_DESKTOP_OBSERVATION_ONLY')!='1'))
         schedule=load_execution_cost_profile('NIBLIT_MT5_COST_PROFILE')
         ft_schedule=load_execution_cost_profile('NIBLIT_FREQTRADE_COST_PROFILE')
-        bridge=MT5Bridge();orders=DemoOrders(bridge,desk.path.parent/'mt5-orders.sqlite3',autonomous_max_volume=.10)
+        bridge=MT5Bridge();orders=DemoOrders(bridge,desk.path.parent/'mt5-orders.sqlite3',
+            autonomous_max_volume=.10,crypto_stops=True)
         adapters={'mt5':MT5SessionAdapter(bridge,orders,cost_schedule=schedule),'freqtrade':FreqtradeSessionAdapter(desk,cost_schedule=ft_schedule)}
         demo_profile=configured_demo_profile()
         if demo_profile:

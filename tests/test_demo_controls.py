@@ -12,20 +12,20 @@ def client_for(monkeypatch,f):
  return TestClient(app,base_url='http://127.0.0.1:5200')
 
 def test_readiness_and_review_do_not_grant_or_clear_stop(tmp_path,monkeypatch):
- f=fixture(tmp_path);f.service.stop(emergency=True)
+ f=fixture(tmp_path);f.service.stop()
  with client_for(monkeypatch,f) as client:
   h={'origin':'http://tauri.localhost','x-niblit-trading-nonce':f.service.nonce}
   assert client.post('/api/trading/sessions/readiness',json={'adapter':'mt5','symbol':'EURUSD'}).status_code==403
   result=client.post('/api/trading/sessions/readiness',json={'adapter':'mt5','symbol':'EURUSD'},headers=h)
   assert result.status_code==200,result.text
   r=result.json();assert r['review_only'] and not r['execution_authorized'] and not r['order_ticket_created']
-  assert {'deployment_lock','emergency_stop','no_scoped_authority'}<={x['code'] for x in r['blockers']}
+  assert {'deployment_lock','no_scoped_authority'}<={x['code'] for x in r['blockers']}
   p=client.post('/api/trading/sessions/propose',json={'adapter':'mt5','symbol':'EURUSD'},headers=h)
   assert p.status_code==200,p.text
   proposal=p.json();assert proposal['state']=='pending'
-  denied=client.post('/api/trading/sessions/activate',json={'id':proposal['id'],'spec_hash':proposal['spec_hash'],'acknowledgement':'ACTIVATE_BOUNDED_DEMO_SESSION','clear_emergency_stop':True},headers=h)
+  denied=client.post('/api/trading/sessions/activate',json={'id':proposal['id'],'spec_hash':proposal['spec_hash'],'acknowledgement':'ACTIVATE_BOUNDED_DEMO_SESSION'},headers=h)
   assert denied.status_code==403
-  assert f.service.status()['emergency_stopped'] and f.service.session(proposal['id'])['state']=='pending'
+  assert f.service.session(proposal['id'])['state']=='pending'
  assert f.api.sent==[]
  f.service.shutdown()
 
@@ -40,7 +40,7 @@ def test_operator_activation_contract_only_in_isolated_fixture(tmp_path,monkeypa
  with client_for(monkeypatch,f) as client:
   monkeypatch.setenv('NIBLIT_DESKTOP_OBSERVATION_ONLY','0') # Test process only, not installed configuration.
   original=f.service.activate
-  monkeypatch.setattr(f.service,'activate',lambda ident,fingerprint,clear_stop=False:original(ident,fingerprint,clear_stop=clear_stop,threaded=False))
+  monkeypatch.setattr(f.service,'activate',lambda ident,fingerprint:original(ident,fingerprint,threaded=False))
   h={'origin':'http://tauri.localhost','x-niblit-trading-nonce':f.service.nonce}
   p=client.post('/api/trading/sessions/propose',json={'adapter':'mt5','symbol':'EURUSD'},headers=h).json()
   body={'id':p['id'],'spec_hash':p['spec_hash'],'acknowledgement':'ACTIVATE_BOUNDED_DEMO_SESSION'}

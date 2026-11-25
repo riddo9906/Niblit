@@ -19,15 +19,14 @@ async function refresh(){if(busy)return;busy=true;try{
  const previous=el('exness-symbol').value;el('exness-symbol').replaceChildren(...s.symbols.map(name=>{
  const o=document.createElement('option');o.value=name;o.textContent=name;return o;}));
  if(s.symbols.includes(previous))el('exness-symbol').value=previous;
- el('exness-status').textContent=`MT5 DEMO VERIFIED · ${s.account.broker} · ${s.account.login} · ${s.account.server}\nVirtual balance ${s.balance} · equity ${s.equity} · free margin ${s.free_margin}\nAlgo Trading ${s.terminal_trade_allowed?'ON':'OFF'} · persistent demo stop ${s.emergency_stopped?'LATCHED':'off'} · uncertain deliveries ${s.unresolved_deliveries}\nREAL-MONEY EXECUTION DISABLED · No automatic activation after restart`;
+ el('exness-status').textContent=`MT5 DEMO VERIFIED · ${s.account.broker} · ${s.account.login} · ${s.account.server}\nVirtual balance ${s.balance} · equity ${s.equity} · free margin ${s.free_margin}\nAlgo Trading ${s.terminal_trade_allowed?'ON':'OFF'} · uncertain deliveries ${s.unresolved_deliveries}\nREAL-MONEY EXECUTION DISABLED · No automatic activation after restart`;
  if(window.renderBrokerView)window.renderBrokerView(d);else el('mode').textContent='VPS · XM LIVE BLOCKED · EXNESS DEMO';
  const identityReady=s.terminal_trade_allowed===true&&s.account_trade_allowed===true&&s.python_tradeapi_disabled===false&&!s.unresolved_deliveries;
- const executionReady=identityReady&&!s.emergency_stopped;
+ const executionReady=identityReady;
  const canReview=identityReady&&d.execution_controls?.activation_available===true;
  const active=(d.sessions||[]).find(x=>x.spec.adapter==='exness_demo'&&x.state==='active'&&x.expires>Date.now()/1000);
  el('exness-execution-state').textContent=active?`CORE DEMO EXECUTION ENABLED · ${active.spec.symbol} · ${active.entries}/${active.spec.limits.max_entries} entries used · expires ${new Date(active.expires*1000).toLocaleString()}`:
   executionReady?'CORE DEMO EXECUTION OFF · Review and enable a bounded session below.':
-  canReview&&s.emergency_stopped?'GATEWAY DEMO STOP LATCHED · A fresh reviewed session may request an explicit audited reset.':
   !d.execution_controls?.activation_available?'CORE DEMO EXECUTION LOCKED · '+(d.execution_controls?.blocker||'Installed observation-only policy'):
   'CORE DEMO EXECUTION BLOCKED · Verify Algo Trading, API permissions and delivery reconciliation.';
  el('exness-observe').disabled=false;el('exness-propose').disabled=!canReview;
@@ -47,10 +46,9 @@ async function refresh(){if(busy)return;busy=true;try{
 el('exness-observe').onclick=async()=>{try{await call('sessions/observe',scope());await refresh();}catch(e){el('exness-review').textContent=e.message;}};
 el('exness-propose').onclick=async()=>{try{const generation=reviewGeneration;const reviewed=await call('sessions/propose',scope());if(generation!==reviewGeneration)return;proposal=reviewed;el('exness-review').textContent=JSON.stringify(proposal.spec,null,2);el('exness-activate').disabled=false;}catch(e){proposal=null;el('exness-activate').disabled=true;el('exness-review').textContent=e.message;}};
 el('exness-activate').onclick=async()=>{if(!proposal)return;
- const reset=lastStatus?.emergency_stopped===true||lastStatus?.remote_demo?.emergency_stopped===true;
  const details=`Activate this reviewed Exness DEMO session? Maximum ${proposal.spec.limits.max_entries} entries, one open position at a time, ${proposal.spec.limits.max_volume} lots maximum each; broker stops remain after expiry.`;
- if(!confirm(reset?details+' This will also clear the existing Core/remote demo emergency stop after account and delivery reconciliation.':details))return;
- try{await call('sessions/activate',{id:proposal.id,spec_hash:proposal.spec_hash,acknowledgement:'ACTIVATE_BOUNDED_DEMO_SESSION',clear_emergency_stop:reset});proposal=null;el('exness-activate').disabled=true;await refresh();}catch(e){el('exness-review').textContent=e.message;}};
+ if(!confirm(details))return;
+ try{await call('sessions/activate',{id:proposal.id,spec_hash:proposal.spec_hash,acknowledgement:'ACTIVATE_BOUNDED_DEMO_SESSION'});proposal=null;el('exness-activate').disabled=true;await refresh();}catch(e){el('exness-review').textContent=e.message;}};
 el('exness-stop').onclick=async()=>{try{
  const latest=await call('sessions');nonce=latest.operator_nonce;
  const scopes=latest.sessions.filter(s=>s.spec.adapter==='exness_demo'&&['active','risk_halted','pending'].includes(s.state));

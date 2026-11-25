@@ -1529,6 +1529,86 @@ class InferenceChatBody(BaseModel):
   tool_choice: Literal["auto", "required", "none"] | None = None
 
 
+class AgentToolApprovalBody(BaseModel):
+  model_config = {"extra": "forbid"}
+  approval_id: str = Field(pattern=r"^[a-f0-9]{32}$")
+  decision: Literal["approve_once", "deny"] = "approve_once"
+
+
+_AGENT_TOOL_APPROVALS: dict[str, dict] = {}
+_AGENT_TOOL_APPROVALS_LOCK = threading.RLock()
+_AGENT_TOOL_APPROVAL_TTL_SECONDS = 600
+
+
+def _agent_operator_origin_allowed(request: Request) -> bool:
+    from modules.agent_tool_approval import operator_origin_allowed
+    return operator_origin_allowed(request)
+
+
+def _register_agent_tool_approvals(request_id: str, trace: list[dict]) -> None:
+    from modules.agent_tool_approval import register_pending_approvals
+    from modules.core_tool_runtime import COMMAND_PERMISSION_ACTIONS, GOVERNED_COMMAND_METADATA
+    register_pending_approvals(
+        request_id, trace, _AGENT_TOOL_APPROVALS, _AGENT_TOOL_APPROVALS_LOCK,
+        GOVERNED_COMMAND_METADATA, COMMAND_PERMISSION_ACTIONS,
+        ttl_seconds=_AGENT_TOOL_APPROVAL_TTL_SECONDS,
+    )
+
+
+@app.get("/api/agent/tools")
+def agent_tool_catalog():
+    """Return the live registered capability and instruction-pack catalogue."""
+    from modules.core_tool_runtime import (
+        GOVERNED_COMMAND_METADATA,
+        get_existing_governed_tool_loop,
+    )
+    from modules.mcp_agent_bridge import get_mcp_agent_bridge
+
+    # A catalogue read must not cold-boot the full Core or trading runtime.
+    # Use the already-bound instance for truthful availability when present.
+    core = _core
+    loop = get_existing_governed_tool_loop()
+    schemas = loop.tool_schemas(loop.allowed_tool_names()) if loop is not None else []
+    items = []
+    for schema in schemas:
+        function = schema.get("function", {})
+        name = function.get("name")
+        if not isinstance(name, str):
+            continue
+        metadata = GOVERNED_COMMAND_METADATA.get(name, {})
+        availability = metadata.get("availability")
+        try:
+            available = bool(availability(core)) if callable(availability) else True
+        except Exception:
+            available = False
+        items.append({
+            "name": name,
+            "description": str(function.get("description", ""))[:320],
+            "category": metadata.get("category") or metadata.get("provider") or "Other",
+            "risk_class": metadata.get("risk_class", "unknown"),
+            "side_effect_level": metadata.get("side_effect_level", "unknown"),
+            "requires_authorization": bool(metadata.get("requires_authorization", False)),
+            "available": available,
+        })
+    try:
+        bridge_status = get_mcp_agent_bridge().status()
+    except Exception as exc:
+        bridge_status = {"available": False, "error_type": type(exc).__name__, "servers": {}}
+    try:
+        from modules.agent_skill_registry import get_skill_registry
+        skills = get_skill_registry().list_skills()
+    except Exception as exc:
+        skills = {"count": 0, "skills": [], "error_type": type(exc).__name__}
+    return {
+        "core_bound": core is not None,
+        "registry_ready": loop is not None,
+        "tool_count": len(items),
+        "tools": items,
+        "mcp": bridge_status,
+        "skills": skills,
+    }
+
+
 def _is_registered_chat_command(core, text: str) -> bool:
     lower = text.strip().lower()
     names = set(_SHELL_COMMANDS)
@@ -2063,7 +2143,11 @@ async def inference_models():
 
     try:
         inventory = await get_niblit_cloud_brain().list_models()
-        return {**inventory, "data": [*inventory.get("data", []), *_configured_openai_models()]}
+        from modules.local_large_inference import additional_local_models
+        extra = await additional_local_models()
+        known = {m.get('id') for m in inventory.get('data', []) if isinstance(m,dict)}
+        return {**inventory, "data": [*inventory.get("data", []),
+            *(m for m in extra if m['id'] not in known), *_configured_openai_models()]}
     except RuntimeError as exc:
         configured = _configured_openai_models()
         if configured:
@@ -2108,7 +2192,11 @@ async def inference_chat(body: InferenceChatBody, request: Request = None):
             return StreamingResponse(iter(["data: " + _json.dumps(event) + "\n\n", "data: [DONE]\n\n"]),
                                      media_type="text/event-stream", headers={"X-Niblit-Stream-Mode": "buffered", "Cache-Control": "no-cache"})
         return JSONResponse(result)
-    client = get_niblit_cloud_brain()
+    from modules.local_large_inference import LARGE_MODEL_ID, selected_cloud_brain
+    client = selected_cloud_brain(body.model)
+    if body.enable_tools and body.model == LARGE_MODEL_ID:
+        return JSONResponse({'error': {'code':'14b_tools_unavailable',
+            'message':'Direct 14B model chat is available; governed action tools remain on the existing Core inference route.'}},status_code=400)
     if body.enable_tools:
         # Phase 5C: governed tool loop. Non-stream only (a research run can
         # take minutes; no SSE downgrade is performed silently).
@@ -2146,7 +2234,7 @@ async def inference_chat(body: InferenceChatBody, request: Request = None):
             if body.tool_choice is not None:options['tool_choice']=body.tool_choice
             outcome = await asyncio.to_thread(loop.chat,
                 messages=[message.model_dump() for message in body.messages],
-                model=tool_model, **options,
+                model=tool_model, request_id=request_id, **options,
             )
         except asyncio.CancelledError:
             cancel_event.set()
@@ -2160,11 +2248,15 @@ async def inference_chat(body: InferenceChatBody, request: Request = None):
             )
         finally:
             if disconnect_watch is not None:disconnect_watch.cancel()
+        tool_trace = outcome.get("trace", [])
+        _register_agent_tool_approvals(request_id, tool_trace)
         return JSONResponse(
             {
                 "request_id": request_id,
                 "text": outcome.get("text", ""),
-                "tool_trace": outcome.get("trace", []),
+                "tool_trace": tool_trace,
+                "timings_ms": outcome.get("timings_ms", {}),
+                "memory_stats": outcome.get("memory_stats", {}),
                 "niblit_model": outcome.get("niblit_model"),
                 "tools_enabled": True,
             },
@@ -2196,6 +2288,80 @@ async def inference_chat(body: InferenceChatBody, request: Request = None):
             {"error": {"code": error_code, "message": str(exc)}},
             status_code=504 if error_code == "inference_timeout" else 503,
         )
+
+
+@app.post("/api/agent/tools/approve-once")
+async def approve_agent_tool_once(body: AgentToolApprovalBody, request: Request):
+    from fastapi import HTTPException
+    from modules.agent_tool_approval import consume_pending_approval
+
+    if not _agent_operator_origin_allowed(request):
+        raise HTTPException(403, "Trusted local or Tailscale Niblit UI required")
+
+    core_holder = []
+    def core_is_ready():
+        core_holder.append(get_core())
+        return core_holder[-1] is not None
+
+    pending, state = consume_pending_approval(
+        body.approval_id,
+        _AGENT_TOOL_APPROVALS,
+        _AGENT_TOOL_APPROVALS_LOCK,
+        ready=core_is_ready if body.decision == "approve_once" else None,
+    )
+    if state == "unavailable":
+        raise HTTPException(404, "Tool approval is unavailable or already consumed")
+    if state == "expired":
+        raise HTTPException(410, "Tool approval expired; ask Niblit to request it again")
+    if state == "not_ready":
+        raise HTTPException(503, "Core is not initialized; approval remains pending")
+    if state != "consumed" or pending is None:
+        raise HTTPException(409, "Tool approval could not be consumed safely")
+    if body.decision == "deny":
+        return {"status": "denied", "tool": pending["tool"], "executed": False}
+    core = core_holder[-1]
+
+    from modules.core_tool_runtime import (
+        COMMAND_PERMISSION_ACTIONS,
+        GOVERNED_COMMAND_METADATA,
+        get_governed_tool_loop,
+    )
+    tool = pending["tool"]
+    metadata = GOVERNED_COMMAND_METADATA.get(tool, {})
+    action = COMMAND_PERMISSION_ACTIONS.get(tool)
+    if not metadata.get("requires_authorization") or not action:
+        raise HTTPException(403, "This tool is not eligible for one-time approval")
+    from modules.permission_manager import permission_grant_once
+    loop = get_governed_tool_loop(lambda: core)
+    try:
+        with permission_grant_once(action):
+            result = await asyncio.to_thread(
+                loop.invoke, tool, pending["arguments"]
+            )
+    except Exception as exc:
+        logging.getLogger("NiblitServer").warning(
+            "One-time tool approval execution failed: %s", type(exc).__name__
+        )
+        raise HTTPException(502, "Approved tool execution failed") from exc
+    if result.get("status") != "success":
+        return JSONResponse(
+            {
+                "status": result.get("status", "error"),
+                "tool": tool,
+                "error": result.get("error"),
+                "result": result.get("result"),
+                "persistent_permission_changed": False,
+            },
+            status_code=403 if result.get("status") in {"authorization_required", "rejected"} else 502,
+        )
+    return {
+        "status": "success",
+        "tool": tool,
+        "result": result.get("result"),
+        "request_id": pending["request_id"],
+        "approval_scope": "single invocation",
+        "persistent_permission_changed": False,
+    }
 
 
 @app.get("/memory")

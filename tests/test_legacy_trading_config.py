@@ -57,7 +57,7 @@ def test_missing_demo_profile_is_reported_as_configuration_blocker(monkeypatch):
     assert "No verified demo delivery transport" in policy["delivery_blocker"]
 
 
-def test_latched_stop_and_uncertain_order_are_visible_without_rearming(monkeypatch):
+def test_historical_uncertain_order_remains_visible_without_global_platform_block(monkeypatch):
     from modules.trading_session_api import demo_control_policy
     monkeypatch.setenv("NIBLIT_DESKTOP_OBSERVATION_ONLY", "0")
     monkeypatch.delenv("NIBLIT_MT5_DEMO_DELIVERY_ENABLED", raising=False)
@@ -67,13 +67,10 @@ def test_latched_stop_and_uncertain_order_are_visible_without_rearming(monkeypat
                    {"adapter": "mt5", "state": "closed"}],
         "remote_demo": {"configured": False}})
     assert policy["recovery"] == {
-        "stop_latched": True, "requires_reviewed_scope": True,
         "unresolved_orders_visible": 1, "broker_reconciliation_required": True,
-        "transport_configured": False, "automatic_rearm_allowed": False,
+        "transport_configured": False,
         "activation_ready": False,
-        "activation_blockers": ["No verified demo delivery transport",
-                                "Unresolved broker delivery requires reconciliation",
-                                "Emergency stop requires explicit reviewed demo rearm"]}
+        "activation_blockers": ["No verified demo delivery transport"]}
     assert policy["delivery_authorized"] is False
     assert policy["funded_execution_available"] is False
 
@@ -89,9 +86,10 @@ def test_remote_demo_activation_projection_requires_verified_transport_and_no_un
     assert policy['platform_delivery_enabled']['exness_demo'] is True
     assert policy['recovery']['activation_ready'] is True
     assert policy['recovery']['activation_blockers'] == []
-    status['emergency_stopped']=True
+    status['orders']=[{'adapter':'mt5','account':'old-account','state':'unknown'}]
     policy=demo_control_policy(status)
-    assert policy['activation_available'] is True  # reviewed rearm is possible
-    assert policy['recovery']['activation_ready'] is False
-    assert 'Emergency stop requires explicit reviewed demo rearm' in policy['recovery']['activation_blockers']
+    assert policy['recovery']['unresolved_orders_visible']==1
+    assert policy['activation_available'] is True
+    assert policy['recovery']['activation_ready'] is True
+    assert policy['recovery']['activation_blockers'] == []
     assert policy['funded_execution_available'] is False

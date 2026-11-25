@@ -1,5 +1,52 @@
 <!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="desk-token" content="TOKEN_PLACEHOLDER"><meta name="desk-base" content="BASE_PLACEHOLDER"><title>Niblit Market Desk</title><link rel="stylesheet" href="/desk.css"><script src="/chart.js" defer></script><script src="/desk.js" defer></script><script src="/remote-observation.js" defer></script><script src="/broker-view.js" defer></script><script src="/sessions.js" defer></script></head><body>
-<header><div><small>NIBLIT / MARKET WORKSPACE</small><h1>Market Desk</h1></div><div><span id="mode">Connecting</span><button id="refresh">Refresh</button><label><input id="poll" type="checkbox" checked> Update every 15 seconds</label></div></header><section class="panel" id="core-trading"><h2 id="broker-workspace-title">Broker account workspace</h2>
+<div class="desk-shell"><aside class="desk-rail" aria-label="Market Desk sections"><div class="rail-brand">N<span>◈</span></div><a href="#desk-overview" title="Overview" aria-label="Overview">◫</a><a href="#cognition-proof" title="Cognition evidence" aria-label="Cognition evidence">◇</a><a href="#core-trading" title="Execution scope" aria-label="Execution scope">◎</a><a href="#mt5-workspace" title="Charts" aria-label="Charts">▥</a><a href="#mt5-positions" title="Positions" aria-label="Positions">≋</a><a href="#metrics" title="Account metrics" aria-label="Account metrics">▦</a></aside><div class="desk-content">
+<header><div><small>NIBLIT / MARKET WORKSPACE</small><h1>Market Desk</h1></div><div><span id="mode">Connecting</span><button id="refresh">Refresh</button><label><input id="poll" type="checkbox" checked> Update every 15 seconds</label></div></header>
+<section id="desk-overview" class="desk-overview" aria-label="Market Desk overview">
+ <div class="desk-eyebrow"><span class="status-dot"></span> NIBLIT R14 · MARKET INTELLIGENCE <span class="desk-version">MT5 DEMO</span></div>
+ <div class="desk-headline"><div><h2>Your trading workspace.</h2><p>Review market evidence, configure bounded sessions and monitor the broker—without losing the technical detail.</p></div><a class="desk-primary-link" href="#demo-activation-guide">Configure demo session <span aria-hidden="true">↗</span></a></div>
+ <div class="desk-status-grid">
+ <div class="desk-stat"><small>Core connection</small><strong id="desk-core-health">Connecting</strong><span>R14 / localhost:5202</span></div>
+ <div class="desk-stat"><small>Trading environment</small><strong id="desk-account-mode">Verifying</strong><span>Account-bound authorization</span></div>
+ <div class="desk-stat"><small>Active sessions</small><strong id="desk-active-count">—</strong><span>Only reviewed demo scopes</span></div>
+ <div class="desk-stat"><small>Execution instrument</small><strong id="desk-execution-market">ETHUSDm</strong><span>BTCUSDm observation separate</span></div>
+ </div>
+</section>
+<section class="desk-activation-guide" id="demo-activation-guide" aria-label="Demo session activation workflow">
+ <div class="guide-heading"><div><small>DEMO EXECUTION</small><h2>Launch a reviewed session</h2></div><span id="desk-activation-chip" class="desk-chip">Not activated</span></div>
+ <ol class="demo-steps"><li><strong>01 · Configure</strong><span>Select ETHUSDm and your allowed size, duration, and position ceiling below</span></li><li><strong>02 · Review</strong><span>Inspect the exact account, broker and strategy checks</span></li><li><strong>03 · Activate</strong><span>Explicitly confirm the proposed demo session; observations alone do not trade</span></li></ol>
+ <p id="desk-blocker-summary" class="desk-guidance" role="status">Checking R14 execution eligibility…</p>
+ <a class="desk-inline-link" href="#core-execution-symbol">Jump to execution controls</a>
+</section>
+<section class="panel cognition-proof" id="cognition-proof" aria-label="Recorded market cognition">
+  <div class="cognition-header"><div><div class="cognition-eyebrow">MARKET COGNITION · VERIFIED EVIDENCE</div>
+  <h2>What is Niblit actually thinking?</h2>
+  <p>Live strategy votes, entry thesis and position-exit reasoning from R14's recorded trading events.</p></div>
+  <button id="cognition-refresh" type="button">Refresh cognition evidence</button></div>
+  <div class="cognition-metrics">
+    <div class="cognition-metric"><small>Signals evaluated</small><strong id="cognition-signal-count">—</strong></div>
+    <div class="cognition-metric"><small>Reversal evaluations</small><strong id="cognition-reversal-count">—</strong></div>
+    <div class="cognition-metric"><small>Broker outcomes</small><strong id="cognition-outcome-count">—</strong></div>
+  </div>
+  <small id="cognition-data-scope">Latest Core event window, not a lifetime total</small>
+  <div class="cognition-columns">
+    <div class="cognition-subpanel">
+      <h3>Current strategy decision</h3>
+      <div class="cognition-evidence-row"><span>Selected strategy</span><strong id="cognition-current-strategy">Loading</strong></div>
+      <div class="cognition-evidence-row"><span>Selected direction</span><strong id="cognition-current-direction">Loading</strong></div>
+      <div class="cognition-evidence-row"><span>Market thesis</span><strong id="cognition-current-thesis">Loading</strong></div>
+      <div class="cognition-evidence-row"><span>Why this strategy?</span><strong id="cognition-current-reason">Loading</strong></div>
+    </div>
+    <div class="cognition-subpanel"><h3>Competing strategy votes</h3>
+      <div id="cognition-votes" aria-live="polite">Loading registered rules…</div></div>
+    <div class="cognition-subpanel"><h3>Latest early-exit / reversal check</h3>
+      <div id="cognition-last-reversal">Loading recorded exit evidence…</div></div>
+    <div class="cognition-subpanel"><h3>Broker-reconciled outcomes</h3>
+      <div id="cognition-verified-outcomes">Loading actual results…</div></div>
+  </div>
+  <p class="cognition-caution">Strategy signals are rule-based. A recorded reversal HOLD does not prove an early close would have succeeded. New adaptive research remains shadow-only until separately validated. This panel never submits orders.</p>
+  <small id="cognition-proof-status" role="status">Awaiting Core trading evidence…</small>
+</section>
+<section class="panel" id="core-trading"><h2 id="broker-workspace-title">Broker account workspace</h2>
 <section id="broker-selector" aria-label="Broker account view" hidden>
 <label>Account view <select id="broker-view"><option value="auto">Follow MT5 account</option><option value="xm">XM live — read-only</option><option value="exness">Remote demo — Exness / XM / MT5</option></select></label>
 <p id="broker-view-status" role="status">Waiting for Core account verification</p>
@@ -29,16 +76,20 @@
 <pre id="exness-review"></pre><pre id="exness-sessions"></pre><pre id="exness-strategies"></pre><pre id="exness-orders"></pre><pre id="exness-inventory">Broker inventory unavailable</pre><pre id="exness-protection">Crypto protection preview unavailable</pre><pre id="exness-market">Broker data unavailable</pre></section>
 <section aria-label="Demo execution readiness"><h3>Demo controls · Core governed</h3>
 <p id="core-deployment-policy" role="status">Checking Core deployment policy. Activation unavailable until verified.</p><p id="core-activation-readiness" role="status">Checking the selected demo transport and recovery requirements.</p>
-<label>Execution-controller instrument <input id="core-execution-symbol" placeholder="Exact symbol; empty uses selected observation" autocomplete="off"></label>
+<label>Execution-controller instrument <input id="core-execution-symbol" placeholder="Exact broker symbol" value="ETHUSDm" autocomplete="off"><small class="scope-hint">Execution scope: ETHUSDm. BTCUSDm remains observable, but its existing historical position is not adopted by R14.</small></label>
 <p>Freqtrade execution uses the isolated CoreManaged controller. The original Lab positions below remain observation-only.</p>
-<button id="core-readiness" disabled>Review selected demo readiness</button><button id="core-rehearse" disabled>Run governed intercepted lifecycle</button>
-<pre id="core-readiness-result" role="status">No readiness review yet. A signal is not execution authority.</pre>
-<pre id="core-rehearsal-result" role="status">No simulated lifecycle requested.</pre></section>
-<p id="core-session-state" role="status">Connecting to Core…</p><p>All six strategies are compared. Orders require an exact account, symbol, duration and risk scope. Real-money submission remains disabled.</p><button id="core-observe" disabled>Observe selected market</button><button id="core-propose" disabled>Review selected demo scope</button><label>Owned Core order ID <input id="core-close-order" autocomplete="off"></label><button id="core-propose-close" disabled>Review close-only scope</button><pre id="core-owned-orders"></pre><button id="core-activate" disabled>Activate reviewed scope</button><small>Explicit activation of a reviewed demo scope also clears an earlier latched emergency stop. The emergency-stop button remains available.</small><button id="core-stop">Stop execution; keep observing</button><button id="core-emergency">Emergency stop all sessions</button><pre id="core-proposal"></pre><section aria-label="MT5 accounts"><h3>MT5 terminal</h3>
+<button id="core-readiness" class="action-primary" disabled>1 · Review broker and scope</button><button id="core-rehearse" disabled>Run governed intercepted lifecycle</button>
+<div id="core-readiness-result" class="readiness-card" role="status">No readiness review yet. A strategy signal does not authorize broker execution.</div>
+<details class="desk-evidence"><summary>Intercepted lifecycle test · details</summary><pre id="core-rehearsal-result" role="status">No simulated lifecycle requested.</pre></details></section>
+<p id="core-session-state" role="status">Connecting to Core…</p><p>All six strategies are compared. Orders require an exact account, symbol, duration and risk scope. Real-money submission remains disabled.</p><button id="core-observe" disabled>Observe selected market</button>
+<label>Multi-symbol watchlist (comma or newline separated exact broker symbols)
+<textarea id="core-watch-symbols" rows="2" placeholder="BTCUSDm, ETHUSDm"></textarea></label>
+<button id="core-observe-many">Observe watchlist symbols</button>
+<small>One independent observation worker per selected symbol. Observing never submits an order; each symbol's demo execution uses its own reviewed session.</small><button id="core-propose" class="action-primary" disabled>2 · Propose reviewed demo session</button><label>Owned Core order ID <input id="core-close-order" autocomplete="off"></label><button id="core-propose-close" disabled>Review close-only scope</button><pre id="core-owned-orders"></pre><button id="core-activate" class="action-primary" disabled>3 · Activate confirmed demo session</button><button id="core-stop">Stop execution; keep observing</button><details class="desk-evidence"><summary>Reviewed execution proposal · full evidence</summary><pre id="core-proposal"></pre></details><section aria-label="MT5 accounts"><h3>MT5 terminal</h3>
 <p id="core-mt5-active">Awaiting account verification</p>
 <label>View account record <select id="core-mt5-record"></select></label>
 <small>Viewing a record does not change the MT5 login. Switch accounts manually in MT5.</small>
-<pre id="core-mt5-history"></pre></section><pre id="core-session-list"></pre><pre id="core-observer-list"></pre><button id="core-notifications">Enable desktop notifications</button><label>Quiet hours from <input id="core-quiet-from" type="time"></label><label>to <input id="core-quiet-to" type="time"></label><div id="core-alerts" aria-live="polite"></div><small>Alerts open this workspace; they never place orders. Undelivered alerts remain recorded when the desktop is closed.</small></section>
+<details class="desk-evidence"><summary>MT5 account order history</summary><pre id="core-mt5-history"></pre></details></section><details class="desk-evidence"><summary>Session history · detailed records</summary><pre id="core-session-list"></pre></details><details class="desk-evidence"><summary>Strategy observers · detailed evidence</summary><pre id="core-observer-list"></pre></details><button id="core-notifications">Enable desktop notifications</button><label>Quiet hours from <input id="core-quiet-from" type="time"></label><label>to <input id="core-quiet-to" type="time"></label><div id="core-alerts" aria-live="polite"></div><small>Alerts open this workspace; they never place orders. Undelivered alerts remain recorded when the desktop is closed.</small></section>
 <label>Trading environment <select id="environment" aria-label="Trading environment"><option value="mt5">MT5 desktop · demo connection</option><option value="freqtrade">Freqtrade · exchange dry-run</option><option value="exness_demo">Remote Exness MT5 demo (verified VPS only)</option></select></label>
 <p id="health" role="status">Connecting to the selected trading environment…</p><p id="error" role="alert"></p>
 <section id="metrics" class="metrics"></section>
@@ -54,16 +105,16 @@
 <section class="panel"><h2>Demo strategy laboratory · MT5</h2>
 <p>Choose the symbol in the MT5 selector above. Start authorizes automatic demo entries and exits for this bounded session. No funded accounts or paid AI calls.</p>
 <label>Strategy <select id="auto-strategy"><option value="auto">Manager · compare all strategies</option><option value="trend_v1">Trend · 20/50 mean + momentum</option><option value="breakout_v1">Breakout · previous 20 bars</option></select></label>
-<label>Session minutes <input id="auto-minutes" type="number" min="1" max="60" value="30"></label>
-<label>Maximum volume per entry (lots) <input id="core-demo-volume" type="number" min="0.01" max="0.10" step="0.01" value="0.01"></label>
+<label>Session minutes <input id="auto-minutes" type="number" min="1" max="240" value="60"></label>
+<label>Maximum volume per entry (lots) <input id="core-demo-volume" type="number" min="0.01" max="0.10" step="0.01" value="0.10"></label>
 <label>Maximum entries <input id="auto-entries" type="number" min="1" max="10" value="3"></label>
 <label>Cash risk per entry <input id="core-risk-cash" type="number" min="0.01" max="25" step="0.01" value="25"></label>
 <label>Equity risk per entry (%) <input id="core-risk-percent" type="number" min="0.001" max="0.25" step="0.001" value="0.25"></label>
 <label>Margin cap (% equity) <input id="core-margin-percent" type="number" min="0.1" max="10" step="0.1" value="10"></label>
-<label>Concurrent owned positions <input id="core-positions" type="number" min="1" max="5" value="1"></label>
+<label>Concurrent owned positions <input id="core-positions" type="number" min="1" max="5" value="2"></label>
 <button id="core-wave-15" type="button">Set 15-minute demo wave · review required</button>
 <p>Editable values are proposals. Larger volumes, cash amounts and position counts remain subject to configured ceilings, broker limits, balance, margin and protective-stop validation. Funded execution is disabled; prediction calibration is not yet established.</p>
-<button id="auto-start">Review bounded demo scope</button><button id="auto-stop">Stop new automatic actions</button>
+<button id="auto-start">Review / propose a demo session</button><button id="auto-stop">Stop new automatic actions</button>
 <button id="auto-observe">Observe strategies · no orders</button><button id="notify-enable">Enable desktop alerts</button>
 <p id="notify-status">Setup alerts appear here while the desk is open. Desktop notifications are optional; they never start a session.</p>
 <div id="opportunities" aria-live="polite"></div>
@@ -91,4 +142,4 @@
 <p id="continuous-status" role="status">Checking configured observation workers…</p>
 <pre id="continuous-report"></pre></section>
 <section><h2>Shadow prediction evaluation</h2><p>Read-only continuation baseline. Uncalibrated estimates never authorize an order. Missing costs remain unknown.</p><pre id="prediction-report">Waiting for Core prediction status…</pre></section>
-<script src="/intelligence.js" defer></script></body></html>
+<script src="/intelligence.js" defer></script></div></div></body></html>

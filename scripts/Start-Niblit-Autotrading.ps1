@@ -3,43 +3,43 @@ $ErrorActionPreference = 'Stop'
 $bundleRoot = $PSScriptRoot
 $executable = Join-Path $bundleRoot 'niblit.exe'
 if (-not (Test-Path -LiteralPath $executable)) { throw 'Keep this launcher beside niblit.exe.' }
-if (-not $env:NIBLIT_ENV_FILE) {
-    $candidate = Split-Path -Parent $bundleRoot
-    while ($candidate) {
-        if ((Test-Path -LiteralPath (Join-Path $candidate 'niblit_core.py')) -and
-            (Test-Path -LiteralPath (Join-Path $candidate 'niblit_io.py')) -and
-            (Test-Path -LiteralPath (Join-Path $candidate '.env'))) {
-            $env:NIBLIT_ENV_FILE = Join-Path $candidate '.env'
-            break
-        }
-        $parent = Split-Path -Parent $candidate
-        if ($parent -eq $candidate) { break }
-        $candidate = $parent
+
+# A packaged release owns its verified installation binding; don't silently
+# replace the user's configured demo profile with an old observation-only one.
+$anchorFile = Join-Path $bundleRoot 'release-runtime.json'
+if (Test-Path -LiteralPath $anchorFile) {
+    $anchor = Get-Content -LiteralPath $anchorFile -Raw | ConvertFrom-Json
+    if (-not $anchor.configuration -or -not (Test-Path -LiteralPath $anchor.configuration)) {
+        throw 'Packaged installation configuration is missing.'
+    }
+    $env:NIBLIT_ENV_FILE = $anchor.configuration
+} elseif (-not $env:NIBLIT_ENV_FILE -or -not (Test-Path -LiteralPath $env:NIBLIT_ENV_FILE)) {
+    throw 'Set NIBLIT_ENV_FILE to an existing private configuration for an unbound development build.'
+}
+
+$port = 5000
+foreach ($line in (Get-Content -LiteralPath $env:NIBLIT_ENV_FILE)) {
+    if ($line -match '^\s*NIBLIT_API_PORT\s*=\s*["'']?(\d+)') {
+        $port = [int]$Matches[1]
+        break
     }
 }
-if (-not $env:NIBLIT_ENV_FILE -or -not (Test-Path -LiteralPath $env:NIBLIT_ENV_FILE)) {
-    throw 'Select the existing private runtime profile with NIBLIT_ENV_FILE. No profile, credential or memory ledger was created.'
-}
+if ($port -lt 1 -or $port -gt 65535) { throw 'Configured Core port is invalid.' }
+
 $probe = New-Object Net.Sockets.TcpClient
 try {
-    if ($probe.ConnectAsync('127.0.0.1',5000).Wait(500) -and $probe.Connected) {
-        throw 'Core port 5000 is occupied. Close the previous Niblit desktop normally before switching releases.'
+    if ($probe.ConnectAsync('127.0.0.1',$port).Wait(500) -and $probe.Connected) {
+        throw "Core port $port is occupied. Close the existing Core normally before starting another release."
     }
 } catch {
     if ($_.Exception.Message -like '*occupied*') { throw }
 } finally { $probe.Dispose() }
-# Source profile supplies the original memory authority and broker credentials.
-# No persistent permission is edited and no trading/learning scope is activated.
-$env:NIBLIT_TRADING_MODE = 'observe'
-$env:NIBLIT_TRADING_ALLOW_EXECUTION = 'false'
-$env:NIBLIT_FREQTRADE_ALLOW_EXECUTION = 'false'
-$env:NIBLIT_FREQTRADE_ALLOW_CONTROL = 'false'
-$env:NIBLIT_HEADLESS = '0'
-$env:NIBLIT_API_PORT = '5000'
-Write-Host 'Starting Core in observation mode. Open http://127.0.0.1:5000/market-desk/ for bounded demo-session review.'
-Write-Host 'No session is activated by startup. Real-money submission is disabled.'
+
+# Do not override demo execution settings or approve any trading session here.
+# Activation and ordinary session stop remain within Core's existing operator UI.
+Write-Host "Starting configured Niblit Core on port $port."
+Write-Host "Market Desk: http://127.0.0.1:$port/market-desk/"
 if ($BackgroundCore) {
-    Write-Host 'Core will stay up independently of the Market Desk browser. Press Ctrl+C in this console to stop Core.'
     & $executable --serve
 } else {
     & $executable
